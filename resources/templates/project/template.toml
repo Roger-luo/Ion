@@ -5,4 +5,4 @@ description = "A project description"
 inline_badge=false
 
 [src_dir]
-# [tests]
+[tests]

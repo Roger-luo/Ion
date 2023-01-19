@@ -11,11 +11,11 @@ pub struct ProjectTest {
 
 impl ProjectTest {
     pub fn default_template() -> TemplateFile {
-        TemplateFile::from_str("tests/runtests.jl")
+        TemplateFile::from_str("tests/runtests.jl.hbs")
     }
 
     pub fn default_project() -> TemplateFile {
-        TemplateFile::from_str("tests/Project.toml")
+        TemplateFile::from_str("tests/Project.toml.hbs")
     }
 }
 

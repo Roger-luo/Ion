@@ -23,6 +23,10 @@ impl TemplateFile {
     }
 
     pub fn from_path(path: PathBuf) -> TemplateFile {
+        if !path.is_file() {
+            panic!("cannot find template file: {}", path.display());
+        }
+
         let nlevels = path.components().collect::<Vec<_>>().len();
         assert!(nlevels > 1, "Template file path must have at \
             least one directory in path, can be '.'");
@@ -57,7 +61,6 @@ impl TemplateFile {
             .join(self.path.to_owned());
 
         if !dst.is_dir() {
-            println!("making dir");
             std::fs::create_dir_all(&dst).unwrap();
         }
         std::fs::write(dst.join(name), result)?;
