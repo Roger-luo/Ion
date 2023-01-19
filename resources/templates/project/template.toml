@@ -1,0 +1,8 @@
+name="project"
+description = "A project description"
+
+[readme]
+inline_badge=false
+
+[src_dir]
+# [tests]

@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: {{ package }}
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+{{#each authors}}
+  - given-names: {{ this.firstname }}
+    family-names: {{ this.lastname }}
+    {{#if this.email}}
+    email: {{ this.email }}
+    {{/if}}
+    {{#if this.affiliation}}
+    affiliation: {{ this.affiliation }}
+    {{/if}}
+{{/each}}
+repository-code: 'https://github.com/{{ user }}/{{ package }}.jl'
+abstract: {{ description }}
+keywords:
+{{#each keywords}}
+  - {{ this }}
+{{/each}}
+license: {{ license }}

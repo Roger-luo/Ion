@@ -1,0 +1,5 @@
+name="research"
+description = "A research description"
+
+[src_dir]
+template = {root="components", path="src", file="module.jl"}

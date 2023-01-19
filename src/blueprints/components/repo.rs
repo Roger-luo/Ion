@@ -1,0 +1,199 @@
+use std::env;
+use anyhow::{format_err, Error};
+use serde_derive::Deserialize;
+use crate::blueprints::*;
+
+#[derive(Debug, Deserialize)]
+pub enum HostRepo {
+    Github {
+        user: String,
+        repo: String,
+    },
+    Gitlab {
+        user: String,
+        repo: String,
+    },
+    // Bitbucket {
+    //     user: String,
+    //     repo: String,
+    // },
+}
+
+impl HostRepo {
+    pub fn url(&self, ssh: bool) -> String {
+        match (ssh, self) {
+            (true, HostRepo::Github { user, repo }) => {
+                format!("git@github.com:{}/{}.jl.git", user, repo).to_string()
+            },
+            (false, HostRepo::Github { user, repo }) => {
+                format!("https:://github.com/{}/{}/.git", user, repo).to_string()
+            },
+            (true, HostRepo::Gitlab { user, repo }) => {
+                format!("git@gitlab.com:{}/{}.jl.git", user, repo).to_string()
+            },
+            (false, HostRepo::Gitlab { user, repo }) => {
+                format!("https:://gitlab.com/{}/{}/.git", user, repo).to_string()
+            },
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitRepo {
+    name: Option<String>, // user
+    email: Option<String>, // user email
+    branch: Option<String>,
+    #[serde(default)]
+    ssh: bool, // default is false
+    #[serde(default = "GitRepo::default_suffix")]
+    suffix: String,
+    #[serde(default = "GitRepo::default_ignore")]
+    ignore: TemplateFile,
+}
+
+impl GitRepo {
+    pub fn default_suffix() -> String {
+        ".jl".to_string()
+    }
+
+    pub fn default_ignore() -> TemplateFile {
+        TemplateFile::from_str("./.gitignore.hbs")
+    }
+}
+
+impl Blueprint for GitRepo {
+    fn collect(&self, ctx: &mut Context) -> RenderResult {
+        let user = if let Some(user) = &self.name {
+            ctx.meta.insert("user".to_string(), Meta::String(user.to_owned()));
+            user.to_owned()
+        } else {
+            if let Some(name) = git_config_get("user.name") {
+                ctx.meta.insert("user".to_string(), Meta::String(name.clone()));
+                name
+            } else {
+                return Err(format_err!("user.name not set in git config"));
+            }
+        };
+
+        if let Some(email) = &self.email {
+            ctx.meta.insert("email".to_string(), Meta::String(email.to_owned()));
+        } else {
+            if let Some(email) = git_config_get("user.email") {
+                ctx.meta.insert("email".to_string(), Meta::String(email));
+            }
+        }
+
+        if self.branch.is_none() {
+            ctx.meta.insert("branch".to_string(), Meta::String("main".to_string()));
+        } else {
+            ctx.meta.insert("branch".to_string(), Meta::String(self.branch.clone().unwrap()));
+        }
+
+        let package = ctx.get_key_str("package")?.to_owned();
+        let repo = package + &self.suffix;
+        let remote = if self.ssh {
+            format!("git@github.com:{}/{}.git", user, repo).to_string()
+        } else {
+            format!("https:://github.com/{}/{}.git", user, repo).to_string()
+        };
+        ctx.meta.insert("remote".to_string(), Meta::String(remote));
+
+        let repo_url = format!("https://github.com/{}/{}", user, repo).to_string();
+        ctx.meta.insert("repo_url".to_string(), Meta::String(repo_url));
+        Ok(())
+    }
+
+    // 1. git init
+    // 2. git remote add origin
+    // if default branch (main, usually) is not <branch>
+    // 3. git checkout -b <branch>
+    // 4. git branch -D main
+    // 5. git branch -m <branch>
+    fn render(&self, ctx: &Context) -> RenderResult {
+        self.ignore.render(ctx, ".gitignore")?;
+        let remote = ctx.get_key_str("remote")?;
+
+        let old_pwd = env::current_dir()?;
+        env::set_current_dir(project_dir(ctx))?;
+        std::process::Command::new("git")
+            .arg("init").output().expect("git init failed");
+        
+        let branch = ctx.get_key_str("branch")?.to_owned();
+        if let Some(current_branch) = git_current_branch() {
+            if current_branch != branch {
+                git_checkout(&branch)?;
+                git_delete_branch(&current_branch)?;
+                std::process::Command::new("git")
+                    .arg("branch").arg("-m").arg(&branch)
+                    .output().expect("git branch -m failed");
+            }
+        } else {
+            git_checkout(&branch)?;
+        }
+
+        std::process::Command::new("git")
+            .arg("remote").arg("add").arg("origin")
+            .arg(remote).output().expect("git remote add failed");
+        env::set_current_dir(old_pwd)?;
+        Ok(())
+    }
+
+    // 1. git add -A
+    fn post_render(&self, _ctx: &Context) -> RenderResult {
+        std::process::Command::new("git")
+            .arg("add").arg("-A").output().expect("git add -A failed");
+        std::process::Command::new("git")
+            .arg("commit").arg("-m").arg("files generated by ion")
+            .output().expect("git commit failed");
+        Ok(())
+    }
+}
+
+fn git_config_get(key: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .arg("config")
+        .arg("--get")
+        .arg(key)
+        .output();
+
+    if let Ok(o) = output {
+        if o.status.success() {
+            return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
+        }
+    }
+    return None;
+}
+
+fn git_current_branch() -> Option<String> {
+    let output = std::process::Command::new("git")
+        .arg("branch")
+        .arg("--show-current")
+        .output();
+
+    if let Ok(o) = output {
+        if o.status.success() {
+            return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
+        }
+    }
+    return None;
+}
+
+fn git_checkout(branch: &String) -> Result<(), Error> {
+    let output = std::process::Command::new("git")
+        .arg("checkout").arg("-b").arg(branch)
+        .output();
+    if let Err(e) = output {
+        return Err(format_err!("git checkout -b failed: {}", e));
+    }
+    Ok(())
+}
+
+fn git_delete_branch(branch: &String) -> Result<(), Error> {
+    let output = std::process::Command::new("git")
+        .arg("branch").arg("-D").arg(branch)
+        .output();
+    if let Err(e) = output {
+        return Err(format_err!("git branch -D failed: {}", e));
+    }
+    Ok(())
+}

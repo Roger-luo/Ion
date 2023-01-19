@@ -1,0 +1,10 @@
+name="package"
+description = "A package description"
+
+[readme.template]
+root = "templates/package/components"
+path = "."
+file = "README.md"
+
+[src_dir]
+template = {root="components", path="src", file="module.jl"}

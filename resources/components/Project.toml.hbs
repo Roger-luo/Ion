@@ -1,0 +1,9 @@
+name = "{{{ package }}}"
+uuid = "{{{ uuid }}}"
+authors = [{{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} <{{{ this.email }}}> {{/each}}]
+version = "{{{ version }}}"
+
+[deps]
+
+[compat]
+julia = "{{{ julia.version }}}"
