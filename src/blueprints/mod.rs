@@ -8,7 +8,7 @@ pub mod utils;
 
 pub use blueprint::{Blueprint, RenderResult};
 pub use template::Template;
-pub use context::{Meta, Context, Author};
+pub use context::*;
 pub use file::TemplateFile;
 pub use badge::{Badge, Badgeable};
 pub use utils::*;

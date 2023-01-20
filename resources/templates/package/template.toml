@@ -1,7 +1,9 @@
 name="package"
 description = "A package description"
 
+[project_file]
 [readme]
 [src_dir]
 [documenter]
 [license]
+[tests]

@@ -10,9 +10,11 @@ proc-macro = true
 [dependencies]
 anyhow = "1.0.68"
 cargo = "0.67.1"
+chrono = "0.4.23"
 clap = { version = "4.1.1", features = ["derive"] }
 dialoguer = "0.10.3"
 dirs = "4.0.0"
+env_logger = "0.10.0"
 handlebars = "4.3.6"
 log = "0.4.17"
 node-semver = "2.1.0"
@@ -24,3 +26,4 @@ serde_derive = "1.0.152"
 syn = "1.0.107"
 toml = "0.5.10"
 url = "2.3.1"
+uuid = { version = "1.2.2", features = ["v4"] }

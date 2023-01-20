@@ -1,7 +1,8 @@
 use clap::{Command, arg};
 use clap::parser::ArgMatches;
 use cargo::CliResult;
-use crate::commands::pkg::{JuliaCmd, package_spec_list};
+use crate::julia::Julia;
+use crate::commands::pkg::package_spec_list;
 
 pub fn cli() -> Command {
     Command::new("update")
@@ -15,8 +16,8 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         format!(
             "using Pkg; Pkg.update([{}])",
             package_spec_list(matches)
-        ).as_julia_script()
+        ).julia_exec()
     } else {
-        "using Pkg; Pkg.update()".as_julia_script()
+        "using Pkg; Pkg.update()".julia_exec()
     }
 }

@@ -2,7 +2,6 @@ name="project"
 description = "A project description"
 
 [readme]
-inline_badge=false
-
+[project_file]
 [src_dir]
 [tests]

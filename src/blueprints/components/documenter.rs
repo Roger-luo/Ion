@@ -1,7 +1,8 @@
 use anyhow::Ok;
 use serde_derive::Deserialize;
+use crate::julia::Julia;
 use crate::blueprints::*;
-use crate::commands::pkg::{JuliaCmd, PackageSpec};
+use crate::commands::pkg::PackageSpec;
 
 #[derive(Debug, Deserialize)]
 pub struct Documenter {
@@ -25,7 +26,7 @@ impl Documenter {
     }
 
     pub fn default_doc_project() -> TemplateFile {
-        TemplateFile::from_str("docs/src/project.md.hbs")
+        TemplateFile::from_str("docs/Project.toml.hbs")
     }
 
     pub fn default_ignore() -> Vec<String> {
@@ -47,13 +48,14 @@ impl Blueprint for Documenter {
     }
 
     fn render(&self, ctx: &Context) -> RenderResult {
-        self.make_jl.render(ctx, "docs/make.jl")?;
-        self.index_md.render(ctx, "docs/src/index.md")?;
-        self.doc_project.render(ctx, "docs/src/project.md")?;
+        self.make_jl.render(ctx, "make.jl")?;
+        self.index_md.render(ctx, "index.md")?;
+        self.doc_project.render(ctx, "Project.toml")?;
+
         if let Err(e) = format!(
             "using Pkg; Pkg.develop({})",
-            PackageSpec::from_path(&project_dir(ctx))
-        ).as_julia_script() {
+            PackageSpec::from_path(&ctx.project.path)
+        ).julia_exec_project("docs") {
             return Err(e.error.unwrap());
         }
         Ok(())

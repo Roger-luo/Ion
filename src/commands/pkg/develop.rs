@@ -1,7 +1,8 @@
 use cargo::CliResult;
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
-use crate::commands::pkg::{JuliaCmd, package_spec_list};
+use crate::julia::Julia;
+use crate::commands::pkg::package_spec_list;
 
 pub fn cli() -> Command {
     Command::new("develop")
@@ -18,5 +19,5 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     format!(
         "using Pkg; Pkg.develop([{}])",
         package_spec_list(matches)
-    ).as_julia_script()
+    ).julia_exec()
 }

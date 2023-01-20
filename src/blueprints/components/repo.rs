@@ -1,47 +1,8 @@
-use std::env;
-use anyhow::{format_err, Error};
 use serde_derive::Deserialize;
 use crate::blueprints::*;
 
 #[derive(Debug, Deserialize)]
-pub enum HostRepo {
-    Github {
-        user: String,
-        repo: String,
-    },
-    Gitlab {
-        user: String,
-        repo: String,
-    },
-    // Bitbucket {
-    //     user: String,
-    //     repo: String,
-    // },
-}
-
-impl HostRepo {
-    pub fn url(&self, ssh: bool) -> String {
-        match (ssh, self) {
-            (true, HostRepo::Github { user, repo }) => {
-                format!("git@github.com:{}/{}.jl.git", user, repo).to_string()
-            },
-            (false, HostRepo::Github { user, repo }) => {
-                format!("https:://github.com/{}/{}/.git", user, repo).to_string()
-            },
-            (true, HostRepo::Gitlab { user, repo }) => {
-                format!("git@gitlab.com:{}/{}.jl.git", user, repo).to_string()
-            },
-            (false, HostRepo::Gitlab { user, repo }) => {
-                format!("https:://gitlab.com/{}/{}/.git", user, repo).to_string()
-            },
-        }
-    }
-}
-
-#[derive(Debug, Deserialize)]
 pub struct GitRepo {
-    name: Option<String>, // user
-    email: Option<String>, // user email
     branch: Option<String>,
     #[serde(default)]
     ssh: bool, // default is false
@@ -63,43 +24,27 @@ impl GitRepo {
 
 impl Blueprint for GitRepo {
     fn collect(&self, ctx: &mut Context) -> RenderResult {
-        let user = if let Some(user) = &self.name {
-            ctx.meta.insert("user".to_string(), Meta::String(user.to_owned()));
-            user.to_owned()
-        } else {
-            if let Some(name) = git_config_get("user.name") {
-                ctx.meta.insert("user".to_string(), Meta::String(name.clone()));
-                name
-            } else {
-                return Err(format_err!("user.name not set in git config"));
-            }
+        let branch = match &self.branch {
+            Some(b) => b.to_owned(),
+            None => "main".to_string(),
         };
 
-        if let Some(email) = &self.email {
-            ctx.meta.insert("email".to_string(), Meta::String(email.to_owned()));
-        } else {
-            if let Some(email) = git_config_get("user.email") {
-                ctx.meta.insert("email".to_string(), Meta::String(email));
-            }
-        }
+        let user = &*ctx.git.as_ref().unwrap().user;
+        let package = &*ctx.project.name;
+        let repo = package.to_string() + &self.suffix;
 
-        if self.branch.is_none() {
-            ctx.meta.insert("branch".to_string(), Meta::String("main".to_string()));
-        } else {
-            ctx.meta.insert("branch".to_string(), Meta::String(self.branch.clone().unwrap()));
-        }
-
-        let package = ctx.get_key_str("package")?.to_owned();
-        let repo = package + &self.suffix;
         let remote = if self.ssh {
             format!("git@github.com:{}/{}.git", user, repo).to_string()
         } else {
             format!("https:://github.com/{}/{}.git", user, repo).to_string()
         };
-        ctx.meta.insert("remote".to_string(), Meta::String(remote));
+        let url = format!("https://github.com/{}/{}", user, repo).to_string();
 
-        let repo_url = format!("https://github.com/{}/{}", user, repo).to_string();
-        ctx.meta.insert("repo_url".to_string(), Meta::String(repo_url));
+        ctx.repository = Some(context::Repository {
+            url,
+            remote,
+            branch,
+        });
         Ok(())
     }
 
@@ -111,16 +56,15 @@ impl Blueprint for GitRepo {
     // 5. git branch -m <branch>
     fn render(&self, ctx: &Context) -> RenderResult {
         self.ignore.render(ctx, ".gitignore")?;
-        let remote = ctx.get_key_str("remote")?;
+        let repository = ctx.repository.as_ref().unwrap();
+        let remote = &repository.remote;
+        let branch = &repository.branch;
 
-        let old_pwd = env::current_dir()?;
-        env::set_current_dir(project_dir(ctx))?;
         std::process::Command::new("git")
             .arg("init").output().expect("git init failed");
-        
-        let branch = ctx.get_key_str("branch")?.to_owned();
+
         if let Some(current_branch) = git_current_branch() {
-            if current_branch != branch {
+            if &current_branch != branch {
                 git_checkout(&branch)?;
                 git_delete_branch(&current_branch)?;
                 std::process::Command::new("git")
@@ -134,7 +78,6 @@ impl Blueprint for GitRepo {
         std::process::Command::new("git")
             .arg("remote").arg("add").arg("origin")
             .arg(remote).output().expect("git remote add failed");
-        env::set_current_dir(old_pwd)?;
         Ok(())
     }
 
@@ -147,53 +90,4 @@ impl Blueprint for GitRepo {
             .output().expect("git commit failed");
         Ok(())
     }
-}
-
-fn git_config_get(key: &str) -> Option<String> {
-    let output = std::process::Command::new("git")
-        .arg("config")
-        .arg("--get")
-        .arg(key)
-        .output();
-
-    if let Ok(o) = output {
-        if o.status.success() {
-            return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
-        }
-    }
-    return None;
-}
-
-fn git_current_branch() -> Option<String> {
-    let output = std::process::Command::new("git")
-        .arg("branch")
-        .arg("--show-current")
-        .output();
-
-    if let Ok(o) = output {
-        if o.status.success() {
-            return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
-        }
-    }
-    return None;
-}
-
-fn git_checkout(branch: &String) -> Result<(), Error> {
-    let output = std::process::Command::new("git")
-        .arg("checkout").arg("-b").arg(branch)
-        .output();
-    if let Err(e) = output {
-        return Err(format_err!("git checkout -b failed: {}", e));
-    }
-    Ok(())
-}
-
-fn git_delete_branch(branch: &String) -> Result<(), Error> {
-    let output = std::process::Command::new("git")
-        .arg("branch").arg("-D").arg(branch)
-        .output();
-    if let Err(e) = output {
-        return Err(format_err!("git branch -D failed: {}", e));
-    }
-    Ok(())
 }

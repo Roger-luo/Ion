@@ -1,7 +1,7 @@
 use clap::{Command, arg};
 use clap::parser::ArgMatches;
 use cargo::CliResult;
-use crate::commands::pkg::JuliaCmd;
+use crate::julia::Julia;
 
 pub fn cli() -> Command {
     Command::new("status")
@@ -23,5 +23,5 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     if matches.get_flag("manifest") {
         options.push("manifest=true".to_string());
     }
-    format!("using Pkg; Pkg.status(;{})", options.join(", ")).as_julia_script()
+    format!("using Pkg; Pkg.status(;{})", options.join(", ")).julia_exec()
 }

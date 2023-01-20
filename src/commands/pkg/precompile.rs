@@ -1,7 +1,7 @@
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
 use cargo::CliResult;
-use crate::commands::pkg::JuliaCmd;
+use crate::julia::Julia;
 
 pub fn cli() -> Command {
     Command::new("precompile")
@@ -28,8 +28,8 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         format!(
             "using Pkg; Pkg.precompile([{}]; {})",
             packages, strict
-        ).as_julia_script()
+        ).julia_exec()
     } else {
-        format!("using Pkg; Pkg.precompile(;{})", strict).as_julia_script()
+        format!("using Pkg; Pkg.precompile(;{})", strict).julia_exec()
     }
 }

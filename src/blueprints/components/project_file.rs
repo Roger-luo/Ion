@@ -1,3 +1,6 @@
+use dialoguer::Confirm;
+use uuid::Uuid;
+use log::debug;
 use node_semver::Version;
 use serde_derive::Deserialize;
 use crate::blueprints::*;
@@ -25,11 +28,39 @@ impl Blueprint for ProjectFile {
         self.template.render(ctx, "Project.toml")
     }
 
-    fn collect(&self, ctx: &mut Context) -> RenderResult {
-        if !ctx.meta.contains_key("version") {
-            ctx.meta.insert("version".to_string(), Meta::String(self.version.to_string()));
+    fn prompt(&self, ctx: &mut Context) -> RenderResult {
+        let msg = if ctx.project.authors.len() > 0 {
+            format!("authors (default: {})", ctx.project.authors[0].firstname)
+        } else {
+            "authors".to_string()
+        };
+
+        if !Confirm::new()
+            .with_prompt(msg.as_str())
+            .default(true)
+            .interact()? {
+            ctx.project.authors = prompt_for_authors()?;
         }
+        Ok(())
+    }
+
+    fn collect(&self, ctx: &mut Context) -> RenderResult {
+        ctx.project.version = Some(self.version.to_string());
+        ctx.project.uuid = Some(Uuid::new_v4().to_string());
         ctx.ignore("/Manifest.toml");
+
+        // if no prompt, but git is setup, use git user.name/email as author
+        debug!("git is setup, use git user.name/email as an author");
+        if let Some(Git {user, email}) = &ctx.git {
+            ctx.project.authors = vec![Author {
+                firstname: user.to_owned(),
+                lastname: None,
+                email: Some(email.to_owned()),
+                url: None,
+                affiliation: None,
+                orcid: None,
+            }];
+        }
         Ok(())
     }
 }

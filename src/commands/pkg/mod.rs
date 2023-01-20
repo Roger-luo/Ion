@@ -8,4 +8,4 @@ pub mod status;
 pub mod update;
 pub mod utils;
 
-pub use utils::{JuliaCmd, PackageSpec, package_spec_list};
+pub use utils::{PackageSpec, package_spec_list};

@@ -1,12 +1,12 @@
+use std::path::PathBuf;
 use clap::ArgMatches;
 use dialoguer::Input;
-use anyhow::{Error, format_err};
-use serde;
+use anyhow::Error;
+use crate::blueprints::*;
 use serde_derive::Serialize;
-use std::collections::HashMap;
-use super::{badge::Badge, Template, Blueprint};
+use super::badge::Badge;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct Author {
     pub firstname: String,
     pub lastname: Option<String>,
@@ -16,45 +16,94 @@ pub struct Author {
     pub orcid: Option<String>,
 }
 
-#[derive(Debug)]
-pub enum Meta {
-    String(String),
-    Bool(bool),
-    Integer(i64),
-    Badges(Vec<Badge>),
-    Items(Vec<String>),
-    Authors(Vec<Author>),
-    Object(HashMap<String, Meta>),
+#[derive(Debug, Serialize, Clone)]
+pub struct Citation {
+    pub readme: bool,
+    pub title: String,
+    pub authors: Vec<Author>,
+    pub year: i32,
+    pub journal: Option<String>,
+    pub volume: Option<String>,
+    pub number: Option<String>,
+    pub pages: Option<String>,
+    pub doi: Option<String>,
+    pub url: Option<String>,
 }
 
-impl serde::Serialize for Meta {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        match self {
-            Meta::String(s) => serializer.serialize_str(s),
-            Meta::Bool(b) => serializer.serialize_bool(*b),
-            Meta::Integer(i) => serializer.serialize_i64(*i),
-            Meta::Badges(b) => b.serialize(serializer),
-            Meta::Items(i) => i.serialize(serializer),
-            Meta::Authors(a) => a.serialize(serializer),
-            Meta::Object(o) => o.serialize(serializer),
+#[derive(Debug, Serialize, Clone)]
+pub struct Julia {
+    pub version: String,
+    pub compat: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Project {
+    pub name: String,
+    pub path: PathBuf,
+    pub uuid: Option<String>,
+    pub version: Option<String>,
+    pub authors: Vec<Author>,
+    pub description: Option<String>,
+    pub keywords: Vec<String>,
+    pub homepage: Option<String>,
+}
+
+impl Project {
+    pub fn new(name: String, path: PathBuf) -> Self {
+        Project {
+            name,
+            path,
+            uuid: None,
+            version: None,
+            authors: Vec::new(),
+            description: None,
+            keywords: Vec::new(),
+            homepage: None,
         }
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
+pub struct Git {
+    pub user: String,
+    pub email: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Repository {
+    pub url: String,
+    pub remote: String,
+    pub branch: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct License {
+    pub year: i32,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
 pub struct Context {
     pub prompt: bool,
-    pub name: String,
-    pub meta: HashMap<String, Meta>,
+    pub julia: Julia,
+    pub project: Project,
+    pub git: Option<Git>,
+    pub badges: Vec<Badge>,
+    pub license: Option<License>,
+    pub repository: Option<Repository>,
+    pub citation: Option<Citation>,
+    pub ignore: Vec<String>,
 }
 
 impl Context {
-    pub fn from(t: &Template, matches: &ArgMatches) -> Result<Self, anyhow::Error> {
+    pub fn ignore(&mut self, path: &str) -> &mut Self {
+        self.ignore.push(path.to_string());
+        self
+    }
+
+    pub fn from_matches(matches: &ArgMatches) -> Result<Self, Error> {
         let prompt = !matches.get_flag("no-interactive");
-        let name = match matches.get_one::<String>("name") {
+        let package = match matches.get_one::<String>("name") {
             Some(name) => name.to_owned(),
             None => {
                 if prompt {
@@ -67,47 +116,79 @@ impl Context {
                 }
             },
         };
+        let path = std::env::current_dir().unwrap().join(package.to_owned());
+        if !path.is_dir() {
+            std::fs::create_dir_all(&path).unwrap();
+        }
 
-        let mut ctx = Context {
-            prompt,
-            name: name.to_owned(),
-            meta: HashMap::new(),
+        let julia_version_str = julia_version()?[14..].to_string();
+        let version = node_semver::Version::parse(&julia_version_str)?;
+        let compat = format!("{}.{}", version.major, version.minor);
+        let julia = Julia {
+            version: julia_version_str,
+            compat,
         };
 
-        ctx.meta.insert("package".to_string(), Meta::String(name.to_owned()));
-        t.collect(&mut ctx)?;
-        if ctx.prompt {
-            t.prompt(&mut ctx)?;
-        }
-
-        let path = std::env::current_dir()?.join(name);
-        if path.is_dir() {
-            if matches.get_flag("force") {
-                std::fs::remove_dir_all(path)?;
-            } else {
-                return Err(anyhow::format_err!("Directory already exists. (Use --force to overwrite.)"))
-            }
-        }
-        return Ok(ctx);
-    }
-
-    pub fn get_key_str(&self, key: &str) -> Result<&String, Error> {
-        if let Some(value) = self.meta.get(key) {
-            if let Meta::String(s) = value {
-                return Ok(s);
-            } else {
-                return Err(format_err!("Key {} is not a string.", key));
-            }
+        let git = if let Ok((user, email)) = git_get_user() {
+            Some(Git {
+                user,
+                email,
+            })
         } else {
-            return Err(format_err!("Key {} does not exist.", key));
-        }
-    }
+            None
+        };
 
-    pub fn ignore(&mut self, path: &str) -> &mut Self {
-        let ignore = self.meta.entry("ignore".to_string()).or_insert_with(|| Meta::Items(Vec::new()));
-        if let Meta::Items(items) = ignore {
-            items.push(path.to_string());
-        }
-        self
+        Ok(Context {
+            prompt,
+            julia,
+            project: Project::new(package, path),
+            git,
+            license: None,
+            badges: Vec::new(),
+            repository: None,
+            citation: None,
+            ignore: Vec::new(),
+        })
     }
 }
+
+// impl Context {
+//     pub fn from(t: &Template, matches: &ArgMatches) -> Result<Self, anyhow::Error> {
+//         let prompt = !matches.get_flag("no-interactive");
+//         let name = match matches.get_one::<String>("name") {
+//             Some(name) => name.to_owned(),
+//             None => {
+//                 if prompt {
+//                     Input::<String>::new()
+//                         .with_prompt("name of the project")
+//                         .allow_empty(false)
+//                         .interact_text().expect("error")
+//                 } else {
+//                     return Err(anyhow::format_err!("No name provided."))
+//                 }
+//             },
+//         };
+
+//         let mut ctx = Context {
+//             prompt,
+//             name: name.to_owned(),
+//             meta: HashMap::new(),
+//         };
+
+//         ctx.meta.insert("package".to_string(), Meta::String(name.to_owned()));
+//         t.collect(&mut ctx)?;
+//         if ctx.prompt {
+//             t.prompt(&mut ctx)?;
+//         }
+
+//         let path = std::env::current_dir()?.join(name);
+//         if path.is_dir() {
+//             if matches.get_flag("force") {
+//                 std::fs::remove_dir_all(path)?;
+//             } else {
+//                 return Err(anyhow::format_err!("Directory already exists. (Use --force to overwrite.)"))
+//             }
+//         }
+//         return Ok(ctx);
+//     }
+// }

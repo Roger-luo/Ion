@@ -1,9 +1,9 @@
-name = "{{{ package }}}"
-uuid = "{{{ uuid }}}"
-authors = [{{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} <{{{ this.email }}}> {{/each}}]
-version = "{{{ version }}}"
+name = "{{{ project.name }}}"
+uuid = "{{{ project.uuid }}}"
+authors = [{{#each project.authors}} "{{{ this.firstname }}} {{{ this.lastname }}} <{{{ this.email }}}>", {{/each}} "contributors"]
+version = "{{{ project.version }}}"
 
 [deps]
 
 [compat]
-julia = "{{{ julia.version }}}"
+julia = "{{{ julia.compat }}}"

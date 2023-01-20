@@ -11,7 +11,15 @@ pub trait Blueprint {
     fn prompt(&self, _ctx: &mut Context) -> RenderResult {
         Ok(())
     }
+    // propagate collected or propmted data to other meta
+    // information fields
+    fn propagate(&self, _ctx: &mut Context) -> RenderResult {
+        Ok(())
+    }
     fn post_render(&self, _ctx: &Context) -> RenderResult {
+        Ok(())
+    }
+    fn validate(&self, _ctx: &Context) -> RenderResult {
         Ok(())
     }
 }

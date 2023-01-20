@@ -23,18 +23,15 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     }
 
     let name = matches.get_one::<String>("template").unwrap().to_owned();
-    let template = Template::load(&name);
+    let template = Template::from_name(&name);
 
-    let ctx = match Context::from(&template, &matches) {
+    let mut ctx = match Context::from_matches(&matches) {
         Ok(ctx) => ctx,
         Err(e) => return Err(CliError::new(e, 1)),
     };
 
-    if let Err(e) = template.render(&ctx) {
+    if let Err(e) = template.render(&mut ctx) {
         return Err(CliError::new(e, 1));
     }
-    match template.post_render(&ctx) {
-        Ok(_) => Ok(()),
-        Err(e) => return Err(CliError::new(e, 1)),
-    }
+    Ok(())
 }

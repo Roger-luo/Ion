@@ -26,14 +26,11 @@ impl Blueprint for Readme {
     }
 
     fn prompt(&self, ctx: &mut Context) -> RenderResult {
-        // package name is handled in Context::from
-        if !ctx.meta.contains_key("description") {
-            let input = Input::<String>::new()
+        let input = Input::<String>::new()
             .with_prompt("description of the project")
             .allow_empty(true)
-            .interact_text().expect("error");
-            ctx.meta.insert("description".to_string(), Meta::String(input));
-        }
+            .interact_text().expect("error reading description");
+        ctx.project.description = Some(input);
         Ok(())
     }
 }

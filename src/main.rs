@@ -1,9 +1,11 @@
+use env_logger;
 use cargo::{CliResult, CliError};
 use clap::{Command, ArgMatches};
 
 pub mod dirs;
 pub mod commands;
 pub mod blueprints;
+pub mod julia;
 
 fn cli() -> Command {
     Command::new("ion")
@@ -15,6 +17,7 @@ fn cli() -> Command {
 }
 
 fn main() {
+    env_logger::init();
     let matches = cli().get_matches();
     let result = exec(&matches);
 

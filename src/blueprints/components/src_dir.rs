@@ -15,6 +15,7 @@ impl SrcDir{
 
 impl Blueprint for SrcDir {
     fn render(&self, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "module.jl")
+        let module = ctx.project.name.to_owned();
+        self.template.render(ctx, format!("{}.jl", module).as_str())
     }
 }

@@ -1,39 +1,8 @@
-use cargo::CliResult;
 use url::Url;
 use std::fmt::Display;
 use std::path::PathBuf;
-use std::process;
 use clap::parser::ArgMatches;
 use node_semver::Range;
-
-pub trait JuliaCmd {
-    fn julia_cmd(&self, compile_min : bool) -> CliResult;
-    fn as_julia_script(&self) -> CliResult {
-        self.julia_cmd(true)
-    }
-    fn as_julia_script_compile(&self) -> CliResult {
-        self.julia_cmd(false)
-    }
-}
-
-impl<T: Display> JuliaCmd for T {
-    fn julia_cmd(&self, compile_min : bool) -> CliResult {
-        let mut cmd = process::Command::new("julia");
-        let mut cmd = cmd.arg("--color=yes")
-            .arg("--startup-file=no")
-            .arg("--project");
-
-        if compile_min {
-            cmd = cmd.arg("--compile=min");
-        }
-
-        cmd = cmd.arg(format!("-e {}", self));
-        let output = cmd.output().expect("fail to call Julia");
-        print!("{}", String::from_utf8(output.stdout).unwrap().as_str());
-        eprint!("{}", String::from_utf8(output.stderr).unwrap().as_str());
-        Ok(())
-    }
-}
 
 #[derive(Debug)]
 pub struct PackageSpec {
