@@ -1,6 +1,6 @@
 using Test
-using {{ package }}
+using {{ project.name }}
 
-@testset "{{ package }}.jl" begin
+@testset "{{ project.name }}.jl" begin
     @test 1 == 1
-end # {{ package }}.jl tests
+end # {{ project.name }}.jl tests
