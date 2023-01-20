@@ -1,6 +1,11 @@
 name = "{{{ project.name }}}"
 uuid = "{{{ project.uuid }}}"
-authors = [{{#each project.authors}} "{{{ this.firstname }}} {{{ this.lastname }}} <{{{ this.email }}}>", {{/each}} "contributors"]
+authors = [{{#each project.authors~}}
+    "{{{~this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+        {{#if this.email~}}
+        <{{{this.email}}}>
+        {{~/if}}",
+    {{~/each}}]
 version = "{{{ project.version }}}"
 
 [deps]

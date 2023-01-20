@@ -186,7 +186,13 @@
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright {{{ year }}} {{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} {{/each}}
+   Copyright {{{ license.year }}} {{ empty }}
+{{~#each project.authors~}}
+    {{{ this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+    {{#if this.email~}}
+    <{{{this.email}}}>
+    {{~/if}},
+{{~/each}}
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

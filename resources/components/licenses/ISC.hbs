@@ -1,6 +1,12 @@
 ISC License
 
-Copyright (c) {{{year}}}, {{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} {{/each}}
+Copyright (c) {{{ license.year }}}, {{ empty }}
+{{~#each project.authors~}}
+    {{{ this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+    {{#if this.email~}}
+    <{{{this.email}}}>
+    {{~/if}},
+{{~/each}}
 
 Permission to use, copy, modify, and/or distribute this software for any
 purpose with or without fee is hereby granted, provided that the above

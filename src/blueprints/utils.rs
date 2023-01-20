@@ -22,13 +22,19 @@ pub fn git_get_user() -> Result<(String, String), Error> {
 pub fn prompt_for_authors() -> Result<Vec<Author>, Error> {
     let mut authors = Vec::<Author>::new();
     authors.push(promot_for_an_author()?);
-    while Confirm::new().with_prompt("another author of the project?").interact()? {
+    while Confirm::new()
+        .with_prompt("another author of the project?")
+        .default(false)
+        .interact()? {
         authors.push(promot_for_an_author()?);
     }
 
-    if Confirm::new().with_prompt("include future contributors as an author?").interact()? {
+    if Confirm::new()
+        .with_prompt("include future contributors as an author?")
+        .default(true)
+        .interact()? {
         authors.push(Author {
-            firstname: "other contributors".to_string(),
+            firstname: "and contributors".to_string(),
             lastname: None,
             email: None,
             url: None,
@@ -54,7 +60,8 @@ fn promot_for_an_author() -> Result<Author, Error> {
 
 fn promote_for_author_field(field: &str) -> Option<String> {
     let input = Input::<String>::new()
-        .with_prompt(field)
+        .with_prompt(format!("{} (optional)", field))
+        .allow_empty(true)
         .interact_text().expect("error");
 
     if input.is_empty() {

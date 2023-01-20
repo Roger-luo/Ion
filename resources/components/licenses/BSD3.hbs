@@ -1,6 +1,12 @@
 BSD 3-Clause License
 
-Copyright (c) {{{year}}}, {{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} {{/each}}
+Copyright (c) {{{ license.year }}} ,{{ empty }}
+{{~#each project.authors~}}
+    {{{ this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+    {{#if this.email~}}
+    <{{{this.email}}}>
+    {{~/if}},
+{{~/each}}
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

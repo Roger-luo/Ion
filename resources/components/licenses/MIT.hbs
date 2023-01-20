@@ -1,6 +1,12 @@
 MIT License
 
-Copyright (c) {{{ year }}} {{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} {{/each}}
+Copyright (c) {{{ license.year }}} {{ empty }}
+{{~#each project.authors~}}
+    {{{ this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+    {{#if this.email~}}
+    <{{{this.email}}}>
+    {{~/if}},
+{{~/each}}
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

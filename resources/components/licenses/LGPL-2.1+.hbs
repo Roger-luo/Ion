@@ -470,8 +470,14 @@ safest to attach them to the start of each source file to most effectively
 convey the exclusion of warranty; and each file should have at least the
 "copyright" line and a pointer to where the full notice is found.
 
-    {{{ description }}}
-    Copyright (C) {{{ year }}}  {{#each authors}} {{{ this.firstname }}} {{{ this.lastname }}} {{/each}}
+    {{{ project.name }}}-{{{ project.description }}}
+    Copyright (C) {{{ license.year }}} {{ empty }}
+{{~#each project.authors~}}
+    {{{ this.firstname }}}{{#if this.lastname}} {{{ this.lastname }}}{{/if~}}
+    {{#if this.email~}}
+    <{{{this.email}}}>
+    {{~/if}},
+{{~/each}}
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Lesser General Public
