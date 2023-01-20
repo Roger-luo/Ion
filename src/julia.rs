@@ -1,7 +1,6 @@
-use cargo::{CliResult, CliError};
+use cargo::CliResult;
 use std::fmt::Display;
 use std::process::{Output, Command};
-use anyhow::format_err;
 pub struct JuliaCommand {
     cmd: Command,
     script: String,
@@ -38,6 +37,12 @@ impl JuliaCommand {
             .arg(format!("-e {}", self.script))
             .output()
     }
+
+    pub fn status(&mut self) -> Result<std::process::ExitStatus, std::io::Error> {
+        self.cmd
+            .arg(format!("-e {}", self.script))
+            .status()
+    }
 }
 
 pub trait Julia {
@@ -45,20 +50,11 @@ pub trait Julia {
 
     fn julia_exec_project(&self, project: &str) -> CliResult {
         let mut cmd = self.as_julia_command();
-        let output = cmd.project(project)
+        cmd.project(project)
             .no_startup_file()
             .color()
             .compile("min")
-            .output()?;
-        if output.status.success() {
-            println!("{}", String::from_utf8(output.stdout).expect("invalid utf8"));
-            println!("{}", String::from_utf8(output.stderr).expect("invalid utf8"));
-        } else {
-            return Err(CliError::new(
-                format_err!("julia failed: {}", String::from_utf8(output.stderr).expect("invalid utf8")),
-                1,
-            ));
-        }
+            .status()?;
         Ok(())
     }
 

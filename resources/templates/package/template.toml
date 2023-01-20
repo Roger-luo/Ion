@@ -7,3 +7,4 @@ description = "A package description"
 [documenter]
 [license]
 [tests]
+[repo]

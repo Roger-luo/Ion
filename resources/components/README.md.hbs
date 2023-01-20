@@ -1,6 +1,8 @@
 # {{ project.name }}
 
+{{#if project.description}}
 {{project.description}}
+{{/if}}
 
 ## Installation
 
@@ -24,12 +26,10 @@ pkg> add {{ project.name }}
 ## Citation
 
 {{citation}}
-
 {{/if}}
-
 {{#if license}}
 ## License
 
+{{! use license.fullname instead of license.name }}
 {{license.name}} License
-
 {{/if}}

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use clap::ArgMatches;
 use dialoguer::Input;
 use anyhow::Error;
+use log::debug;
 use crate::blueprints::*;
 use serde_derive::Serialize;
 use super::badge::Badge;
@@ -117,9 +118,17 @@ impl Context {
             },
         };
         let path = std::env::current_dir().unwrap().join(package.to_owned());
-        if !path.is_dir() {
-            std::fs::create_dir_all(&path).unwrap();
+
+        debug!("path: {}", path.display());
+        if path.is_dir() {
+            if matches.get_flag("force") {
+                debug!("removing existing directory: {}", path.display());
+                std::fs::remove_dir_all(&path)?;
+            } else {
+                return Err(anyhow::format_err!("project already exists:{}", path.display()))
+            }
         }
+        std::fs::create_dir_all(&path).unwrap();
 
         let julia_version_str = julia_version()?[14..].to_string();
         let version = node_semver::Version::parse(&julia_version_str)?;
@@ -151,44 +160,3 @@ impl Context {
         })
     }
 }
-
-// impl Context {
-//     pub fn from(t: &Template, matches: &ArgMatches) -> Result<Self, anyhow::Error> {
-//         let prompt = !matches.get_flag("no-interactive");
-//         let name = match matches.get_one::<String>("name") {
-//             Some(name) => name.to_owned(),
-//             None => {
-//                 if prompt {
-//                     Input::<String>::new()
-//                         .with_prompt("name of the project")
-//                         .allow_empty(false)
-//                         .interact_text().expect("error")
-//                 } else {
-//                     return Err(anyhow::format_err!("No name provided."))
-//                 }
-//             },
-//         };
-
-//         let mut ctx = Context {
-//             prompt,
-//             name: name.to_owned(),
-//             meta: HashMap::new(),
-//         };
-
-//         ctx.meta.insert("package".to_string(), Meta::String(name.to_owned()));
-//         t.collect(&mut ctx)?;
-//         if ctx.prompt {
-//             t.prompt(&mut ctx)?;
-//         }
-
-//         let path = std::env::current_dir()?.join(name);
-//         if path.is_dir() {
-//             if matches.get_flag("force") {
-//                 std::fs::remove_dir_all(path)?;
-//             } else {
-//                 return Err(anyhow::format_err!("Directory already exists. (Use --force to overwrite.)"))
-//             }
-//         }
-//         return Ok(ctx);
-//     }
-// }

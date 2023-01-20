@@ -130,21 +130,15 @@ pub fn git_current_branch() -> Option<String> {
 }
 
 pub fn git_checkout(branch: &String) -> Result<(), Error> {
-    let output = std::process::Command::new("git")
+    std::process::Command::new("git")
         .arg("checkout").arg("-b").arg(branch)
-        .output();
-    if let Err(e) = output {
-        return Err(format_err!("git checkout -b failed: {}", e));
-    }
+        .status()?;
     Ok(())
 }
 
 pub fn git_delete_branch(branch: &String) -> Result<(), Error> {
-    let output = std::process::Command::new("git")
+    std::process::Command::new("git")
         .arg("branch").arg("-D").arg(branch)
-        .output();
-    if let Err(e) = output {
-        return Err(format_err!("git branch -D failed: {}", e));
-    }
+        .status()?;
     Ok(())
 }
