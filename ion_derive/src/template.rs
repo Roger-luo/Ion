@@ -23,15 +23,15 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
         #context_expr
 
         impl #name {
-            pub fn from_name(name: &String) -> #name {
+            pub fn from_name(name: &String) -> Result<Self, anyhow::Error> {
                 let mut template = template_dir();
                 template.push(name);
                 template.push("template.toml");
 
                 assert!(template.is_file(), "Template file not found: {}", template.display());
-                let template : Template = toml::from_str(
-                    &std::fs::read_to_string(template).unwrap()).unwrap();
-                template
+                let source = std::fs::read_to_string(template)?;
+                let template : Template = toml::from_str(&source)?;
+                Ok(template)
             }
 
             pub fn render(&self, ctx: &mut Context) -> Result<(), anyhow::Error> {

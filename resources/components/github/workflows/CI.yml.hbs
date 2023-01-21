@@ -1,0 +1,78 @@
+name: CI
+on:
+  push:
+    branches:
+    {{#if repo }}
+      - {{repo.branch}}
+    {{/if}}
+    tags: ['*']
+  pull_request:
+{{{{raw}}}}
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+{{{{/raw}}}}
+jobs:
+  test:
+    name: Julia {{{{raw}}}}${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}{{{{/raw}}}}
+    runs-on: {{{{raw}}}}${{ matrix.os }}{{{{/raw}}}}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - "1"
+          - "{{ julia.compat }}"
+          - "nightly"
+        os:
+          {{#each github.os}}
+          - {{this}}
+          {{/each}}
+        arch:
+          {{#each github.arch}}
+          - {{this}}
+          {{/each}}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: $\{{ matrix.version }}
+          arch: $\{{ matrix.arch }}
+      - uses: julia-actions/cache@v1
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+      {{#if github.codecov}}
+      - uses: julia-actions/julia-processcoverage@v1
+      - uses: codecov/codecov-action@v2
+        with:
+          files: lcov.info
+      {{/if}}
+      {{#if github.coveralls}}
+      - uses: julia-actions/julia-uploadcoveralls@v1
+        env:
+          COVERALLS_TOKEN: $\{{ secrets.COVERALLS_TOKEN }}
+      {{/if}}
+  {{#if github.documenter}}
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1'
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-docdeploy@v1
+        env:
+          GITHUB_TOKEN: $\{{ secrets.GITHUB_TOKEN }}
+      - run: |
+          julia --project=docs -e '
+            using Documenter: DocMeta, doctest
+            using {{project.name}}
+            DocMeta.setdocmeta!({{project.name}}, :DocTestSetup, :(using {{project.name}}); recursive=true)
+            doctest({{project.name}})'
+  {{/if}}

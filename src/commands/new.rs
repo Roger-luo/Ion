@@ -4,13 +4,13 @@ use log::debug;
 use dialoguer::Input;
 use std::path::PathBuf;
 use anyhow::format_err;
-use crate::errors::{CliError, CliResult};
+use crate::errors::CliResult;
 use crate::blueprints::*;
 
 pub fn cli() -> Command {
     Command::new("new")
         .about("Create a new package")
-        .arg(arg!(name: [NAME] "The name of the package"))
+        .arg(arg!(path: [PATH] "The path of the package"))
         .arg(arg!(--list "List available templates"))
         .arg(arg!(-f --force "Overwrite existing files"))
         .arg(arg!(--"no-interactive" "Do not prompt for user input"))
@@ -27,8 +27,8 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     }
     let prompt = !matches.get_flag("no-interactive");
     let force = matches.get_flag("force");
-    let package = match matches.get_one::<String>("name") {
-        Some(name) => name.to_owned(),
+    let path = match matches.get_one::<String>("path") {
+        Some(path) => path.to_owned(),
         None => {
             if prompt {
                 Input::<String>::new()
@@ -40,15 +40,26 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             }
         },
     };
-    let path = std::env::current_dir().unwrap().join(package.to_owned());
+
+    let path = PathBuf::from(path);
+    let cwd = std::env::current_dir()?;
+    let path = cwd.join(path.to_owned());
+
+    debug!("path: {}", path.display());
+    let package = match path.file_name() {
+        Some(name) => name.to_str().unwrap().to_owned(),
+        None => {
+            return Err(anyhow::format_err!("Invalid path: {}", path.display()).into())
+        }
+    };
     mk_package_dir(&path, force)?;
 
     let mut ctx = Context::new(prompt, Julia::default(), Project::new(package, path));
     let name = matches.get_one::<String>("template").unwrap().to_owned();
 
-    let template = Template::from_name(&name);
+    let template = Template::from_name(&name)?;
     if let Err(e) = template.render(&mut ctx) {
-        return Err(CliError::new(e, 1));
+        return Err(e.into());
     }
     Ok(())
 }

@@ -8,3 +8,10 @@ description = "A package description"
 [license]
 [tests]
 [repo]
+[codecov]
+[github.ci]
+arch = ["x86", "x86_64"]
+os = ["ubuntu-latest", "macos-latest", "windows-latest"]
+
+[github.tagbot]
+[github.compat_helper]

@@ -19,4 +19,6 @@ pub struct Template {
     pub citation: Option<Citation>,
     pub documenter: Option<Documenter>,
     pub codecov: Option<Codecov>,
+    pub coveralls: Option<Coveralls>,
+    pub github: Option<GitHub>,
 }

@@ -8,6 +8,7 @@ pub mod citation;
 pub mod project_file;
 pub mod github;
 pub mod codecov;
+pub mod coveralls;
 
 pub use self::repo::*;
 pub use self::readme::*;
@@ -18,3 +19,5 @@ pub use self::documenter::*;
 pub use self::citation::*;
 pub use self::project_file::*;
 pub use self::codecov::*;
+pub use self::coveralls::*;
+pub use self::github::GitHub;

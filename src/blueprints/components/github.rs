@@ -1,3 +1,4 @@
+use log::debug;
 use serde_derive::{Deserialize, Serialize};
 use crate::blueprints::*;
 
@@ -5,6 +6,9 @@ use crate::blueprints::*;
 pub struct Info {
     pub documenter: bool,
     pub codecov: bool,
+    pub coveralls: bool,
+    pub arch: Vec<String>,
+    pub os: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -16,9 +20,21 @@ pub struct GitHub {
 
 impl Blueprint for GitHub {
     fn collect(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+        let arch = match self.ci {
+            Some(ref ci) => ci.arch.clone(),
+            None => Vec::<String>::new(),
+        };
+        let os = match self.ci {
+            Some(ref ci) => ci.os.clone(),
+            None => Vec::<String>::new(),
+        };
+
         ctx.github = Some(Info {
             documenter: t.documenter.is_some(),
             codecov: t.codecov.is_some(),
+            coveralls: t.coveralls.is_some(),
+            arch,
+            os,
         });
         Ok(())
     }
@@ -39,19 +55,40 @@ impl Blueprint for GitHub {
 
 #[derive(Debug, Deserialize)]
 pub struct CI {
+    #[serde(default="CI::default_template")]
     pub template: TemplateFile,
     pub arch: Vec<String>,
     pub os: Vec<String>,
 }
 
+impl CI {
+    fn default_template() -> TemplateFile {
+        TemplateFile::from_str("github/workflows/CI.yml.hbs")
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct TagBot {
+    #[serde(default="TagBot::default_template")]
     pub template: TemplateFile,
+}
+
+impl TagBot {
+    fn default_template() -> TemplateFile {
+        TemplateFile::from_str("github/workflows/TagBot.yml")
+    }
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CompatHelper {
+    #[serde(default="CompatHelper::default_template")]
     pub template: TemplateFile,
+}
+
+impl CompatHelper {
+    fn default_template() -> TemplateFile {
+        TemplateFile::from_str("github/workflows/CompatHelper.yml")
+    }
 }
 
 impl Default for CI {
@@ -68,7 +105,7 @@ impl Default for TagBot
 {
     fn default() -> Self {
         TagBot {
-            template: TemplateFile::from_str("github/workflows/TagBot.yml.hbs"),
+            template: TemplateFile::from_str("github/workflows/TagBot.yml"),
         }
     }
 }
@@ -77,25 +114,26 @@ impl Default for CompatHelper
 {
     fn default() -> Self {
         CompatHelper {
-            template: TemplateFile::from_str("github/workflows/CompatHelper.yml.hbs"),
+            template: TemplateFile::from_str("github/workflows/CompatHelper.yml"),
         }
     }
 }
 
 impl Blueprint for CI {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+        debug!("rendering CI.yml: {:?}", ctx.github);
         self.template.render(ctx, "CI.yml")
     }
 }
 
 impl Blueprint for TagBot {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "TagBot.yml")
+        self.template.copy(ctx, "TagBot.yml")
     }
 }
 
 impl Blueprint for CompatHelper {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "CompatHelper.yml")
+        self.template.copy(ctx, "CompatHelper.yml")
     }
 }
