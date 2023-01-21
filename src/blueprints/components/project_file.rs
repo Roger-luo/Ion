@@ -2,8 +2,11 @@ use dialoguer::Confirm;
 use uuid::Uuid;
 use log::debug;
 use node_semver::Version;
-use serde_derive::Deserialize;
+use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Info;
 
 #[derive(Debug, Deserialize)]
 pub struct ProjectFile {
@@ -24,11 +27,11 @@ impl ProjectFile {
 }
 
 impl Blueprint for ProjectFile {
-    fn render(&self, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
         self.template.render(ctx, "Project.toml")
     }
 
-    fn prompt(&self, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         let msg = if ctx.project.authors.len() > 0 {
             format!("authors (default: {})", ctx.project.authors[0].firstname)
         } else {
@@ -44,14 +47,17 @@ impl Blueprint for ProjectFile {
         Ok(())
     }
 
-    fn collect(&self, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         ctx.project.version = Some(self.version.to_string());
         ctx.project.uuid = Some(Uuid::new_v4().to_string());
-        ctx.ignore("/Manifest.toml");
+
+        if let Some(repo) = &mut ctx.repo {
+            repo.ignore.push("/Manifest.toml".to_string());   
+        }
 
         // if no prompt, but git is setup, use git user.name/email as author
         debug!("git is setup, use git user.name/email as an author");
-        if let Some(Git {user, email}) = &ctx.git {
+        if let Some(Git {user, email}) = &ctx.project.git {
             ctx.project.authors = vec![Author {
                 firstname: user.to_owned(),
                 lastname: None,

@@ -1,9 +1,15 @@
 use std::path::PathBuf;
 use dialoguer::Input;
 use chrono::Datelike;
-use serde_derive::Deserialize;
+use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
 use crate::dirs::components_dir;
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Info {
+    pub year: i32,
+    pub name: String,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct License {
@@ -20,7 +26,7 @@ impl License {
 impl Blueprint for License {
     // license is not specified in a template.toml file
     // so we need to prompt the user for a license
-    fn prompt(&self, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         let name = Input::<String>::new()
             .with_prompt("license")
             .allow_empty(false)
@@ -33,14 +39,14 @@ impl Blueprint for License {
             .allow_empty(false)
             .with_initial_text(current_date.year().to_string())
             .interact_text().expect("prompt failed for year");
-        ctx.license = Some(context::License {
+        ctx.license = Some(Info {
             name,
             year,
         });
         Ok(())
     }
 
-    fn render(&self, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
         let license = ctx.license.as_ref().unwrap().name.to_owned();
         TemplateFile {
             root: self.template_dir.to_owned(),

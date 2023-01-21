@@ -1,4 +1,4 @@
-use cargo::CliResult;
+use crate::errors::CliResult;
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
 use crate::julia::Julia;

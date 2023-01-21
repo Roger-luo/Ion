@@ -1,5 +1,5 @@
 use clap::{Command, ArgMatches};
-use cargo::CliResult;
+use crate::errors::CliResult;
 
 pub mod pkg;
 pub mod new;

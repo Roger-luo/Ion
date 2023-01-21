@@ -1,15 +1,16 @@
-use ion::TemplateDerive;
+use ion_derive::Template;
 use serde_derive::Deserialize;
-use super::{components::*, Context};
-use super::{Blueprint, RenderResult};
-use crate::dirs::template_dir;
-use log::debug;
+use super::{Julia, Project};
+use super::badge::Badge;
+use super::Blueprint;
+use super::components::*;
 
-#[derive(Debug, Deserialize, TemplateDerive)]
+#[derive(Debug, Deserialize, Template)]
 pub struct Template {
     pub name: String, // name of the template
     pub description: String, // description of the template
     // the following has order of appearance in prompts
+    pub repo: Option<GitRepo>,
     pub project_file: Option<ProjectFile>,
     pub readme: Option<Readme>,
     pub src_dir: Option<SrcDir>,
@@ -17,5 +18,5 @@ pub struct Template {
     pub license: Option<License>,
     pub citation: Option<Citation>,
     pub documenter: Option<Documenter>,
-    pub repo: Option<GitRepo>,
+    pub codecov: Option<Codecov>,
 }

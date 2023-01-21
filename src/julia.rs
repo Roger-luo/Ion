@@ -1,4 +1,4 @@
-use cargo::CliResult;
+use crate::errors::CliResult;
 use std::fmt::Display;
 use std::process::{Output, Command};
 pub struct JuliaCommand {

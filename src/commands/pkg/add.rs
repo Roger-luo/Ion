@@ -1,7 +1,7 @@
-use cargo::CliResult;
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
 use crate::julia::Julia;
+use crate::errors::CliResult;
 use crate::commands::pkg::package_spec_list;
 
 pub fn cli() -> Command {

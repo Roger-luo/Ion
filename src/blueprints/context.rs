@@ -84,6 +84,12 @@ pub struct License {
 }
 
 #[derive(Debug, Serialize, Clone)]
+pub struct CI {
+    pub documenter: bool,
+    pub codecov: bool,
+}
+
+#[derive(Debug, Serialize, Clone)]
 pub struct Context {
     pub prompt: bool,
     pub julia: Julia,
@@ -93,6 +99,7 @@ pub struct Context {
     pub license: Option<License>,
     pub repository: Option<Repository>,
     pub citation: Option<Citation>,
+    pub ci: Option<CI>,
     pub ignore: Vec<String>,
 }
 
@@ -157,6 +164,7 @@ impl Context {
             repository: None,
             citation: None,
             ignore: Vec::new(),
+            ci: None,
         })
     }
 }

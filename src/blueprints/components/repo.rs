@@ -1,6 +1,14 @@
 use log::debug;
-use serde_derive::Deserialize;
+use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Info {
+    pub url: String,
+    pub remote: String,
+    pub branch: String,
+    pub ignore: Vec<String>,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct GitRepo {
@@ -24,13 +32,13 @@ impl GitRepo {
 }
 
 impl Blueprint for GitRepo {
-    fn collect(&self, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         let branch = match &self.branch {
             Some(b) => b.to_owned(),
             None => "main".to_string(),
         };
 
-        let user = &*ctx.git.as_ref().unwrap().user;
+        let user = &*ctx.project.git.as_ref().unwrap().user;
         let package = &*ctx.project.name;
         let repo = package.to_string() + &self.suffix;
 
@@ -41,10 +49,11 @@ impl Blueprint for GitRepo {
         };
         let url = format!("https://github.com/{}/{}", user, repo).to_string();
 
-        ctx.repository = Some(context::Repository {
+        ctx.repo = Some(Info {
             url,
             remote,
             branch,
+            ignore: vec![],
         });
         Ok(())
     }
@@ -55,11 +64,11 @@ impl Blueprint for GitRepo {
     // 3. git checkout -b <branch>
     // 4. git branch -D main
     // 5. git branch -m <branch>
-    fn render(&self, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
         self.ignore.render(ctx, ".gitignore")?;
-        let repository = ctx.repository.as_ref().unwrap();
-        let remote = &repository.remote;
-        let branch = &repository.branch;
+        let repo = ctx.repo.as_ref().unwrap();
+        let remote = &repo.remote;
+        let branch = &repo.branch;
 
         std::process::Command::new("git")
             .arg("init").status()?;
@@ -85,7 +94,7 @@ impl Blueprint for GitRepo {
     }
 
     // 1. git add -A
-    fn post_render(&self, _ctx: &Context) -> RenderResult {
+    fn post_render(&self, _t: &Template, _ctx: &Context) -> RenderResult {
         std::process::Command::new("git")
             .arg("add").arg("-A").status()?;
         std::process::Command::new("git")

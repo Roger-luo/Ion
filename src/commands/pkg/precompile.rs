@@ -1,7 +1,7 @@
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
-use cargo::CliResult;
 use crate::julia::Julia;
+use crate::errors::CliResult;
 
 pub fn cli() -> Command {
     Command::new("precompile")

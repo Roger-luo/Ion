@@ -1,8 +1,11 @@
 use anyhow::Ok;
-use serde_derive::Deserialize;
+use serde_derive::{Serialize, Deserialize};
 use crate::julia::Julia;
 use crate::blueprints::*;
 use crate::commands::pkg::PackageSpec;
+
+#[derive(Debug, Serialize, Clone)]
+pub struct Info;
 
 #[derive(Debug, Deserialize)]
 pub struct Documenter {
@@ -40,14 +43,16 @@ impl Documenter {
 }
 
 impl Blueprint for Documenter {
-    fn collect(&self, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         for ignore in &self.ignore {
-            ctx.ignore(ignore);
+            if let Some(repo) = &mut ctx.repo {
+                repo.ignore.push(ignore.to_owned());
+            }
         }
         Ok(())
     }
 
-    fn render(&self, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
         self.make_jl.render(ctx, "make.jl")?;
         self.index_md.render(ctx, "index.md")?;
         self.doc_project.render(ctx, "Project.toml")?;

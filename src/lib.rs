@@ -1,8 +1,9 @@
 use proc_macro::TokenStream;
+use proc_macro2::{Ident, Span};
 use quote::{quote, format_ident};
 use syn::{self, DeriveInput};
 
-#[proc_macro_derive(TemplateDerive)]
+#[proc_macro_derive(Template)]
 pub fn template_derive(input: TokenStream) -> TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
@@ -10,11 +11,12 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
 
     // Build the trait implementation
     let name = &ast.ident;
-    let render = emit_field_calls(&ast, "render");
-    let collect = emit_field_calls(&ast, "collect");
-    let prompt = emit_field_calls(&ast, "prompt");
-    let post_render = emit_field_calls(&ast, "post_render");
-    let validate = emit_field_calls(&ast, "validate");
+    let t = &Ident::new("self", Span::call_site());
+    let render = emit_field_calls(&ast, t,  "render");
+    let collect = emit_field_calls(&ast, t,  "collect");
+    let prompt = emit_field_calls(&ast, t,  "prompt");
+    let post_render = emit_field_calls(&ast, t,  "post_render");
+    let validate = emit_field_calls(&ast, t,  "validate");
 
     let gen = quote!{
         impl #name {
@@ -70,7 +72,54 @@ pub fn template_derive(input: TokenStream) -> TokenStream {
     gen.into()
 }
 
-fn emit_field_calls(ast: &DeriveInput, method_name: &str) -> proc_macro2::TokenStream {
+
+#[proc_macro_derive(Blueprint)]
+pub fn blueprint_derive(input: TokenStream) -> TokenStream {
+    // Construct a representation of Rust code as a syntax tree
+    // that we can manipulate
+    let ast: DeriveInput = syn::parse(input).unwrap();
+
+    // Build the trait implementation
+    let t = &Ident::new("t", Span::call_site());
+    let name = &ast.ident;
+    let render = emit_field_calls(&ast, t, "render");
+    let collect = emit_field_calls(&ast, t,  "collect");
+    let prompt = emit_field_calls(&ast, t,  "prompt");
+    let post_render = emit_field_calls(&ast, t,  "post_render");
+    let validate = emit_field_calls(&ast, t, "validate");
+
+    let gen = quote!{
+        impl Blueprint for #name {
+            pub fn render(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+                #render
+                Ok(())
+            }
+
+            pub fn collect(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+                #collect
+                Ok(())
+            }
+
+            pub fn prompt(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+                #prompt
+                Ok(())
+            }
+
+            pub fn post_render(&self, t: &Template, ctx: &Context) -> RenderResult {
+                #post_render
+                Ok(())
+            }
+
+            pub fn validate(&self, t: &Template, ctx: &Context) -> RenderResult {
+                #validate
+                Ok(())
+            }
+        }
+    };
+    gen.into()
+}
+
+fn emit_field_calls(ast: &DeriveInput, template: &Ident,  method_name: &str) -> proc_macro2::TokenStream {
 // Build the trait implementation
     let data = &ast.data;
     let mut gen = quote!{};
@@ -84,7 +133,7 @@ fn emit_field_calls(ast: &DeriveInput, method_name: &str) -> proc_macro2::TokenS
                 let field_name = field.ident.as_ref().unwrap();
                 gen = quote! {
                     #gen
-                    self.#field_name.#func(ctx)?;
+                    self.#field_name.#func(#template, ctx)?;
                 };
             }
         }

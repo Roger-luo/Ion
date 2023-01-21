@@ -1,6 +1,6 @@
 use clap::{Command, arg};
 use clap::parser::ArgMatches;
-use cargo::CliResult;
+use crate::errors::CliResult;
 use crate::julia::Julia;
 use crate::commands::pkg::package_spec_list;
 
