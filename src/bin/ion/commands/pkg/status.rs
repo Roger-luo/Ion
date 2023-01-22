@@ -1,7 +1,7 @@
 use clap::{Command, arg};
 use clap::parser::ArgMatches;
-use crate::errors::CliResult;
-use crate::julia::Julia;
+use ion::errors::CliResult;
+use ion::julia::Julia;
 
 pub fn cli() -> Command {
     Command::new("status")

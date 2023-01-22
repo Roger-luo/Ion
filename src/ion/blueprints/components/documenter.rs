@@ -2,7 +2,7 @@ use anyhow::Ok;
 use serde_derive::{Serialize, Deserialize};
 use crate::julia::Julia;
 use crate::blueprints::*;
-use crate::commands::pkg::PackageSpec;
+use crate::PackageSpec;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;

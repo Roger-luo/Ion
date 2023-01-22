@@ -1,7 +1,7 @@
-use crate::errors::CliResult;
+use ion::errors::CliResult;
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
-use crate::julia::Julia;
+use ion::julia::Julia;
 use crate::commands::pkg::package_spec_list;
 
 pub fn cli() -> Command {

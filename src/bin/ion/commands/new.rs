@@ -4,8 +4,8 @@ use log::debug;
 use dialoguer::Input;
 use std::path::PathBuf;
 use anyhow::format_err;
-use crate::errors::CliResult;
-use crate::blueprints::*;
+use ion::errors::CliResult;
+use ion::blueprints::*;
 
 pub fn cli() -> Command {
     Command::new("new")

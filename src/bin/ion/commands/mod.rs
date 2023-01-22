@@ -1,5 +1,5 @@
 use clap::{Command, ArgMatches};
-use crate::errors::CliResult;
+use ion::errors::CliResult;
 
 pub mod pkg;
 pub mod new;

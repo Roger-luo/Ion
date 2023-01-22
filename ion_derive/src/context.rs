@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 pub fn emit_context() -> TokenStream {
     let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    d.push("../src/blueprints/components");
+    d.push("../src/ion/blueprints/components");
 
     let mut info = quote! {};
     let mut info_defaults = quote! {};
