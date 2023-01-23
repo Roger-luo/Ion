@@ -1,6 +1,6 @@
 use node_semver::Range;
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use url::Url;
 
 #[derive(Debug)]
@@ -19,7 +19,7 @@ impl PackageSpec {
         let mut version: Option<String> = None;
         let mut rev: Option<String> = None;
 
-        name = if expr.contains("@") {
+        name = if expr.contains('@') {
             let parts = expr.split('@').collect::<Vec<_>>();
             assert!(parts.len() == 2, "Invalid package name: {}", expr);
             let version_str = expr.split('@').last().unwrap();
@@ -66,17 +66,17 @@ impl PackageSpec {
             };
         }
 
-        return Self {
-            name: Some(name.to_owned()),
+        Self {
+            name: Some(name),
             url: None,
             path: None,
             subdir: None,
             rev,
             version,
-        };
+        }
     }
 
-    pub fn from_path(path: &PathBuf) -> PackageSpec {
+    pub fn from_path(path: &Path) -> PackageSpec {
         Self {
             name: None,
             url: None,

@@ -21,13 +21,13 @@ impl TemplateFile {
         components_dir()
     }
 
-    pub fn from_str(path: &str) -> TemplateFile {
+    pub fn from_path_str(path: &str) -> TemplateFile {
         let path = PathBuf::from(path);
         TemplateFile::from_path(path)
     }
 
     pub fn from_path(path: PathBuf) -> TemplateFile {
-        let nlevels = path.components().collect::<Vec<_>>().len();
+        let nlevels = path.components().count();
         assert!(
             nlevels > 1,
             "Template file path must have at \
@@ -48,7 +48,7 @@ impl TemplateFile {
         } else {
             self.root.to_owned()
         };
-        root.join(self.path.to_owned()).join(self.file.to_owned())
+        root.join(&self.path).join(&self.file)
     }
 
     pub fn read_source(&self) -> Result<String, Error> {
@@ -70,7 +70,7 @@ impl TemplateFile {
                 name
             ));
         }
-        let dst = ctx.project.path.join(self.path.to_owned());
+        let dst = ctx.project.path.join(&self.path);
         if !dst.is_dir() {
             debug!("creating directory: {}", dst.display());
             std::fs::create_dir_all(&dst).unwrap();

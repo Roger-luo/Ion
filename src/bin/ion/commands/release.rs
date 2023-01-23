@@ -3,7 +3,7 @@ use clap::{arg, Command};
 use colorful::Colorful;
 use dialoguer::Confirm;
 use ion::errors::CliResult;
-use ion::release::release::Release;
+use ion::release::handler::ReleaseHandler;
 use ion::release::version_spec::VersionSpec;
 use ion::utils::{current_project, git};
 use std::path::PathBuf;
@@ -41,7 +41,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         None => "General".to_owned(),
     };
 
-    let mut release = Release::new(version, registry_name);
+    let mut release = ReleaseHandler::new(version, registry_name);
     release
         .path(path)?
         .branch(branch)
@@ -83,14 +83,11 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         }
     }
 
-    if !dont_ask_again {
-        if !Confirm::new()
+    if !dont_ask_again && !Confirm::new()
             .with_prompt("do you want to release this version?")
             .default(true)
-            .interact()?
-        {
-            return Err(anyhow::format_err!("release cancelled").into());
-        }
+            .interact()? {
+        return Err(anyhow::format_err!("release cancelled").into());
     }
 
     // sync with remote

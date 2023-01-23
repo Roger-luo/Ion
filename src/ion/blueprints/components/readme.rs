@@ -15,7 +15,7 @@ pub struct Readme {
 
 impl Readme {
     pub fn default_template() -> TemplateFile {
-        TemplateFile::from_str("./README.md.hbs")
+        TemplateFile::from_path_str("./README.md.hbs")
     }
 
     pub fn default_inline_badge() -> bool {

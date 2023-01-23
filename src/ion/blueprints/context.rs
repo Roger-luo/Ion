@@ -125,7 +125,7 @@ impl Context {
                 }
             }
         };
-        let path = std::env::current_dir().unwrap().join(package.to_owned());
+        let path = std::env::current_dir().unwrap().join(&package);
 
         debug!("path: {}", path.display());
         if path.is_dir() {

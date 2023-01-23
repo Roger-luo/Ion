@@ -69,13 +69,13 @@ impl BumpVersion for Version {
     }
 }
 
-impl Into<String> for VersionSpec {
-    fn into(self) -> String {
-        match self {
+impl From<VersionSpec> for String {
+    fn from(val: VersionSpec) -> Self {
+        match val {
             VersionSpec::Patch => "patch".into(),
             VersionSpec::Minor => "minor".into(),
             VersionSpec::Major => "major".into(),
-            VersionSpec::Spec(v) => v.to_string().into(),
+            VersionSpec::Spec(v) => v.to_string(),
             VersionSpec::Current => "current".into(),
         }
     }

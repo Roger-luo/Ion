@@ -8,7 +8,7 @@ use colorful::Colorful;
 use node_semver::Version;
 use std::path::PathBuf;
 
-pub struct Release {
+pub struct ReleaseHandler {
     version_spec: VersionSpec, // version spec
     registry_name: String,     // registry name
 
@@ -23,7 +23,7 @@ pub struct Release {
     version_to_release: Option<Version>, // version to release
 }
 
-impl Release {
+impl ReleaseHandler {
     pub fn new(version_spec: VersionSpec, registry_name: impl AsRef<str>) -> Self {
         Self {
             version_spec,
@@ -54,7 +54,7 @@ impl Release {
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
         let latest_ver = match find::maximum_version(
             project.name.as_ref().unwrap(),
-            self.registry_name.to_owned(),
+            &self.registry_name,
         ) {
             Ok(ver) => Some(ver),
             Err(_) => None,
@@ -85,7 +85,7 @@ impl Release {
     pub fn update_version(&mut self) -> Result<&mut Self, Error> {
         let version = self.get_version()?;
         let version_to_release = self.version_spec.update_version(version);
-        self.version_to_release = Some(version_to_release.to_owned());
+        self.version_to_release = Some(version_to_release);
         Ok(self)
     }
 
@@ -138,10 +138,7 @@ impl Release {
         let registry_name = self.registry_name.to_owned();
 
         eprintln!("{}: {}", "          project".cyan(), project_name);
-        self.branch.as_ref().and_then(|b| {
-            eprintln!("{}: {}", "           branch".cyan(), b);
-            Some(())
-        });
+        if let Some(b) = self.branch.as_ref() { eprintln!("{}: {}", "           branch".cyan(), b) }
         eprintln!("{}: {}", "         registry".cyan(), registry_name);
         if let Some(latest) = latest_version {
             if latest == version {
@@ -194,7 +191,7 @@ impl Release {
         match self.version_spec {
             VersionSpec::Current => {} // do nothing
             _ => {
-                self.get_project()?.write(&self.toml.as_ref().unwrap())?;
+                self.get_project()?.write(self.toml.as_ref().unwrap())?;
             }
         }
         Ok(self)
@@ -209,7 +206,7 @@ impl Release {
                     .as_ref()
                     .ok_or_else(|| format_err!("No version to release found"))?;
                 let message = format!("bump version  to {}", version_to_release);
-                git::commit(&self.repo.as_ref().unwrap(), &message)?;
+                git::commit(self.repo.as_ref().unwrap(), &message)?;
             }
         }
         Ok(self)

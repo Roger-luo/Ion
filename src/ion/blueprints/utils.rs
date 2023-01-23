@@ -104,11 +104,11 @@ pub fn julia_version() -> Result<String, Error> {
     let output = Command::new("julia").arg("--version").output();
 
     match output {
-        Err(e) => return Err(Error::new(e)),
+        Err(e) => Err(Error::new(e)),
         Ok(output) => {
             let version = String::from_utf8(output.stdout)?;
             let version = version.trim();
-            return Ok(version.to_string());
+            Ok(version.to_string())
         }
     }
 }
@@ -125,7 +125,7 @@ pub fn git_config_get(key: &str) -> Option<String> {
             return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
         }
     }
-    return None;
+    None
 }
 
 pub fn git_current_branch() -> Option<String> {
@@ -139,7 +139,7 @@ pub fn git_current_branch() -> Option<String> {
             return Some(String::from_utf8(o.stdout).unwrap().trim().to_string());
         }
     }
-    return None;
+    None
 }
 
 pub fn git_checkout(branch: &String) -> Result<(), Error> {

@@ -11,7 +11,7 @@ pub fn current_project(dir: PathBuf) -> Option<PathBuf> {
     let home = home_dir().unwrap();
     let mut dir = dir;
     loop {
-        for proj in vec!["Project.toml", "JuliaProject.toml"] {
+        for proj in &["Project.toml", "JuliaProject.toml"] {
             let file = dir.join(proj);
             if file.is_file() {
                 return Some(file);

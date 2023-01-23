@@ -1,2 +1,2 @@
-pub mod release;
+pub mod handler;
 pub mod version_spec;

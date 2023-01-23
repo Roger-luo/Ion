@@ -43,7 +43,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
 
     let path = PathBuf::from(path);
     let cwd = std::env::current_dir()?;
-    let path = cwd.join(path.to_owned());
+    let path = cwd.join(path);
 
     debug!("path: {}", path.display());
     let package = match path.file_name() {
@@ -67,11 +67,11 @@ fn mk_package_dir(path: &PathBuf, force: bool) -> CliResult {
     if path.is_dir() {
         if force {
             debug!("removing existing directory: {}", path.display());
-            std::fs::remove_dir_all(&path)?;
+            std::fs::remove_dir_all(path)?;
         } else {
             return Err(format_err!("project already exists:{}", path.display()).into());
         }
     }
-    std::fs::create_dir_all(&path).unwrap();
+    std::fs::create_dir_all(path).unwrap();
     Ok(())
 }

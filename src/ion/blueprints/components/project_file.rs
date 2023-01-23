@@ -18,7 +18,7 @@ pub struct ProjectFile {
 
 impl ProjectFile {
     pub fn default_template() -> TemplateFile {
-        TemplateFile::from_str("./Project.toml.hbs")
+        TemplateFile::from_path_str("./Project.toml.hbs")
     }
 
     pub fn default_version() -> Version {

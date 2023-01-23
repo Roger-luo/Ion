@@ -27,7 +27,7 @@ pub struct Citation {
 
 impl Citation {
     pub fn default_template() -> TemplateFile {
-        TemplateFile::from_str("./CITATION.cff.hbs")
+        TemplateFile::from_path_str("./CITATION.cff.hbs")
     }
 
     pub fn default_readme() -> bool {

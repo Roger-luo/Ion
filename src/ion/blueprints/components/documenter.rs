@@ -21,15 +21,15 @@ pub struct Documenter {
 
 impl Documenter {
     pub fn default_make_jl() -> TemplateFile {
-        TemplateFile::from_str("docs/make.jl.hbs")
+        TemplateFile::from_path_str("docs/make.jl.hbs")
     }
 
     pub fn default_index_md() -> TemplateFile {
-        TemplateFile::from_str("docs/src/index.md.hbs")
+        TemplateFile::from_path_str("docs/src/index.md.hbs")
     }
 
     pub fn default_doc_project() -> TemplateFile {
-        TemplateFile::from_str("docs/Project.toml.hbs")
+        TemplateFile::from_path_str("docs/Project.toml.hbs")
     }
 
     pub fn default_ignore() -> Vec<String> {

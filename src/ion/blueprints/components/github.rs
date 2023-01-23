@@ -63,7 +63,7 @@ pub struct CI {
 
 impl CI {
     fn default_template() -> TemplateFile {
-        TemplateFile::from_str("github/workflows/CI.yml.hbs")
+        TemplateFile::from_path_str("github/workflows/CI.yml.hbs")
     }
 }
 
@@ -75,7 +75,7 @@ pub struct TagBot {
 
 impl TagBot {
     fn default_template() -> TemplateFile {
-        TemplateFile::from_str("github/workflows/TagBot.yml")
+        TemplateFile::from_path_str("github/workflows/TagBot.yml")
     }
 }
 
@@ -87,14 +87,14 @@ pub struct CompatHelper {
 
 impl CompatHelper {
     fn default_template() -> TemplateFile {
-        TemplateFile::from_str("github/workflows/CompatHelper.yml")
+        TemplateFile::from_path_str("github/workflows/CompatHelper.yml")
     }
 }
 
 impl Default for CI {
     fn default() -> Self {
         CI {
-            template: TemplateFile::from_str("github/workflows/CI.yml.hbs"),
+            template: TemplateFile::from_path_str("github/workflows/CI.yml.hbs"),
             arch: vec!["x86".to_string(), "x64".to_string()],
             os: vec![
                 "ubuntu-latest".to_string(),
@@ -108,7 +108,7 @@ impl Default for CI {
 impl Default for TagBot {
     fn default() -> Self {
         TagBot {
-            template: TemplateFile::from_str("github/workflows/TagBot.yml"),
+            template: TemplateFile::from_path_str("github/workflows/TagBot.yml"),
         }
     }
 }
@@ -116,7 +116,7 @@ impl Default for TagBot {
 impl Default for CompatHelper {
     fn default() -> Self {
         CompatHelper {
-            template: TemplateFile::from_str("github/workflows/CompatHelper.yml"),
+            template: TemplateFile::from_path_str("github/workflows/CompatHelper.yml"),
         }
     }
 }

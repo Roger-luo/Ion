@@ -43,7 +43,7 @@ impl From<anyhow::Error> for CliError {
 
 impl From<clap::Error> for CliError {
     fn from(err: clap::Error) -> CliError {
-        let code = if err.use_stderr() { 1 } else { 0 };
+        let code = i32::from(err.use_stderr());
         CliError::new(err.into(), code)
     }
 }

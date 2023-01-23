@@ -12,7 +12,7 @@ pub struct SrcDir {
 
 impl SrcDir {
     pub fn default_template() -> TemplateFile {
-        TemplateFile::from_str("src/module.jl.hbs")
+        TemplateFile::from_path_str("src/module.jl.hbs")
     }
 }
 

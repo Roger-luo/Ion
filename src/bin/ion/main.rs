@@ -1,5 +1,5 @@
 use clap::{ArgMatches, Command};
-use env_logger;
+
 use ion::errors::{CliError, CliResult};
 
 pub mod commands;

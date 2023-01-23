@@ -27,7 +27,7 @@ impl GitRepo {
     }
 
     pub fn default_ignore() -> TemplateFile {
-        TemplateFile::from_str("./.gitignore.hbs")
+        TemplateFile::from_path_str("./.gitignore.hbs")
     }
 }
 
@@ -74,16 +74,16 @@ impl Blueprint for GitRepo {
 
         if let Some(current_branch) = git_current_branch() {
             if &current_branch != branch {
-                git_checkout(&branch)?;
+                git_checkout(branch)?;
                 git_delete_branch(&current_branch)?;
                 std::process::Command::new("git")
                     .arg("branch")
                     .arg("-m")
-                    .arg(&branch)
+                    .arg(branch)
                     .status()?;
             }
         } else {
-            git_checkout(&branch)?;
+            git_checkout(branch)?;
         }
 
         debug!("git remote add origin {}", remote);

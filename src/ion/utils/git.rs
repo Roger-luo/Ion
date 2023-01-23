@@ -20,7 +20,6 @@ pub fn current_branch(path: &PathBuf) -> Result<String, Error> {
         .arg("HEAD")
         .current_dir(path)
         .read_command()
-        .into()
 }
 
 pub fn isdirty(path: &PathBuf) -> Result<bool, Error> {
@@ -58,7 +57,7 @@ pub fn pull(path: &PathBuf) -> Result<(), Error> {
     let p = Command::new("git").arg("pull").current_dir(path).status()?;
 
     if p.success() {
-        return Ok(());
+        Ok(())
     } else {
         return Err(format_err!("Failed to pull"));
     }
@@ -68,7 +67,7 @@ pub fn push(path: &PathBuf) -> Result<(), Error> {
     let p = Command::new("git").arg("push").current_dir(path).status()?;
 
     if p.success() {
-        return Ok(());
+        Ok(())
     } else {
         return Err(format_err!("Failed to push"));
     }
