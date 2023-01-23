@@ -18,13 +18,14 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
 
     let gen = quote!{
         use log::debug;
+        use anyhow::Result;
         use crate::utils::template_dir;
 
         #context_expr
 
         impl #name {
-            pub fn from_name(name: &String) -> Result<Self, anyhow::Error> {
-                let mut template = template_dir();
+            pub fn from_name(name: &String) -> Result<Self> {
+                let mut template = template_dir()?;
                 template.push(name);
                 template.push("template.toml");
 
@@ -34,7 +35,7 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
                 Ok(template)
             }
 
-            pub fn render(&self, ctx: &mut Context) -> Result<(), anyhow::Error> {
+            pub fn render(&self, ctx: &mut Context) -> Result<()> {
                 let old_pwd = std::env::current_dir()?;
                 std::env::set_current_dir(&*ctx.project.path)?;
 
@@ -51,22 +52,22 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
                 Ok(())
             }
 
-            pub fn collect(&self, ctx: &mut Context) -> Result<(), anyhow::Error> {
+            pub fn collect(&self, ctx: &mut Context) -> Result<()> {
                 #collect
                 Ok(())
             }
 
-            pub fn prompt(&self, ctx: &mut Context) -> Result<(), anyhow::Error> {
+            pub fn prompt(&self, ctx: &mut Context) -> Result<()> {
                 #prompt
                 Ok(())
             }
 
-            pub fn post_render(&self, ctx: &Context) -> Result<(), anyhow::Error> {
+            pub fn post_render(&self, ctx: &Context) -> Result<()> {
                 #post_render
                 Ok(())
             }
 
-            pub fn validate(&self, ctx: &Context) -> Result<(), anyhow::Error> {
+            pub fn validate(&self, ctx: &Context) -> Result<()> {
                 #validate
                 Ok(())
             }

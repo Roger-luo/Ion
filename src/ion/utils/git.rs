@@ -59,10 +59,7 @@ pub fn commit(path: &PathBuf, msg: &str) -> Result<Output, Error> {
 }
 
 pub fn pull(path: &PathBuf) -> Result<Output, Error> {
-    let output = Command::new("git")
-        .arg("pull")
-        .current_dir(path)
-        .output()?;
+    let output = Command::new("git").arg("pull").current_dir(path).output()?;
 
     if output.status.success() {
         Ok(output)
@@ -72,8 +69,7 @@ pub fn pull(path: &PathBuf) -> Result<Output, Error> {
 }
 
 pub fn push(path: &PathBuf) -> Result<Output, Error> {
-    let output = Command::new("git")
-        .arg("push").current_dir(path).output()?;
+    let output = Command::new("git").arg("push").current_dir(path).output()?;
 
     if output.status.success() {
         Ok(output)

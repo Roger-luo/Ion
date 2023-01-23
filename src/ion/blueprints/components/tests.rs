@@ -7,24 +7,24 @@ pub struct Info;
 #[derive(Debug, Deserialize)]
 pub struct ProjectTest {
     #[serde(default = "ProjectTest::default_template")]
-    template: TemplateFile,
+    template: String,
     #[serde(default = "ProjectTest::default_project")]
-    project: TemplateFile,
+    project: String,
 }
 
 impl ProjectTest {
-    pub fn default_template() -> TemplateFile {
-        TemplateFile::from_path_str("tests/runtests.jl.hbs")
+    pub fn default_template() -> String {
+        "tests/runtests.jl.hbs".into()
     }
 
-    pub fn default_project() -> TemplateFile {
-        TemplateFile::from_path_str("tests/Project.toml.hbs")
+    pub fn default_project() -> String {
+        "tests/Project.toml.hbs".into()
     }
 }
 
 impl Blueprint for ProjectTest {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "runtests.jl")?;
-        self.project.render(ctx, "Project.toml")
+        self.template.as_template()?.render(ctx, "runtests.jl")?;
+        self.project.as_template()?.render(ctx, "Project.toml")
     }
 }

@@ -21,7 +21,7 @@ pub fn cli() -> Command {
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
     if matches.get_flag("list") {
-        list_templates();
+        list_templates()?;
         return Ok(());
     }
     let prompt = !matches.get_flag("no-interactive");

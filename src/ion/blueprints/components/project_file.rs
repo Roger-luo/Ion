@@ -11,14 +11,14 @@ pub struct Info;
 #[derive(Debug, Deserialize)]
 pub struct ProjectFile {
     #[serde(default = "ProjectFile::default_template")]
-    template: TemplateFile,
+    template: String,
     #[serde(default = "ProjectFile::default_version")]
     version: Version,
 }
 
 impl ProjectFile {
-    pub fn default_template() -> TemplateFile {
-        TemplateFile::from_path_str("./Project.toml.hbs")
+    pub fn default_template() -> String {
+        "./Project.toml.hbs".into()
     }
 
     pub fn default_version() -> Version {
@@ -28,7 +28,7 @@ impl ProjectFile {
 
 impl Blueprint for ProjectFile {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "Project.toml")
+        self.template.as_template()?.render(ctx, "Project.toml")
     }
 
     fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {

@@ -8,14 +8,14 @@ pub struct Info;
 #[derive(Debug, Deserialize)]
 pub struct Readme {
     #[serde(default = "Readme::default_template")]
-    template: TemplateFile,
+    template: String,
     #[serde(default = "Readme::default_inline_badge")]
     pub inline_badge: bool,
 }
 
 impl Readme {
-    pub fn default_template() -> TemplateFile {
-        TemplateFile::from_path_str("./README.md.hbs")
+    pub fn default_template() -> String {
+        "./README.md.hbs".into()
     }
 
     pub fn default_inline_badge() -> bool {
@@ -25,7 +25,7 @@ impl Readme {
 
 impl Blueprint for Readme {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "README.md")
+        self.template.as_template()?.render(ctx, "README.md")
     }
 
     fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {

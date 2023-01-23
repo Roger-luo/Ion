@@ -1,6 +1,6 @@
 use super::Context;
 use crate::utils::{components_dir, resources_dir};
-use anyhow::{format_err, Error};
+use anyhow::{format_err, Result};
 use handlebars::Handlebars;
 use log::debug;
 use serde_derive::Deserialize;
@@ -10,50 +10,27 @@ use std::path::{self, PathBuf};
 
 #[derive(Debug, Deserialize)]
 pub struct TemplateFile {
-    #[serde(default = "TemplateFile::default_root")]
     pub root: PathBuf,
     pub path: PathBuf,
     pub file: String,
 }
 
 impl TemplateFile {
-    pub fn default_root() -> PathBuf {
-        components_dir()
-    }
-
-    pub fn from_path_str(path: &str) -> TemplateFile {
-        let path = PathBuf::from(path);
-        TemplateFile::from_path(path)
-    }
-
-    pub fn from_path(path: PathBuf) -> TemplateFile {
-        let nlevels = path.components().count();
-        assert!(
-            nlevels > 1,
-            "Template file path must have at \
-            least one directory in path, can be '.'"
-        );
-        let file = path.file_name().unwrap().to_str().unwrap().to_string();
-        let path = path.parent().unwrap();
-        TemplateFile {
-            root: components_dir(),
-            path: path.to_path_buf(),
-            file,
+    pub fn root(&self) -> Result<PathBuf> {
+        if self.root.is_relative() {
+            Ok(resources_dir()?.join(&self.root))
+        } else {
+            Ok(self.root.to_owned())
         }
     }
 
-    pub fn to_path_buf(&self) -> PathBuf {
-        let root = if self.root.is_relative() {
-            resources_dir().join(&self.root)
-        } else {
-            self.root.to_owned()
-        };
-        root.join(&self.path).join(&self.file)
+    pub fn to_path_buf(&self) -> Result<PathBuf> {
+        Ok(self.root()?.join(&self.path).join(&self.file))
     }
 
-    pub fn read_source(&self) -> Result<String, Error> {
+    pub fn read_source(&self) -> Result<String> {
         debug!("reading template:\n {:#?}", self);
-        let path: PathBuf = self.to_path_buf();
+        let path: PathBuf = self.to_path_buf()?;
         if !path.is_file() {
             return Err(format_err!("Template file not found: {}", path.display()));
         }
@@ -63,7 +40,7 @@ impl TemplateFile {
         Ok(source)
     }
 
-    pub fn write(&self, content: &String, ctx: &Context, name: &str) -> Result<(), Error> {
+    pub fn write(&self, content: &String, ctx: &Context, name: &str) -> Result<()> {
         if name.contains(path::MAIN_SEPARATOR) {
             return Err(format_err!(
                 "target file name cannot contain path separator: {}",
@@ -79,12 +56,12 @@ impl TemplateFile {
         Ok(())
     }
 
-    pub fn copy(&self, ctx: &Context, name: &str) -> Result<(), Error> {
+    pub fn copy(&self, ctx: &Context, name: &str) -> Result<()> {
         self.read_source()
             .and_then(|source| self.write(&source, ctx, name))
     }
 
-    pub fn render(&self, ctx: &Context, name: &str) -> Result<(), Error> {
+    pub fn render(&self, ctx: &Context, name: &str) -> Result<()> {
         if name.contains(path::MAIN_SEPARATOR) {
             return Err(format_err!(
                 "target file name cannot contain path separator: {}",
@@ -112,6 +89,56 @@ impl TemplateFile {
 
 impl Display for TemplateFile {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.path.display())
+        write!(
+            f,
+            "{}:{}",
+            self.root.display(),
+            self.path.join(&self.file).display()
+        )
+    }
+}
+
+pub trait AsTemplate {
+    fn as_template(&self) -> Result<TemplateFile>;
+}
+
+impl<T: Display> AsTemplate for T {
+    fn as_template(&self) -> Result<TemplateFile> {
+        let path = self.to_string();
+        let components = path.split(':').collect::<Vec<_>>();
+        let (root, path) = if components.len() == 2 {
+            let root = components[0].parse::<PathBuf>()?;
+            let path = components[1].parse::<PathBuf>()?;
+            (root, path)
+        } else if components.len() == 1 {
+            let root = components_dir()?;
+            let path = components[0].parse::<PathBuf>()?;
+            (root, path)
+        } else {
+            return Err(format_err!("Invalid template string syntax: {}", path));
+        };
+
+        if path.components().count() < 2 {
+            return Err(format_err!(
+                "Template file path must have at \
+                least one directory in path, can be '.'"
+            ));
+        }
+
+        let file = path
+            .file_name()
+            .ok_or_else(|| format_err!("Template file path must have a file name"))?
+            .to_str()
+            .ok_or_else(|| format_err!("encountered non-utf8 path"))?
+            .to_string();
+        let path = path
+            .parent()
+            .ok_or_else(|| format_err!("the path terminates in a root or prefix"))?;
+
+        Ok(TemplateFile {
+            root,
+            path: path.to_path_buf(),
+            file,
+        })
     }
 }

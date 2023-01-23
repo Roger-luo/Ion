@@ -7,18 +7,20 @@ pub struct Info;
 #[derive(Debug, Deserialize)]
 pub struct SrcDir {
     #[serde(default = "SrcDir::default_template")]
-    template: TemplateFile,
+    template: String,
 }
 
 impl SrcDir {
-    pub fn default_template() -> TemplateFile {
-        TemplateFile::from_path_str("src/module.jl.hbs")
+    pub fn default_template() -> String {
+        "src/module.jl.hbs".into()
     }
 }
 
 impl Blueprint for SrcDir {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
         let module = ctx.project.name.to_owned();
-        self.template.render(ctx, format!("{}.jl", module).as_str())
+        self.template
+            .as_template()?
+            .render(ctx, format!("{}.jl", module).as_str())
     }
 }

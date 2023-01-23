@@ -52,13 +52,11 @@ impl ReleaseHandler {
 
         let path_to_repo = git::get_toplevel_path(&path_to_project)?;
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
-        let latest_ver = match find::maximum_version(
-            project.name.as_ref().unwrap(),
-            &self.registry_name,
-        ) {
-            Ok(ver) => Some(ver),
-            Err(_) => None,
-        };
+        let latest_ver =
+            match find::maximum_version(project.name.as_ref().unwrap(), &self.registry_name) {
+                Ok(ver) => Some(ver),
+                Err(_) => None,
+            };
 
         if git::isdirty(&path_to_repo)? {
             return Err(format_err!("The repository is dirty"));
@@ -138,7 +136,9 @@ impl ReleaseHandler {
         let registry_name = self.registry_name.to_owned();
 
         eprintln!("{}: {}", "          project".cyan(), project_name);
-        if let Some(b) = self.branch.as_ref() { eprintln!("{}: {}", "           branch".cyan(), b) }
+        if let Some(b) = self.branch.as_ref() {
+            eprintln!("{}: {}", "           branch".cyan(), b)
+        }
         eprintln!("{}: {}", "         registry".cyan(), registry_name);
         if let Some(latest) = latest_version {
             if latest == version {

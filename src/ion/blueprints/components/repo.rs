@@ -18,7 +18,7 @@ pub struct GitRepo {
     #[serde(default = "GitRepo::default_suffix")]
     suffix: String,
     #[serde(default = "GitRepo::default_ignore")]
-    ignore: TemplateFile,
+    ignore: String,
 }
 
 impl GitRepo {
@@ -26,8 +26,8 @@ impl GitRepo {
         ".jl".to_string()
     }
 
-    pub fn default_ignore() -> TemplateFile {
-        TemplateFile::from_path_str("./.gitignore.hbs")
+    pub fn default_ignore() -> String {
+        "./.gitignore.hbs".into()
     }
 }
 
@@ -65,7 +65,7 @@ impl Blueprint for GitRepo {
     // 4. git branch -D main
     // 5. git branch -m <branch>
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.ignore.render(ctx, ".gitignore")?;
+        self.ignore.as_template()?.render(ctx, ".gitignore")?;
         let repo = ctx.repo.as_ref().unwrap();
         let remote = &repo.remote;
         let branch = &repo.branch;

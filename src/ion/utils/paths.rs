@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::path::{Component, Path, PathBuf};
 
 // from cargo:utils/paths.rs
@@ -28,26 +29,21 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
-pub fn resources_dir() -> PathBuf {
-    if cfg!(debug_assertions) {
-        let mut template = PathBuf::new();
-        template.push(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-        template.push("resources");
-        template
-    } else {
-        let mut template = PathBuf::new();
-        template.push(dirs::config_dir().unwrap());
-        template.push("ion");
-        template
-    }
+pub fn resources_dir() -> Result<PathBuf> {
+    Ok(std::env::current_exe()?
+        .parent()
+        .ok_or_else(|| {
+            anyhow::anyhow!("Could not find the parent directory of the current executable")
+        })?
+        .join("resources"))
 }
 
-pub fn components_dir() -> PathBuf {
-    let path = resources_dir();
-    path.join("components")
+pub fn components_dir() -> Result<PathBuf> {
+    let path = resources_dir()?;
+    Ok(path.join("components"))
 }
 
-pub fn template_dir() -> PathBuf {
-    let path = resources_dir();
-    path.join("templates")
+pub fn template_dir() -> Result<PathBuf> {
+    let path = resources_dir()?;
+    Ok(path.join("templates"))
 }

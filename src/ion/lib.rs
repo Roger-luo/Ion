@@ -1,7 +1,7 @@
 pub mod blueprints;
 pub mod errors;
-pub mod spec;
 pub mod release;
+pub mod spec;
 pub mod utils;
 
 pub use blueprints::{Context, Template};

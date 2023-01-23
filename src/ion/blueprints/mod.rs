@@ -9,7 +9,7 @@ pub mod utils;
 
 pub use badge::{Badge, Badgeable};
 pub use blueprint::{Blueprint, RenderResult};
-pub use file::TemplateFile;
+pub use file::{AsTemplate, TemplateFile};
 pub use info::*;
 pub use template::*;
 pub use utils::*;

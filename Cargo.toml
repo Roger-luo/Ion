@@ -7,10 +7,9 @@ description = "a CLI toolbox for Julia developer"
 
 [profile.release]
 lto = true
-codegen-units = 1
 
 [package.metadata.bundle]
-identifier = "org.julialang.ion"
+identifier = "dev.rogerluo.ion"
 resources = ["resources/*"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

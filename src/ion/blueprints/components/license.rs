@@ -13,14 +13,7 @@ pub struct Info {
 
 #[derive(Debug, Deserialize)]
 pub struct License {
-    #[serde(default = "License::default_template_dir")]
-    template_dir: PathBuf,
-}
-
-impl License {
-    pub fn default_template_dir() -> PathBuf {
-        components_dir().join("licenses")
-    }
+    template_dir: Option<PathBuf>,
 }
 
 impl Blueprint for License {
@@ -46,9 +39,13 @@ impl Blueprint for License {
     }
 
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+        let root = match &self.template_dir {
+            Some(dir) => dir.to_owned(),
+            None => components_dir()?.join("licenses"),
+        };
         let license = ctx.license.as_ref().unwrap().name.to_owned();
         TemplateFile {
-            root: self.template_dir.to_owned(),
+            root,
             path: PathBuf::from("."),
             file: license + ".hbs",
         }

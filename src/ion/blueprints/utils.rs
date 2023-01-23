@@ -1,10 +1,10 @@
 use crate::blueprints::*;
 use crate::utils::template_dir;
-use anyhow::{format_err, Error};
+use anyhow::{format_err, Error, Result};
 use dialoguer::{Confirm, Input};
 use std::process::Command;
 
-pub fn git_get_user() -> Result<(String, String), Error> {
+pub fn git_get_user() -> Result<(String, String)> {
     let user = if let Some(name) = git_config_get("user.name") {
         name
     } else {
@@ -19,7 +19,7 @@ pub fn git_get_user() -> Result<(String, String), Error> {
     Ok((user, email))
 }
 
-pub fn prompt_for_authors() -> Result<Vec<Author>, Error> {
+pub fn prompt_for_authors() -> Result<Vec<Author>> {
     let mut authors = Vec::<Author>::new();
     authors.push(promot_for_an_author()?);
     while Confirm::new()
@@ -47,7 +47,7 @@ pub fn prompt_for_authors() -> Result<Vec<Author>, Error> {
     Ok(authors)
 }
 
-fn promot_for_an_author() -> Result<Author, Error> {
+fn promot_for_an_author() -> Result<Author> {
     let firstname = Input::<String>::new()
         .with_prompt("firstname")
         .allow_empty(false)
@@ -82,14 +82,26 @@ fn promote_for_author_field(field: &str) -> Option<String> {
     }
 }
 
-pub fn list_templates() {
-    template_dir().read_dir().unwrap().for_each(|entry| {
-        let entry = entry.unwrap();
+pub fn list_templates() -> Result<()> {
+    let templates = template_dir()?.read_dir()?;
+
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
         let path = entry.path();
         if path.is_dir() {
-            let template: Template =
-                toml::from_str(&std::fs::read_to_string(path.join("template.toml")).unwrap())
-                    .unwrap();
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
             println!(
                 "
 {}
@@ -97,10 +109,11 @@ pub fn list_templates() {
                 template.name, template.description
             );
         }
-    });
+    }
+    Ok(())
 }
 
-pub fn julia_version() -> Result<String, Error> {
+pub fn julia_version() -> Result<String> {
     let output = Command::new("julia").arg("--version").output();
 
     match output {
@@ -142,7 +155,7 @@ pub fn git_current_branch() -> Option<String> {
     None
 }
 
-pub fn git_checkout(branch: &String) -> Result<(), Error> {
+pub fn git_checkout(branch: &String) -> Result<()> {
     std::process::Command::new("git")
         .arg("checkout")
         .arg("-b")
@@ -151,7 +164,7 @@ pub fn git_checkout(branch: &String) -> Result<(), Error> {
     Ok(())
 }
 
-pub fn git_delete_branch(branch: &String) -> Result<(), Error> {
+pub fn git_delete_branch(branch: &String) -> Result<()> {
     std::process::Command::new("git")
         .arg("branch")
         .arg("-D")

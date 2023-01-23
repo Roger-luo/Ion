@@ -20,14 +20,14 @@ pub struct Info {
 #[derive(Debug, Deserialize)]
 pub struct Citation {
     #[serde(default = "Citation::default_template")]
-    template: TemplateFile,
+    template: String,
     #[serde(default = "Citation::default_readme")]
     readme: bool,
 }
 
 impl Citation {
-    pub fn default_template() -> TemplateFile {
-        TemplateFile::from_path_str("./CITATION.cff.hbs")
+    pub fn default_template() -> String {
+        "./CITATION.cff.hbs".to_string()
     }
 
     pub fn default_readme() -> bool {
@@ -110,6 +110,6 @@ impl Blueprint for Citation {
     }
 
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.template.render(ctx, "CITATION.cff")
+        self.template.as_template()?.render(ctx, "CITATION.cff")
     }
 }

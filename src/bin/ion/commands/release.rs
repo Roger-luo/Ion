@@ -83,10 +83,12 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         }
     }
 
-    if !dont_ask_again && !Confirm::new()
+    if !dont_ask_again
+        && !Confirm::new()
             .with_prompt("do you want to release this version?")
             .default(true)
-            .interact()? {
+            .interact()?
+    {
         return Err(anyhow::format_err!("release cancelled").into());
     }
 

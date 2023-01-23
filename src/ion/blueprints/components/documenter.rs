@@ -10,26 +10,26 @@ pub struct Info;
 #[derive(Debug, Deserialize)]
 pub struct Documenter {
     #[serde(default = "Documenter::default_make_jl")]
-    make_jl: TemplateFile,
+    make_jl: String,
     #[serde(default = "Documenter::default_index_md")]
-    index_md: TemplateFile,
+    index_md: String,
     #[serde(default = "Documenter::default_doc_project")]
-    doc_project: TemplateFile,
+    doc_project: String,
     #[serde(default = "Documenter::default_ignore")]
     ignore: Vec<String>,
 }
 
 impl Documenter {
-    pub fn default_make_jl() -> TemplateFile {
-        TemplateFile::from_path_str("docs/make.jl.hbs")
+    pub fn default_make_jl() -> String {
+        "docs/make.jl.hbs".into()
     }
 
-    pub fn default_index_md() -> TemplateFile {
-        TemplateFile::from_path_str("docs/src/index.md.hbs")
+    pub fn default_index_md() -> String {
+        "docs/src/index.md.hbs".into()
     }
 
-    pub fn default_doc_project() -> TemplateFile {
-        TemplateFile::from_path_str("docs/Project.toml.hbs")
+    pub fn default_doc_project() -> String {
+        "docs/Project.toml.hbs".into()
     }
 
     pub fn default_ignore() -> Vec<String> {
@@ -53,9 +53,11 @@ impl Blueprint for Documenter {
     }
 
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        self.make_jl.render(ctx, "make.jl")?;
-        self.index_md.render(ctx, "index.md")?;
-        self.doc_project.render(ctx, "Project.toml")?;
+        self.make_jl.as_template()?.render(ctx, "make.jl")?;
+        self.index_md.as_template()?.render(ctx, "index.md")?;
+        self.doc_project
+            .as_template()?
+            .render(ctx, "Project.toml")?;
 
         if let Err(e) = format!(
             "using Pkg; Pkg.develop({})",
