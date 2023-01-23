@@ -3,43 +3,33 @@ use crate::{
     utils::{current_root_project, find, git},
     JuliaProject,
 };
-use anyhow::{format_err, Error};
+use dialoguer::Confirm;
+use anyhow::{format_err, Result};
 use colorful::Colorful;
 use node_semver::Version;
 use std::path::PathBuf;
 
-pub struct ReleaseHandler {
-    version_spec: VersionSpec, // version spec
-    registry_name: String,     // registry name
+// user inputs
 
-    project: Option<JuliaProject>,
-    toml: Option<PathBuf>,
-    latest: Option<Version>,
-    repo: Option<PathBuf>,   // path to the git repo
-    subdir: Option<PathBuf>, // subdir to the package
-    branch: Option<String>,  // branch to release
+#[derive(Debug, Clone)]
+pub struct Release {
+    pub version_spec: VersionSpec,
+    pub registry_name: String,
 
-    note: Option<String>,                // release note
-    version_to_release: Option<Version>, // version to release
+    // inferred
+    pub project: JuliaProject,
+    pub project_toml: PathBuf,
+    pub path_to_repo: PathBuf,
+    pub latest_version: Option<Version>,
+    pub subdir: Option<PathBuf>,
+
+    // optional
+    pub branch: Option<String>,
+    pub note: Option<String>, // release note
 }
 
-impl ReleaseHandler {
-    pub fn new(version_spec: VersionSpec, registry_name: impl AsRef<str>) -> Self {
-        Self {
-            version_spec,
-            registry_name: registry_name.as_ref().to_string(),
-            project: None,
-            toml: None,
-            latest: None,
-            repo: None,
-            subdir: None,
-            branch: None,
-            note: None,
-            version_to_release: None,
-        }
-    }
-
-    pub fn path(&mut self, path: PathBuf) -> Result<&mut Self, Error> {
+impl Release {
+    pub fn plan(path: PathBuf, version_spec: VersionSpec, registry_name: impl AsRef<str>) -> Result<Release> {
         let (project, toml) = match current_root_project(path) {
             Some((project, path)) => (project, path),
             None => return Err(format_err!("No Project.toml found")),
@@ -53,7 +43,7 @@ impl ReleaseHandler {
         let path_to_repo = git::get_toplevel_path(&path_to_project)?;
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
         let latest_ver =
-            match find::maximum_version(project.name.as_ref().unwrap(), &self.registry_name) {
+            match find::maximum_version(project.name.as_ref().unwrap(), registry_name.as_ref()) {
                 Ok(ver) => Some(ver),
                 Err(_) => None,
             };
@@ -62,86 +52,168 @@ impl ReleaseHandler {
             return Err(format_err!("The repository is dirty"));
         }
 
-        self.project = Some(project);
-        self.latest = latest_ver;
-        self.toml = Some(toml);
-        self.repo = Some(path_to_repo);
-        self.subdir = Some(subdir.into());
+        Ok(Release {
+            version_spec,
+            registry_name: registry_name.as_ref().to_string(),
+            branch: None,
+            project,
+            project_toml: toml,
+            path_to_repo,
+            subdir: Some(subdir.to_path_buf()),
+            latest_version: latest_ver,
+            note: None,
+        })
+    }
+
+    pub fn get_branch(&self) -> Result<String> {
+        match self.branch {
+            Some(ref branch) => Ok(branch.clone()),
+            None => Ok(git::current_branch(&self.path_to_repo)?),
+        }
+    }
+
+    pub fn ask_branch(&mut self) -> Result<&mut Self> {
+        let current_branch = git::current_branch(&self.path_to_repo)?;
+        let default_branch = git::default_branch(&self.path_to_repo)?;
+        let branch = match self.branch {
+            Some(ref branch) => branch.clone(),
+            None => {
+                let branch = dialoguer::Input::new()
+                    .with_prompt("Branch to release")
+                    .default(current_branch)
+                    .show_default(true)
+                    .interact()?;
+                branch
+            }
+        };
+
+        if branch != default_branch {
+            let confirm = dialoguer::Confirm::new()
+                .with_prompt(format!(
+                    "You are not on the default branch ({})",
+                    default_branch
+                ))
+                .interact()?;
+            if !confirm {
+                return Err(format_err!("Aborted"));
+            }
+        }
+
+        self.branch = Some(branch);
         Ok(self)
     }
 
-    pub fn branch<S: ToString>(&mut self, branch: S) -> &mut Self {
-        self.branch = Some(branch.to_string());
-        self
+    pub fn ask_note(&mut self) -> Result<&mut Self> {
+        if let Some(note) = dialoguer::Editor::new()
+                .extension("md")
+                .edit("your release note")? {
+            self.note = Some(note);
+        } else {
+            println!("Abort!");
+        }
+        Ok(self)
     }
 
-    pub fn note<S: ToString>(&mut self, note: S) -> &mut Self {
-        self.note = Some(note.to_string());
-        self
+    pub fn handle(&mut self) -> ReleaseHandler {
+        ReleaseHandler {
+            info: self,
+            version_bump_sha: None,
+            version_to_release: None,
+            final_confirm: true,
+            revert_changes: false,
+        }
     }
 
-    pub fn update_version(&mut self) -> Result<&mut Self, Error> {
-        let version = self.get_version()?;
-        let version_to_release = self.version_spec.update_version(version);
+    pub fn get_version(&self) -> Result<Version> {
+        let version = self.project.version.as_ref().ok_or(format_err!("No version found"))?;
+        Ok(version.clone())
+    }
+}
+
+pub struct ReleaseHandler<'a> {
+    info: &'a Release,
+    version_bump_sha: Option<String>, // commit sha of version bump
+    version_to_release: Option<Version>, // version to release
+    final_confirm: bool,
+    revert_changes: bool,
+}
+
+impl ReleaseHandler<'_> {
+    pub fn figure_release_version(&mut self) -> Result<&mut Self> {
+        let version = self.info.get_version()?;
+        let version_to_release = self.info.version_spec.update_version(&version);
         self.version_to_release = Some(version_to_release);
         Ok(self)
     }
 
-    pub fn set_release_version(&mut self, version: Version) -> &mut Self {
-        self.version_to_release = Some(version);
-        self
+    pub fn ask_about_current_version(&mut self) -> Result<&mut Self> {
+        if self.current_larger_than_latest()? {
+            if self.is_current_continuously_greater()? {
+                // confirm from user
+                // update release version to current
+                // print report again
+                eprintln!(
+                    "{}: current version ({}) is a valid release version \
+                    and is not released yet",
+                    "warning".yellow().bold(),
+                    self.info.get_version()?,
+                );
+                if Confirm::new()
+                    .with_prompt("do you want to release current version?")
+                    .interact()?
+                {
+                    self.version_to_release = Some(self.info.get_version()?.clone());
+                    self.report()?;
+                } else {
+                    return Err(anyhow::format_err!("release cancelled").into());
+                }
+            } else {
+                return Err(anyhow::format_err!("current version is not a registered version").into());
+            }
+        }
+
+        Ok(self)
     }
 
-    pub fn get_branch(&self) -> Result<&String, Error> {
-        self.branch
-            .as_ref()
-            .ok_or_else(|| format_err!("No branch found"))
+    pub fn ask_about_new_package(&mut self) -> Result<&mut Self> {
+        if self.not_registered() {
+            eprintln!("{}: this package is not registered yet", "warning".yellow().bold());
+            self.confirm_release()?;
+        }
+        Ok(self)
     }
 
-    pub fn get_project(&self) -> Result<&JuliaProject, Error> {
-        self.project
-            .as_ref()
-            .ok_or_else(|| format_err!("No project found"))
+    pub fn confirm_release(&mut self) -> Result<&mut Self> {
+        if self.final_confirm {
+            if !Confirm::new()
+                    .with_prompt("do you want to register this version?")
+                    .default(true)
+                    .show_default(true)
+                    .interact()? {
+                return Err(anyhow::format_err!("release cancelled").into());
+            }
+            self.final_confirm = false;
+        }
+        Ok(self)
     }
 
-    pub fn get_version(&self) -> Result<&Version, Error> {
-        self.get_project()?
-            .version
-            .as_ref()
-            .ok_or_else(|| format_err!("No version found"))
-    }
-
-    pub fn get_release_version(&self) -> Result<&Version, Error> {
-        self.version_to_release
-            .as_ref()
-            .ok_or_else(|| format_err!("No version to release found"))
-    }
-
-    pub fn get_latest_version(&self) -> Option<&Version> {
-        self.latest.as_ref()
-    }
-
-    pub fn get_project_name(&self) -> Result<&String, Error> {
-        self.get_project()?
-            .name
-            .as_ref()
-            .ok_or_else(|| format_err!("No project name found"))
-    }
-
-    pub fn report(&mut self) -> Result<&mut Self, Error> {
-        let project_name = self.get_project_name()?.to_owned();
-        let version = self.get_version()?;
-        let latest_version = self.get_latest_version();
-        let release_version = self.get_release_version()?.to_string();
-        let registry_name = self.registry_name.to_owned();
+    pub fn report(&mut self) -> Result<&mut Self> {
+        let project_name = self.info.project.name.as_ref().ok_or(format_err!("No name found"))?;
+        let version = self.info.get_version()?;
+        let latest_version = &self.info.latest_version;
+        let release_version = match &self.version_to_release {
+            Some(v) => v,
+            None => return Err(format_err!("No release version found")),
+        };
+        let registry_name = self.info.registry_name.to_owned();
 
         eprintln!("{}: {}", "          project".cyan(), project_name);
-        if let Some(b) = self.branch.as_ref() {
+        if let Some(b) = self.info.branch.as_ref() {
             eprintln!("{}: {}", "           branch".cyan(), b)
         }
         eprintln!("{}: {}", "         registry".cyan(), registry_name);
         if let Some(latest) = latest_version {
-            if latest == version {
+            if latest == &version {
                 eprintln!("{}: {}", "latest/current version".cyan(), latest);
             } else {
                 eprintln!("{}: {}", "   latest version".blue(), latest);
@@ -154,51 +226,49 @@ impl ReleaseHandler {
         Ok(self)
     }
 
-    pub fn not_registered(&self) -> Result<bool, Error> {
-        match self.get_latest_version() {
-            Some(_) => Ok(false),
-            None => Ok(true),
-        }
+    pub fn not_registered(&self) -> bool {
+        self.info.latest_version.is_none()
     }
 
-    pub fn current_larger_than_latest(&self) -> Result<bool, Error> {
-        let ver = self.get_version()?;
-        match self.get_latest_version() {
-            Some(latest) => Ok(ver > latest),
+    pub fn current_larger_than_latest(&self) -> Result<bool> {
+        let ver = self.info.get_version()?;
+        match &self.info.latest_version {
+            Some(latest) => Ok(&ver > latest),
             None => Ok(false),
         }
     }
 
-    pub fn is_current_continuously_greater(&self) -> Result<bool, Error> {
-        let ver = self.get_version()?;
-        match self.get_latest_version() {
-            Some(latest) => Ok(is_version_continuously_greater(latest, ver)),
+    pub fn is_current_continuously_greater(&self) -> Result<bool> {
+        let ver = self.info.get_version()?;
+        match &self.info.latest_version {
+            Some(latest) => Ok(is_version_continuously_greater(&latest, &ver)),
             None => Ok(true),
         }
     }
 
-    pub fn sync_with_remote(&self) -> Result<&Self, Error> {
-        let repo = self
-            .repo
-            .as_ref()
-            .ok_or_else(|| format_err!("repo not found"))?;
+    pub fn sync_with_remote(&mut self) -> Result<&mut Self> {
+        let repo = &self.info.path_to_repo;
         git::pull(repo)?;
         git::push(repo)?;
         Ok(self)
     }
 
-    pub fn write_project(&self) -> Result<&Self, Error> {
-        match self.version_spec {
+    pub fn write_project(&mut self) -> Result<&mut Self> {
+        match self.info.version_spec {
             VersionSpec::Current => {} // do nothing
             _ => {
-                self.get_project()?.write(self.toml.as_ref().unwrap())?;
+                self.info.project.write(&self.info.project_toml)?;
             }
         }
         Ok(self)
     }
 
-    pub fn commit_changes(&self) -> Result<&Self, Error> {
-        match self.version_spec {
+    pub fn current_sha256(&self) -> Result<String> {
+        git::sha_256(&self.info.path_to_repo, &self.info.get_branch()?)
+    }
+
+    pub fn commit_changes(&mut self) -> Result<&mut Self> {
+        match self.info.version_spec {
             VersionSpec::Current => {} // do nothing
             _ => {
                 let version_to_release = self
@@ -206,17 +276,45 @@ impl ReleaseHandler {
                     .as_ref()
                     .ok_or_else(|| format_err!("No version to release found"))?;
                 let message = format!("bump version  to {}", version_to_release);
-                git::commit(self.repo.as_ref().unwrap(), &message)?;
+                git::commit(&self.info.path_to_repo, &message)?;
             }
         }
+        self.version_bump_sha = Some(self.current_sha256()?);
         Ok(self)
     }
 
-    pub fn summon_registrator(&mut self) -> Result<&mut Self, Error> {
+    pub fn summon_registrator(&mut self) -> Result<&mut Self> {
+        let watermark: String = "release via [ion](https://rogerluo.dev)\n".into();
+        let body: String = "@JuliaRegistrator register".into();
+        let body = format!("{}\n\n{}", watermark, body);
+
+        let body = match &self.info.branch {
+            Some(branch) => format!("{} branch={}", body, branch),
+            None => body,
+        };
+
+        let body = match &self.info.subdir {
+            Some(subdir) => format!("{} subdir={}", body, subdir.display()),
+            None => body,
+        };
+
+        let body = match &self.info.note {
+            Some(note) => format!("{}\n\nRelease notes:\n\n{}", body, note),
+            None => body,
+        };
+
+        let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
+        let sha = self.current_sha256()?;
+
+
+        // let octocrab = octocrab::instance();
+        // let page = octocrab
+        //     .commits(owner, repo)
+        //     .create_comment(sha, body);
         Ok(self)
     }
 
-    pub fn revert_commit(&mut self) -> Result<&mut Self, Error> {
+    pub fn revert_commit_maybe(&mut self) -> Result<&mut Self> {
         Ok(self)
     }
 }

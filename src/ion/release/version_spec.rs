@@ -1,6 +1,7 @@
 use anyhow::Error;
 use node_semver::Version;
 
+#[derive(Debug, Clone)]
 pub enum VersionSpec {
     Patch,
     Minor,
