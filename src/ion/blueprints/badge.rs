@@ -1,4 +1,4 @@
-use serde_derive::{Serialize, Deserialize};
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Badge {
@@ -9,10 +9,7 @@ pub struct Badge {
 
 impl Badge {
     pub fn render(&self) -> String {
-        format!(
-            "[![{}]({})]({})",
-            self.hover, self.image, self.link
-        )
+        format!("[![{}]({})]({})", self.hover, self.image, self.link)
     }
 }
 

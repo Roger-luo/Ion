@@ -1,6 +1,6 @@
-use dialoguer::Input;
-use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
+use dialoguer::Input;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -32,7 +32,8 @@ impl Blueprint for Readme {
         let input = Input::<String>::new()
             .with_prompt("description of the project")
             .allow_empty(true)
-            .interact_text().expect("error reading description");
+            .interact_text()
+            .expect("error reading description");
         ctx.project.description = Some(input);
         Ok(())
     }
@@ -47,9 +48,6 @@ pub struct Badge {
 
 impl Badge {
     pub fn render(&self) -> String {
-        format!(
-            "[![{}]({})]({})",
-            self.hover, self.image, self.link
-        )
+        format!("[![{}]({})]({})", self.hover, self.image, self.link)
     }
 }

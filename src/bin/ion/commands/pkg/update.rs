@@ -1,8 +1,8 @@
-use clap::{Command, arg};
+use crate::commands::pkg::package_spec_list;
 use clap::parser::ArgMatches;
+use clap::{arg, Command};
 use ion::errors::CliResult;
 use ion::utils::Julia;
-use crate::commands::pkg::package_spec_list;
 
 pub fn cli() -> Command {
     Command::new("update")
@@ -13,10 +13,7 @@ pub fn cli() -> Command {
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
     if matches.args_present() {
-        format!(
-            "using Pkg; Pkg.update([{}])",
-            package_spec_list(matches)
-        ).julia_exec()
+        format!("using Pkg; Pkg.update([{}])", package_spec_list(matches)).julia_exec()
     } else {
         "using Pkg; Pkg.update()".julia_exec()
     }

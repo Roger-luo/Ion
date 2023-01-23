@@ -1,12 +1,12 @@
-use log::debug;
-use std::io::Read;
 use super::Context;
-use std::fmt::Display;
-use handlebars::Handlebars;
-use serde_derive::Deserialize;
-use std::path::{self, PathBuf};
-use anyhow::{format_err, Error};
 use crate::utils::{components_dir, resources_dir};
+use anyhow::{format_err, Error};
+use handlebars::Handlebars;
+use log::debug;
+use serde_derive::Deserialize;
+use std::fmt::Display;
+use std::io::Read;
+use std::path::{self, PathBuf};
 
 #[derive(Debug, Deserialize)]
 pub struct TemplateFile {
@@ -28,11 +28,18 @@ impl TemplateFile {
 
     pub fn from_path(path: PathBuf) -> TemplateFile {
         let nlevels = path.components().collect::<Vec<_>>().len();
-        assert!(nlevels > 1, "Template file path must have at \
-            least one directory in path, can be '.'");
+        assert!(
+            nlevels > 1,
+            "Template file path must have at \
+            least one directory in path, can be '.'"
+        );
         let file = path.file_name().unwrap().to_str().unwrap().to_string();
         let path = path.parent().unwrap();
-        TemplateFile { root: components_dir(), path: path.to_path_buf(), file: file}
+        TemplateFile {
+            root: components_dir(),
+            path: path.to_path_buf(),
+            file: file,
+        }
     }
 
     pub fn to_path_buf(&self) -> PathBuf {
@@ -41,14 +48,12 @@ impl TemplateFile {
         } else {
             self.root.to_owned()
         };
-        root
-            .join(self.path.to_owned())
-            .join(self.file.to_owned())
+        root.join(self.path.to_owned()).join(self.file.to_owned())
     }
 
     pub fn read_source(&self) -> Result<String, Error> {
         debug!("reading template:\n {:#?}", self);
-        let path : PathBuf = self.to_path_buf();
+        let path: PathBuf = self.to_path_buf();
         if !path.is_file() {
             return Err(format_err!("Template file not found: {}", path.display()));
         }
@@ -60,7 +65,10 @@ impl TemplateFile {
 
     pub fn write(&self, content: &String, ctx: &Context, name: &str) -> Result<(), Error> {
         if name.contains(path::MAIN_SEPARATOR) {
-            return Err(format_err!("target file name cannot contain path separator: {}", name));
+            return Err(format_err!(
+                "target file name cannot contain path separator: {}",
+                name
+            ));
         }
         let dst = ctx.project.path.join(self.path.to_owned());
         if !dst.is_dir() {
@@ -72,14 +80,16 @@ impl TemplateFile {
     }
 
     pub fn copy(&self, ctx: &Context, name: &str) -> Result<(), Error> {
-        self.read_source().and_then(|source| {
-            self.write(&source, ctx, name)
-        })
+        self.read_source()
+            .and_then(|source| self.write(&source, ctx, name))
     }
 
     pub fn render(&self, ctx: &Context, name: &str) -> Result<(), Error> {
         if name.contains(path::MAIN_SEPARATOR) {
-            return Err(format_err!("target file name cannot contain path separator: {}", name));
+            return Err(format_err!(
+                "target file name cannot contain path separator: {}",
+                name
+            ));
         }
         debug!("rendering template:\n {:?}", self);
         debug!("start rendering for name: {}", name);

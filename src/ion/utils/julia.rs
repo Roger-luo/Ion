@@ -1,6 +1,6 @@
 use crate::errors::CliResult;
 use std::fmt::Display;
-use std::process::{Output, Command};
+use std::process::{Command, Output};
 
 pub struct JuliaCommand {
     cmd: Command,
@@ -34,15 +34,11 @@ impl JuliaCommand {
     }
 
     pub fn output(&mut self) -> Result<Output, std::io::Error> {
-        self.cmd
-            .arg(format!("-e {}", self.script))
-            .output()
+        self.cmd.arg(format!("-e {}", self.script)).output()
     }
 
     pub fn status(&mut self) -> Result<std::process::ExitStatus, std::io::Error> {
-        self.cmd
-            .arg(format!("-e {}", self.script))
-            .status()
+        self.cmd.arg(format!("-e {}", self.script)).status()
     }
 }
 

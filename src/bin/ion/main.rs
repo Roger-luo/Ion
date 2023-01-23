@@ -1,5 +1,5 @@
+use clap::{ArgMatches, Command};
 use env_logger;
-use clap::{Command, ArgMatches};
 use ion::errors::{CliError, CliResult};
 
 pub mod commands;
@@ -34,7 +34,7 @@ fn main() {
                 eprintln!("{}", error);
             }
             std::process::exit(exit_code)
-        },
+        }
         Ok(()) => {}
     }
 }
@@ -56,6 +56,7 @@ fn execute_subcommand(cmd: &str, matches: &ArgMatches) -> CliResult {
         return exec(matches);
     }
     Err(CliError::new(
-        anyhow::format_err!("unknown subcommand: {}", cmd),1
+        anyhow::format_err!("unknown subcommand: {}", cmd),
+        1,
     ))
 }

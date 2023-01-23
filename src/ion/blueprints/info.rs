@@ -1,6 +1,6 @@
-use std::path::PathBuf;
-use serde_derive::Serialize;
 use crate::blueprints::*;
+use serde_derive::Serialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Git {
@@ -27,19 +27,13 @@ pub struct Julia {
 impl Default for Julia {
     fn default() -> Self {
         let julia_version_str = match julia_version() {
-            Ok(version_str) => {
-                version_str[14..].to_string()
-            },
-            Err(_) => {
-                "1.6.0".to_string()
-            }
+            Ok(version_str) => version_str[14..].to_string(),
+            Err(_) => "1.6.0".to_string(),
         };
 
         let version = match node_semver::Version::parse(&julia_version_str) {
             Ok(version) => version,
-            Err(_) => {
-                node_semver::Version::parse("1.6.0").unwrap()
-            }
+            Err(_) => node_semver::Version::parse("1.6.0").unwrap(),
         };
 
         let compat = format!("{}.{}", version.major, version.minor);
@@ -66,10 +60,7 @@ pub struct Project {
 impl Project {
     pub fn new(name: String, path: PathBuf) -> Self {
         let git = if let Ok((user, email)) = git_get_user() {
-            Some(Git {
-                user,
-                email,
-            })
+            Some(Git { user, email })
         } else {
             None
         };

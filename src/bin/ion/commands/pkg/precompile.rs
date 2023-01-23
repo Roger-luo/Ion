@@ -1,7 +1,7 @@
-use clap::{arg, Command};
 use clap::parser::ArgMatches;
-use ion::utils::Julia;
+use clap::{arg, Command};
 use ion::errors::CliResult;
+use ion::utils::Julia;
 
 pub fn cli() -> Command {
     Command::new("precompile")
@@ -25,10 +25,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             .map(|s| format!("\"{}\"", s))
             .collect::<Vec<_>>()
             .join(", ");
-        format!(
-            "using Pkg; Pkg.precompile([{}]; {})",
-            packages, strict
-        ).julia_exec()
+        format!("using Pkg; Pkg.precompile([{}]; {})", packages, strict).julia_exec()
     } else {
         format!("using Pkg; Pkg.precompile(;{})", strict).julia_exec()
     }

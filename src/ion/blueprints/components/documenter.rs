@@ -1,8 +1,8 @@
-use anyhow::Ok;
-use serde_derive::{Serialize, Deserialize};
-use crate::utils::*;
 use crate::blueprints::*;
+use crate::utils::*;
 use crate::PackageSpec;
+use anyhow::Ok;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -60,7 +60,9 @@ impl Blueprint for Documenter {
         if let Err(e) = format!(
             "using Pkg; Pkg.develop({})",
             PackageSpec::from_path(&ctx.project.path)
-        ).julia_exec_project("docs") {
+        )
+        .julia_exec_project("docs")
+        {
             return Err(e.error.unwrap());
         }
         Ok(())

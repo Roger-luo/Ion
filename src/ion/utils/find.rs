@@ -1,11 +1,11 @@
-use dirs::home_dir;
 use crate::utils::*;
-use crate::Registry;
-use std::path::PathBuf;
 use crate::JuliaProject;
+use crate::Registry;
+use anyhow::{format_err, Error};
+use dirs::home_dir;
 use node_semver::Version;
 use std::collections::BTreeMap;
-use anyhow::{format_err, Error};
+use std::path::PathBuf;
 
 pub fn current_project(dir: PathBuf) -> Option<PathBuf> {
     let home = home_dir().unwrap();
@@ -35,17 +35,20 @@ pub fn current_root_project(dir: PathBuf) -> Option<(JuliaProject, PathBuf)> {
         None => return None,
     };
 
-    let project : JuliaProject = toml::from_str(&std::fs::read_to_string(&guess).unwrap()).unwrap();
+    let project: JuliaProject = toml::from_str(&std::fs::read_to_string(&guess).unwrap()).unwrap();
     match project.name {
         Some(_) => Some((project, guess)),
         None => match guess.parent() {
             Some(parent) => current_root_project(parent.to_path_buf()),
             None => None,
-        }
+        },
     }
 }
 
-pub fn maximum_version(package: impl AsRef<str>, registry_name: impl AsRef<str>) -> Result<Version, Error> {
+pub fn maximum_version(
+    package: impl AsRef<str>,
+    registry_name: impl AsRef<str>,
+) -> Result<Version, Error> {
     let registry = registry(registry_name.as_ref())?;
     for (_, pkginfo) in registry.packages {
         if pkginfo.name.as_str() == package.as_ref() {
@@ -64,15 +67,13 @@ pub fn registry(name: impl AsRef<str>) -> Result<Registry, Error> {
 type VersionList = BTreeMap<Version, BTreeMap<String, String>>;
 
 pub fn version(path: String, registry_name: impl AsRef<str>) -> Result<VersionList, Error> {
-    let data = registry_data(
-        format!("{}/Versions.toml", path),
-        registry_name
-    )?;
+    let data = registry_data(format!("{}/Versions.toml", path), registry_name)?;
     Ok(toml::from_str(&data)?)
 }
 
 pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<String, Error> {
-    format!(r#"
+    format!(
+        r#"
     using Pkg
     for reg in Pkg.Registry.reachable_registries()
         if reg.name == "{name}"
@@ -85,7 +86,10 @@ pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<Str
             break
         end
     end
-    "#, file=file.as_ref(), name=name.as_ref())
-        .as_julia_command()
-        .read_command()
+    "#,
+        file = file.as_ref(),
+        name = name.as_ref()
+    )
+    .as_julia_command()
+    .read_command()
 }

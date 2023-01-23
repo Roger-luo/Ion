@@ -1,8 +1,8 @@
 use anyhow::Error;
-use std::path::PathBuf;
 use node_semver::Version;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde_derive::{Serialize, Deserialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JuliaProject {

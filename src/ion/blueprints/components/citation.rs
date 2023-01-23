@@ -1,7 +1,7 @@
+use crate::blueprints::*;
 use chrono::Datelike;
 use dialoguer::{Confirm, Input};
-use serde_derive::{Serialize, Deserialize};
-use crate::blueprints::*;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
@@ -39,25 +39,26 @@ impl Blueprint for Citation {
     fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
         let current_date = chrono::Utc::now();
         let year = current_date.year();
-        ctx.citation = Some(
-            Info {
-                readme: self.readme,
-                title: ctx.project.name.to_owned(),
-                authors: ctx.project.authors.to_owned(), // use authors for packages without prompt
-                year,
-                journal: None,
-                volume: None,
-                number: None,
-                pages: None,
-                doi: None,
-                url: None,
-            }
-        );
+        ctx.citation = Some(Info {
+            readme: self.readme,
+            title: ctx.project.name.to_owned(),
+            authors: ctx.project.authors.to_owned(), // use authors for packages without prompt
+            year,
+            journal: None,
+            volume: None,
+            number: None,
+            pages: None,
+            doi: None,
+            url: None,
+        });
         Ok(())
     }
 
     fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
-        if !Confirm::new().with_prompt("Do you want to setup custom citation info?").interact()? {
+        if !Confirm::new()
+            .with_prompt("Do you want to setup custom citation info?")
+            .interact()?
+        {
             return Ok(());
         }
         let authors = prompt_for_authors()?;
@@ -93,20 +94,18 @@ impl Blueprint for Citation {
             .with_prompt("Do you want to add a citation section to the README?")
             .default(true)
             .interact()?;
-        ctx.citation = Some(
-            Info {
-                title: ctx.project.name.to_owned(),
-                readme,
-                authors,
-                year,
-                journal: Some(journal),
-                volume: Some(volume),
-                number: Some(number),
-                pages: Some(pages),
-                doi: Some(doi),
-                url: Some(url),
-            }
-        );
+        ctx.citation = Some(Info {
+            title: ctx.project.name.to_owned(),
+            readme,
+            authors,
+            year,
+            journal: Some(journal),
+            volume: Some(volume),
+            number: Some(number),
+            pages: Some(pages),
+            doi: Some(doi),
+            url: Some(url),
+        });
         Ok(())
     }
 

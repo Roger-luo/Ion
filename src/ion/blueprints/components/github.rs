@@ -1,6 +1,6 @@
+use crate::blueprints::*;
 use log::debug;
 use serde_derive::{Deserialize, Serialize};
-use crate::blueprints::*;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
@@ -55,7 +55,7 @@ impl Blueprint for GitHub {
 
 #[derive(Debug, Deserialize)]
 pub struct CI {
-    #[serde(default="CI::default_template")]
+    #[serde(default = "CI::default_template")]
     pub template: TemplateFile,
     pub arch: Vec<String>,
     pub os: Vec<String>,
@@ -69,7 +69,7 @@ impl CI {
 
 #[derive(Debug, Deserialize)]
 pub struct TagBot {
-    #[serde(default="TagBot::default_template")]
+    #[serde(default = "TagBot::default_template")]
     pub template: TemplateFile,
 }
 
@@ -81,7 +81,7 @@ impl TagBot {
 
 #[derive(Debug, Deserialize)]
 pub struct CompatHelper {
-    #[serde(default="CompatHelper::default_template")]
+    #[serde(default = "CompatHelper::default_template")]
     pub template: TemplateFile,
 }
 
@@ -96,13 +96,16 @@ impl Default for CI {
         CI {
             template: TemplateFile::from_str("github/workflows/CI.yml.hbs"),
             arch: vec!["x86".to_string(), "x64".to_string()],
-            os: vec!["ubuntu-latest".to_string(), "windows-latest".to_string(), "macos-latest".to_string()],
+            os: vec![
+                "ubuntu-latest".to_string(),
+                "windows-latest".to_string(),
+                "macos-latest".to_string(),
+            ],
         }
     }
 }
 
-impl Default for TagBot
-{
+impl Default for TagBot {
     fn default() -> Self {
         TagBot {
             template: TemplateFile::from_str("github/workflows/TagBot.yml"),
@@ -110,8 +113,7 @@ impl Default for TagBot
     }
 }
 
-impl Default for CompatHelper
-{
+impl Default for CompatHelper {
     fn default() -> Self {
         CompatHelper {
             template: TemplateFile::from_str("github/workflows/CompatHelper.yml"),

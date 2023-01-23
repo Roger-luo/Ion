@@ -1,11 +1,11 @@
-use clap::{arg, Command};
-use clap::parser::ArgMatches;
-use log::debug;
-use dialoguer::Input;
-use std::path::PathBuf;
 use anyhow::format_err;
-use ion::errors::CliResult;
+use clap::parser::ArgMatches;
+use clap::{arg, Command};
+use dialoguer::Input;
 use ion::blueprints::*;
+use ion::errors::CliResult;
+use log::debug;
+use std::path::PathBuf;
 
 pub fn cli() -> Command {
     Command::new("new")
@@ -15,9 +15,8 @@ pub fn cli() -> Command {
         .arg(arg!(-f --force "Overwrite existing files"))
         .arg(arg!(--"no-interactive" "Do not prompt for user input"))
         .arg(
-            arg!(template: -t --template <TEMPLATE> "The template to use")
-                .default_value("project")
-        ) 
+            arg!(template: -t --template <TEMPLATE> "The template to use").default_value("project"),
+        )
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
@@ -34,11 +33,12 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
                 Input::<String>::new()
                     .with_prompt("name of the project")
                     .allow_empty(false)
-                    .interact_text().expect("error")
+                    .interact_text()
+                    .expect("error")
             } else {
-                return Err(anyhow::format_err!("No name provided.").into())
+                return Err(anyhow::format_err!("No name provided.").into());
             }
-        },
+        }
     };
 
     let path = PathBuf::from(path);
@@ -48,9 +48,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     debug!("path: {}", path.display());
     let package = match path.file_name() {
         Some(name) => name.to_str().unwrap().to_owned(),
-        None => {
-            return Err(anyhow::format_err!("Invalid path: {}", path.display()).into())
-        }
+        None => return Err(anyhow::format_err!("Invalid path: {}", path.display()).into()),
     };
     mk_package_dir(&path, force)?;
 
@@ -71,7 +69,7 @@ fn mk_package_dir(path: &PathBuf, force: bool) -> CliResult {
             debug!("removing existing directory: {}", path.display());
             std::fs::remove_dir_all(&path)?;
         } else {
-            return Err(format_err!("project already exists:{}", path.display()).into())
+            return Err(format_err!("project already exists:{}", path.display()).into());
         }
     }
     std::fs::create_dir_all(&path).unwrap();

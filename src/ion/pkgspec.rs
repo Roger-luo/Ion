@@ -1,7 +1,7 @@
-use url::Url;
+use node_semver::Range;
 use std::fmt::Display;
 use std::path::PathBuf;
-use node_semver::Range;
+use url::Url;
 
 #[derive(Debug)]
 pub struct PackageSpec {
@@ -15,15 +15,19 @@ pub struct PackageSpec {
 
 impl PackageSpec {
     pub fn new(expr: &String) -> Self {
-        let mut name : String = expr.to_owned();
-        let mut version : Option<String> = None;
-        let mut rev : Option<String> = None;
+        let mut name: String = expr.to_owned();
+        let mut version: Option<String> = None;
+        let mut rev: Option<String> = None;
 
         name = if expr.contains("@") {
             let parts = expr.split('@').collect::<Vec<_>>();
             assert!(parts.len() == 2, "Invalid package name: {}", expr);
             let version_str = expr.split('@').last().unwrap();
-            assert!(Range::parse(version_str).is_ok(), "Invalid version: {}", version_str);
+            assert!(
+                Range::parse(version_str).is_ok(),
+                "Invalid version: {}",
+                version_str
+            );
             version = Some(version_str.to_string());
             parts[0].to_string()
         } else {
@@ -47,8 +51,8 @@ impl PackageSpec {
                 path: Some(name),
                 subdir: None,
                 rev,
-                version
-            }
+                version,
+            };
         }
 
         if Url::parse(name.as_str()).is_ok() {
@@ -58,8 +62,8 @@ impl PackageSpec {
                 path: None,
                 subdir: None,
                 rev,
-                version
-            }
+                version,
+            };
         }
 
         return Self {
@@ -68,8 +72,8 @@ impl PackageSpec {
             path: None,
             subdir: None,
             rev,
-            version
-        }
+            version,
+        };
     }
 
     pub fn from_path(path: &PathBuf) -> PackageSpec {
@@ -79,7 +83,7 @@ impl PackageSpec {
             path: Some(path.to_str().unwrap().to_string()),
             subdir: None,
             rev: None,
-            version: None
+            version: None,
         }
     }
 }

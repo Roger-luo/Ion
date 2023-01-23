@@ -1,17 +1,17 @@
-use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
+use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
 
 #[derive(Debug, Deserialize)]
-pub struct SrcDir{
+pub struct SrcDir {
     #[serde(default = "SrcDir::default_template")]
     template: TemplateFile,
 }
 
-impl SrcDir{
-    pub fn default_template() -> TemplateFile{
+impl SrcDir {
+    pub fn default_template() -> TemplateFile {
         TemplateFile::from_str("src/module.jl.hbs")
     }
 }

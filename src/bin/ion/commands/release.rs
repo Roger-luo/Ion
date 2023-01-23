@@ -1,12 +1,12 @@
-use colorful::Colorful;
-use std::path::PathBuf;
-use dialoguer::Confirm;
-use clap::{arg, Command};
-use ion::errors::CliResult;
 use clap::parser::ArgMatches;
+use clap::{arg, Command};
+use colorful::Colorful;
+use dialoguer::Confirm;
+use ion::errors::CliResult;
 use ion::release::release::Release;
-use ion::utils::{git, current_project};
 use ion::release::version_spec::VersionSpec;
+use ion::utils::{current_project, git};
+use std::path::PathBuf;
 
 pub fn cli() -> Command {
     Command::new("release")
@@ -14,46 +14,36 @@ pub fn cli() -> Command {
         .arg(arg!(<VERSION> "The version to release"))
         .arg(arg!([PATH] "The path of the package"))
         .arg(arg!(--branch [BRANCH] "The branch to release"))
-        .arg(
-            arg!(--registry [REGISTRY] "The registry to release")
-                .default_value("General")
-        )
+        .arg(arg!(--registry [REGISTRY] "The registry to release").default_value("General"))
         .arg_required_else_help(true)
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    let version = match matches.get_one::<String>("VERSION"){
+    let version = match matches.get_one::<String>("VERSION") {
         Some(version) => VersionSpec::from_string(version)?,
-        None => {
-            return Err(anyhow::format_err!("No version provided.").into())
-        },
+        None => return Err(anyhow::format_err!("No version provided.").into()),
     };
     let path = match matches.get_one::<String>("PATH") {
         Some(path) => PathBuf::from(path),
-        None => {
-            match current_project(std::env::current_dir()?) {
-                Some(path) => path,
-                None => {
-                    return Err(anyhow::format_err!("cannot find valid Project.toml").into())
-                }
-            }
-        }
+        None => match current_project(std::env::current_dir()?) {
+            Some(path) => path,
+            None => return Err(anyhow::format_err!("cannot find valid Project.toml").into()),
+        },
     };
 
     let branch = match matches.get_one::<String>("branch") {
         Some(branch) => branch.to_owned(),
-        None => {
-            git::current_branch(&path.parent().unwrap().to_path_buf())?
-        }
+        None => git::current_branch(&path.parent().unwrap().to_path_buf())?,
     };
 
     let registry_name = match matches.get_one::<String>("registry") {
         Some(registry) => registry.to_owned(),
-        None => "General".to_owned()
+        None => "General".to_owned(),
     };
 
     let mut release = Release::new(version, registry_name);
-    release.path(path)?
+    release
+        .path(path)?
         .branch(branch)
         .update_version()?
         .report()?;
@@ -61,8 +51,9 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     if release.not_registered()? {
         if !Confirm::new()
             .with_prompt("do you want to register this version?")
-            .interact()? {
-                return Err(anyhow::format_err!("release cancelled").into())
+            .interact()?
+        {
+            return Err(anyhow::format_err!("release cancelled").into());
         } else {
             dont_ask_again = true;
         }
@@ -80,14 +71,15 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             );
             if Confirm::new()
                 .with_prompt("do you want to release current version?")
-                .interact()? {
+                .interact()?
+            {
                 release.set_release_version(release.get_version()?.to_owned());
                 release.report()?;
             } else {
-                return Err(anyhow::format_err!("release cancelled").into())
+                return Err(anyhow::format_err!("release cancelled").into());
             }
         } else {
-            return Err(anyhow::format_err!("current version is not a registered version").into())
+            return Err(anyhow::format_err!("current version is not a registered version").into());
         }
     }
 
@@ -95,13 +87,15 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         if !Confirm::new()
             .with_prompt("do you want to release this version?")
             .default(true)
-            .interact()? {
-                return Err(anyhow::format_err!("release cancelled").into())
+            .interact()?
+        {
+            return Err(anyhow::format_err!("release cancelled").into());
         }
     }
 
     // sync with remote
-    release.sync_with_remote()?
+    release
+        .sync_with_remote()?
         .write_project()?
         .commit_changes()?
         .sync_with_remote()?;
@@ -109,14 +103,11 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     // communicate using commit comment
     match release.summon_registrator() {
         Ok(_) => {
-            eprintln!(
-                "{}: registrator summoned",
-                "success".green().bold(),
-            );
-        },
+            eprintln!("{}: registrator summoned", "success".green().bold(),);
+        }
         Err(_) => {
             release.revert_commit()?;
-            return Err(anyhow::format_err!("registrator not summoned").into())
+            return Err(anyhow::format_err!("registrator not summoned").into());
         }
     }
     // tag version and create release

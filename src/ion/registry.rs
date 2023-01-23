@@ -1,6 +1,6 @@
-use url::Url;
+use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde_derive::{Serialize, Deserialize};
+use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackageInfo {

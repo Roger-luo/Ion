@@ -1,9 +1,9 @@
+use crate::blueprints::*;
 use dialoguer::Confirm;
-use uuid::Uuid;
 use log::debug;
 use node_semver::Version;
-use serde_derive::{Serialize, Deserialize};
-use crate::blueprints::*;
+use serde_derive::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -41,7 +41,8 @@ impl Blueprint for ProjectFile {
         if !Confirm::new()
             .with_prompt(msg.as_str())
             .default(true)
-            .interact()? {
+            .interact()?
+        {
             ctx.project.authors = prompt_for_authors()?;
         }
         Ok(())
@@ -52,12 +53,12 @@ impl Blueprint for ProjectFile {
         ctx.project.uuid = Some(Uuid::new_v4().to_string());
 
         if let Some(repo) = &mut ctx.repo {
-            repo.ignore.push("/Manifest.toml".to_string());   
+            repo.ignore.push("/Manifest.toml".to_string());
         }
 
         // if no prompt, but git is setup, use git user.name/email as author
         debug!("git is setup, use git user.name/email as an author");
-        if let Some(Git {user, email}) = &ctx.project.git {
+        if let Some(Git { user, email }) = &ctx.project.git {
             ctx.project.authors = vec![Author {
                 firstname: user.to_owned(),
                 lastname: None,

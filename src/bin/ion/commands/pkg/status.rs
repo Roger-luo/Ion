@@ -1,5 +1,5 @@
-use clap::{Command, arg};
 use clap::parser::ArgMatches;
+use clap::{arg, Command};
 use ion::errors::CliResult;
 use ion::utils::Julia;
 

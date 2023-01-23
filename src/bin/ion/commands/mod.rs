@@ -1,8 +1,8 @@
-use clap::{Command, ArgMatches};
+use clap::{ArgMatches, Command};
 use ion::errors::CliResult;
 
-pub mod pkg;
 pub mod new;
+pub mod pkg;
 pub mod release;
 
 pub fn builtin() -> Vec<Command> {

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf, Component};
+use std::path::{Component, Path, PathBuf};
 
 // from cargo:utils/paths.rs
 pub fn normalize_path(path: &Path) -> PathBuf {

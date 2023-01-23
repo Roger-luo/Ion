@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use super::badge::Badge;
+use crate::blueprints::*;
+use anyhow::Error;
 use clap::ArgMatches;
 use dialoguer::Input;
-use anyhow::Error;
 use log::debug;
-use crate::blueprints::*;
 use serde_derive::Serialize;
-use super::badge::Badge;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Author {
@@ -118,11 +118,12 @@ impl Context {
                     Input::<String>::new()
                         .with_prompt("name of the project")
                         .allow_empty(false)
-                        .interact_text().expect("error")
+                        .interact_text()
+                        .expect("error")
                 } else {
-                    return Err(anyhow::format_err!("No name provided."))
+                    return Err(anyhow::format_err!("No name provided."));
                 }
-            },
+            }
         };
         let path = std::env::current_dir().unwrap().join(package.to_owned());
 
@@ -132,7 +133,10 @@ impl Context {
                 debug!("removing existing directory: {}", path.display());
                 std::fs::remove_dir_all(&path)?;
             } else {
-                return Err(anyhow::format_err!("project already exists:{}", path.display()))
+                return Err(anyhow::format_err!(
+                    "project already exists:{}",
+                    path.display()
+                ));
             }
         }
         std::fs::create_dir_all(&path).unwrap();
@@ -146,10 +150,7 @@ impl Context {
         };
 
         let git = if let Ok((user, email)) = git_get_user() {
-            Some(Git {
-                user,
-                email,
-            })
+            Some(Git { user, email })
         } else {
             None
         };

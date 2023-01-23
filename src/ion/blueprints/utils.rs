@@ -1,8 +1,8 @@
-use dialoguer::{Input, Confirm};
-use std::process::Command;
-use anyhow::{Error, format_err};
-use crate::utils::template_dir;
 use crate::blueprints::*;
+use crate::utils::template_dir;
+use anyhow::{format_err, Error};
+use dialoguer::{Confirm, Input};
+use std::process::Command;
 
 pub fn git_get_user() -> Result<(String, String), Error> {
     let user = if let Some(name) = git_config_get("user.name") {
@@ -25,14 +25,16 @@ pub fn prompt_for_authors() -> Result<Vec<Author>, Error> {
     while Confirm::new()
         .with_prompt("another author of the project?")
         .default(false)
-        .interact()? {
+        .interact()?
+    {
         authors.push(promot_for_an_author()?);
     }
 
     if Confirm::new()
         .with_prompt("include future contributors as an author?")
         .default(true)
-        .interact()? {
+        .interact()?
+    {
         authors.push(Author {
             firstname: "and contributors".to_string(),
             lastname: None,
@@ -49,20 +51,29 @@ fn promot_for_an_author() -> Result<Author, Error> {
     let firstname = Input::<String>::new()
         .with_prompt("firstname")
         .allow_empty(false)
-        .interact_text().expect("error");
+        .interact_text()
+        .expect("error");
     let lastname = promote_for_author_field("lastname");
     let email = promote_for_author_field("email");
     let url = promote_for_author_field("url");
     let affiliation = promote_for_author_field("affiliation");
     let orcid = promote_for_author_field("orcid");
-    Ok(Author { firstname, lastname, email, url, affiliation, orcid })
+    Ok(Author {
+        firstname,
+        lastname,
+        email,
+        url,
+        affiliation,
+        orcid,
+    })
 }
 
 fn promote_for_author_field(field: &str) -> Option<String> {
     let input = Input::<String>::new()
         .with_prompt(format!("{} (optional)", field))
         .allow_empty(true)
-        .interact_text().expect("error");
+        .interact_text()
+        .expect("error");
 
     if input.is_empty() {
         None
@@ -76,20 +87,22 @@ pub fn list_templates() {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.is_dir() {
-            let template: Template = toml::from_str(
-                &std::fs::read_to_string(path.join("template.toml")).unwrap()).unwrap();
-            println!("
+            let template: Template =
+                toml::from_str(&std::fs::read_to_string(path.join("template.toml")).unwrap())
+                    .unwrap();
+            println!(
+                "
 {}
-    {}", template.name, template.description);
+    {}",
+                template.name, template.description
+            );
         }
     });
 }
 
 pub fn julia_version() -> Result<String, Error> {
-    let output = Command::new("julia")
-        .arg("--version")
-        .output();
-    
+    let output = Command::new("julia").arg("--version").output();
+
     match output {
         Err(e) => return Err(Error::new(e)),
         Ok(output) => {
@@ -131,14 +144,18 @@ pub fn git_current_branch() -> Option<String> {
 
 pub fn git_checkout(branch: &String) -> Result<(), Error> {
     std::process::Command::new("git")
-        .arg("checkout").arg("-b").arg(branch)
+        .arg("checkout")
+        .arg("-b")
+        .arg(branch)
         .status()?;
     Ok(())
 }
 
 pub fn git_delete_branch(branch: &String) -> Result<(), Error> {
     std::process::Command::new("git")
-        .arg("branch").arg("-D").arg(branch)
+        .arg("branch")
+        .arg("-D")
+        .arg(branch)
         .status()?;
     Ok(())
 }

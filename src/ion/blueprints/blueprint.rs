@@ -1,5 +1,5 @@
-use anyhow::Error;
 use super::{Context, Template};
+use anyhow::Error;
 
 pub type RenderResult = Result<(), Error>;
 
@@ -42,14 +42,14 @@ impl<T: Blueprint> Blueprint for Option<T> {
         if let Some(bp) = self {
             bp.prompt(t, ctx)?;
         }
-        Ok(())        
+        Ok(())
     }
 
     fn collect(&self, t: &Template, ctx: &mut Context) -> RenderResult {
         if let Some(bp) = self {
             bp.collect(t, ctx)?;
         }
-        Ok(())        
+        Ok(())
     }
 
     fn post_render(&self, t: &Template, ctx: &Context) -> RenderResult {

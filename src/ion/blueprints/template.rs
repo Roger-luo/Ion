@@ -1,13 +1,13 @@
+use super::badge::Badge;
+use super::components::*;
+use super::Blueprint;
+use super::{Julia, Project};
 use ion_derive::Template;
 use serde_derive::Deserialize;
-use super::{Julia, Project};
-use super::badge::Badge;
-use super::Blueprint;
-use super::components::*;
 
 #[derive(Debug, Deserialize, Template)]
 pub struct Template {
-    pub name: String, // name of the template
+    pub name: String,        // name of the template
     pub description: String, // description of the template
     // the following has order of appearance in prompts
     pub repo: Option<GitRepo>,

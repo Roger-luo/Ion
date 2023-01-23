@@ -1,9 +1,9 @@
-use std::path::PathBuf;
-use dialoguer::Input;
-use chrono::Datelike;
-use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
 use crate::utils::components_dir;
+use chrono::Datelike;
+use dialoguer::Input;
+use serde_derive::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
@@ -31,18 +31,17 @@ impl Blueprint for License {
             .with_prompt("license")
             .allow_empty(false)
             .with_initial_text("MIT")
-            .interact_text().expect("prompt failed for license");
+            .interact_text()
+            .expect("prompt failed for license");
 
         let current_date = chrono::Utc::now();
         let year = Input::<i32>::new()
             .with_prompt("year")
             .allow_empty(false)
             .with_initial_text(current_date.year().to_string())
-            .interact_text().expect("prompt failed for year");
-        ctx.license = Some(Info {
-            name,
-            year,
-        });
+            .interact_text()
+            .expect("prompt failed for year");
+        ctx.license = Some(Info { name, year });
         Ok(())
     }
 
@@ -52,6 +51,7 @@ impl Blueprint for License {
             root: self.template_dir.to_owned(),
             path: PathBuf::from("."),
             file: license + ".hbs",
-        }.render(ctx, "LICENSE")
+        }
+        .render(ctx, "LICENSE")
     }
 }
