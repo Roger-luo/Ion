@@ -2,7 +2,12 @@
 name = "ion"
 version = "0.1.0"
 edition = "2021"
+publish = false
 description = "a CLI toolbox for Julia developer"
+
+[profile.release]
+lto = true
+codegen-units = 1
 
 [package.metadata.bundle]
 identifier = "org.julialang.ion"
@@ -33,7 +38,7 @@ toml = "0.5.10"
 url = "2.2.2"
 uuid = { version = "1.2.2", features = ["v4"] }
 ion_derive = { version = "0.1.0", path = "ion_derive" }
-octocrab = "0.18.1"
+octocrab = { git = "https://github.com/XAMPPRocky/octocrab.git", version = "0.18.1" }
 colorful = "0.2.2"
 
 [build-dependencies]
