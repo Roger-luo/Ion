@@ -47,7 +47,7 @@ impl TemplateFile {
     }
 
     pub fn read_source(&self) -> Result<String, Error> {
-        debug!("reading template:\n {:?}", self);
+        debug!("reading template:\n {:#?}", self);
         let path : PathBuf = self.to_path_buf();
         if !path.is_file() {
             return Err(format_err!("Template file not found: {}", path.display()));

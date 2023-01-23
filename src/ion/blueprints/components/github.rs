@@ -121,7 +121,7 @@ impl Default for CompatHelper
 
 impl Blueprint for CI {
     fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
-        debug!("rendering CI.yml: {:?}", ctx.github);
+        debug!("rendering CI.yml: {:#?}", ctx.github);
         self.template.render(ctx, "CI.yml")
     }
 }
