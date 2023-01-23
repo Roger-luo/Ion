@@ -51,4 +51,25 @@ impl<T: Blueprint> Blueprint for Option<T> {
         }
         Ok(())        
     }
+
+    fn post_render(&self, t: &Template, ctx: &Context) -> RenderResult {
+        if let Some(bp) = self {
+            bp.post_render(t, ctx)?;
+        }
+        Ok(())
+    }
+
+    fn propagate(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+        if let Some(bp) = self {
+            bp.propagate(t, ctx)?;
+        }
+        Ok(())
+    }
+
+    fn validate(&self, t: &Template, ctx: &Context) -> RenderResult {
+        if let Some(bp) = self {
+            bp.validate(t, ctx)?;
+        }
+        Ok(())
+    }
 }

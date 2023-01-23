@@ -47,7 +47,7 @@ impl TemplateFile {
     }
 
     pub fn read_source(&self) -> Result<String, Error> {
-        debug!("reading template:\n {:?}", self);
+        // debug!("reading template:\n {:?}", self);
         let path : PathBuf = self.to_path_buf();
         if !path.is_file() {
             return Err(format_err!("Template file not found: {}", path.display()));
@@ -64,7 +64,7 @@ impl TemplateFile {
         }
         let dst = ctx.project.path.join(self.path.to_owned());
         if !dst.is_dir() {
-            debug!("creating directory: {}", dst.display());
+            // debug!("creating directory: {}", dst.display());
             std::fs::create_dir_all(&dst).unwrap();
         }
         std::fs::write(dst.join(name), content)?;
@@ -81,21 +81,21 @@ impl TemplateFile {
         if name.contains(path::MAIN_SEPARATOR) {
             return Err(format_err!("target file name cannot contain path separator: {}", name));
         }
-        debug!("rendering template:\n {:?}", self);
-        debug!("start rendering for name: {}", name);
+        // debug!("rendering template:\n {:?}", self);
+        // debug!("start rendering for name: {}", name);
         let source = self.read_source()?;
         let mut handlebars = Handlebars::new();
 
-        debug!("registering template: {}", name);
+        // debug!("registering template: {}", name);
         if let Err(e) = handlebars.register_template_string(name, source) {
             return Err(format_err!("Error registering template: {}", e));
         }
-        debug!("template registered: {}", name);
+        // debug!("template registered: {}", name);
         let result = match handlebars.render(name, &ctx) {
             Ok(s) => s,
             Err(e) => return Err(format_err!("Error rendering result: {}", e)),
         };
-        debug!("template rendered");
+        // debug!("template rendered");
         self.write(&result, ctx, name)
     }
 }

@@ -49,7 +49,7 @@ pub fn commit(path: &PathBuf, msg: &str) -> Result<(), Error> {
         .arg("-m")
         .arg(msg)
         .current_dir(path)
-        .status()?;
+        .output()?;
     Ok(())
 }
 

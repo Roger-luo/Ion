@@ -71,7 +71,7 @@ impl Blueprint for GitRepo {
         let branch = &repo.branch;
 
         std::process::Command::new("git")
-            .arg("init").status()?;
+            .arg("init").output()?;
 
         if let Some(current_branch) = git_current_branch() {
             if &current_branch != branch {

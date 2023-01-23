@@ -55,7 +55,7 @@ pub trait Julia {
             .no_startup_file()
             .color()
             .compile("min")
-            .status()?;
+            .output()?; // hide output
         Ok(())
     }
 
