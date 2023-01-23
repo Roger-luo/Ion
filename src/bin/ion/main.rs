@@ -18,24 +18,21 @@ fn main() {
     let matches = cli().get_matches();
     let result = exec(&matches);
 
-    match result {
-        Err(err) => {
-            if let Some(ref err) = err.error {
-                if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
-                    let exit_code = if clap_err.use_stderr() { 1 } else { 0 };
-                    let _ = clap_err.print();
-                    std::process::exit(exit_code)
-                }
+    if let Err(err) = result {
+        if let Some(ref err) = err.error {
+            if let Some(clap_err) = err.downcast_ref::<clap::Error>() {
+                let exit_code = i32::from(clap_err.use_stderr());
+                let _ = clap_err.print();
+                std::process::exit(exit_code)
             }
-
-            let CliError { error, exit_code } = err;
-            if let Some(error) = error {
-                // display_error(&error, shell);
-                eprintln!("{}", error);
-            }
-            std::process::exit(exit_code)
         }
-        Ok(()) => {}
+
+        let CliError { error, exit_code } = err;
+        if let Some(error) = error {
+            // display_error(&error, shell);
+            eprintln!("{}", error);
+        }
+        std::process::exit(exit_code)
     }
 }
 
