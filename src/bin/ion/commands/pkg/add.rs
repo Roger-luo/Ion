@@ -1,6 +1,6 @@
 use clap::{arg, Command};
 use clap::parser::ArgMatches;
-use ion::julia::Julia;
+use ion::utils::Julia;
 use ion::errors::CliResult;
 use crate::commands::pkg::package_spec_list;
 

@@ -3,7 +3,7 @@ use dialoguer::Input;
 use chrono::Datelike;
 use serde_derive::{Serialize, Deserialize};
 use crate::blueprints::*;
-use crate::dirs::components_dir;
+use crate::utils::components_dir;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {

@@ -1,6 +1,6 @@
 use anyhow::Ok;
 use serde_derive::{Serialize, Deserialize};
-use crate::julia::Julia;
+use crate::utils::*;
 use crate::blueprints::*;
 use crate::PackageSpec;
 

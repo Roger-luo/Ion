@@ -6,7 +6,7 @@ use handlebars::Handlebars;
 use serde_derive::Deserialize;
 use std::path::{self, PathBuf};
 use anyhow::{format_err, Error};
-use crate::dirs::{components_dir, resources_dir};
+use crate::utils::{components_dir, resources_dir};
 
 #[derive(Debug, Deserialize)]
 pub struct TemplateFile {

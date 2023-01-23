@@ -1,7 +1,7 @@
 use clap::{Command, arg};
 use clap::parser::ArgMatches;
 use ion::errors::CliResult;
-use ion::julia::Julia;
+use ion::utils::Julia;
 
 pub fn cli() -> Command {
     Command::new("status")

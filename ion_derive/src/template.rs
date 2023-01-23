@@ -18,7 +18,7 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
 
     let gen = quote!{
         use log::debug;
-        use crate::dirs::template_dir;
+        use crate::utils::template_dir;
 
         #context_expr
 

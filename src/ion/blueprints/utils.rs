@@ -1,7 +1,7 @@
 use dialoguer::{Input, Confirm};
 use std::process::Command;
 use anyhow::{Error, format_err};
-use crate::dirs::template_dir;
+use crate::utils::template_dir;
 use crate::blueprints::*;
 
 pub fn git_get_user() -> Result<(String, String), Error> {

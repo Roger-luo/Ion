@@ -53,3 +53,9 @@ impl From<std::io::Error> for CliError {
         CliError::new(err.into(), 1)
     }
 }
+
+impl From<node_semver::SemverError> for CliError {
+    fn from(err: node_semver::SemverError) -> CliError {
+        CliError::new(err.into(), 1)
+    }
+}
