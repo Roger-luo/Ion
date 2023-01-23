@@ -1,6 +1,7 @@
-use crate::errors::CliResult;
 use std::fmt::Display;
-use std::process::{Command, Output};
+use anyhow::format_err;
+use crate::errors::CliResult;
+use std::process::{Output, Command};
 
 pub struct JuliaCommand {
     cmd: Command,
@@ -34,29 +35,58 @@ impl JuliaCommand {
     }
 
     pub fn output(&mut self) -> Result<Output, std::io::Error> {
-        self.cmd.arg(format!("-e {}", self.script)).output()
+        self.cmd
+            .arg(format!("-e {}", self.script))
+            .output()
     }
 
     pub fn status(&mut self) -> Result<std::process::ExitStatus, std::io::Error> {
-        self.cmd.arg(format!("-e {}", self.script)).status()
+        self.cmd
+            .arg(format!("-e {}", self.script))
+            .status()
     }
 }
 
 pub trait Julia {
     fn as_julia_command(&self) -> JuliaCommand;
 
-    fn julia_exec_project(&self, project: &str) -> CliResult {
+    fn julia_exec_cmd(&self, project: &str) -> JuliaCommand {
         let mut cmd = self.as_julia_command();
         cmd.project(project)
             .no_startup_file()
             .color()
-            .compile("min")
-            .output()?; // hide output
-        Ok(())
+            .compile("min");
+        cmd
+    }
+
+    fn julia_exec_project_quiet(&self, project: &str) -> CliResult {
+        let p = self.julia_exec_cmd(project)
+            .output()?;
+
+        if p.status.success() {
+            return Ok(());
+        } else {
+            return Err(format_err!("Julia command failed").into());
+        }
+    }
+
+    fn julia_exec_project(&self, project: &str) -> CliResult {
+        let p = self.julia_exec_cmd(project)
+            .status()?;
+
+        if p.success() {
+            return Ok(());
+        } else {
+            return Err(format_err!("Julia command failed").into());
+        }
     }
 
     fn julia_exec(&self) -> CliResult {
         self.julia_exec_project("@.")
+    }
+
+    fn julia_exec_quiet(&self) -> CliResult {
+        self.julia_exec_project_quiet("@.")
     }
 }
 

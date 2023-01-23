@@ -1,7 +1,7 @@
 use super::*;
 use anyhow::{format_err, Error};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Output};
 
 pub fn get_toplevel_path(path: &PathBuf) -> Result<PathBuf, Error> {
     let raw = Command::new("git")
@@ -43,31 +43,40 @@ pub fn isdirty_cached(path: &PathBuf) -> Result<bool, Error> {
     Ok(!p.success())
 }
 
-pub fn commit(path: &PathBuf, msg: &str) -> Result<(), Error> {
-    Command::new("git")
+pub fn commit(path: &PathBuf, msg: &str) -> Result<Output, Error> {
+    let output = Command::new("git")
         .arg("commit")
         .arg("-m")
         .arg(msg)
         .current_dir(path)
         .output()?;
-    Ok(())
+
+    if output.status.success() {
+        Ok(output)
+    } else {
+        return Err(format_err!("Failed to commit"));
+    }
 }
 
-pub fn pull(path: &PathBuf) -> Result<(), Error> {
-    let p = Command::new("git").arg("pull").current_dir(path).status()?;
+pub fn pull(path: &PathBuf) -> Result<Output, Error> {
+    let output = Command::new("git")
+        .arg("pull")
+        .current_dir(path)
+        .output()?;
 
-    if p.success() {
-        Ok(())
+    if output.status.success() {
+        Ok(output)
     } else {
         return Err(format_err!("Failed to pull"));
     }
 }
 
-pub fn push(path: &PathBuf) -> Result<(), Error> {
-    let p = Command::new("git").arg("push").current_dir(path).status()?;
+pub fn push(path: &PathBuf) -> Result<Output, Error> {
+    let output = Command::new("git")
+        .arg("push").current_dir(path).output()?;
 
-    if p.success() {
-        Ok(())
+    if output.status.success() {
+        Ok(output)
     } else {
         return Err(format_err!("Failed to push"));
     }

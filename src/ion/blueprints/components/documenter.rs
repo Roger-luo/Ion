@@ -61,7 +61,7 @@ impl Blueprint for Documenter {
             "using Pkg; Pkg.develop({})",
             PackageSpec::from_path(&ctx.project.path)
         )
-        .julia_exec_project("docs")
+        .julia_exec_project_quiet("docs")
         {
             return Err(e.error.unwrap());
         }
