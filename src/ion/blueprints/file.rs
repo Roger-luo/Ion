@@ -38,7 +38,7 @@ impl TemplateFile {
         TemplateFile {
             root: components_dir(),
             path: path.to_path_buf(),
-            file: file,
+            file,
         }
     }
 

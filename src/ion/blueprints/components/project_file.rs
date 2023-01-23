@@ -32,7 +32,7 @@ impl Blueprint for ProjectFile {
     }
 
     fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
-        let msg = if ctx.project.authors.len() > 0 {
+        let msg = if !ctx.project.authors.is_empty() {
             format!("authors (default: {})", ctx.project.authors[0].firstname)
         } else {
             "authors".to_string()
