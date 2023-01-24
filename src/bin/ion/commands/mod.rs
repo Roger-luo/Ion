@@ -5,9 +5,11 @@ pub mod clone;
 pub mod new;
 pub mod pkg;
 pub mod release;
+pub mod comment;
 
 pub fn builtin() -> Vec<Command> {
     vec![
+        comment::cli(),
         clone::cli(),
         release::cli(),
         new::cli(),
@@ -24,6 +26,7 @@ pub fn builtin() -> Vec<Command> {
 
 pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
     let f = match cmd {
+        "comment" => comment::exec,
         "clone" => clone::exec,
         "release" => release::exec,
         "new" => new::exec,

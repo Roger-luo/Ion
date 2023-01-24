@@ -37,9 +37,13 @@ toml = "0.5.10"
 url = "2.2.2"
 uuid = { version = "1.2.2", features = ["v4"] }
 ion_derive = { version = "0.1.0", path = "ion_derive" }
-octocrab = { git = "https://github.com/XAMPPRocky/octocrab.git", version = "0.18.1" }
+octocrab = { version = "0.18.1", git = "https://github.com/Roger-luo/octocrab.git" }
 colorful = "0.2.2"
 tokio = "1.24.2"
+either = "1.8.0"
+secrecy = "0.8.0"
+reqwest = "0.11.14"
+keyring = "1.2.1"
 
 [build-dependencies]
 copy_to_output = "2.0.0"

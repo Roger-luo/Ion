@@ -35,10 +35,10 @@ pub fn remote_repo(local: &PathBuf) -> Result<(String, String)> {
     // https://github.com/QuEraComputing/Bloqade.jl
     let mut parts = url.split('/');
     parts.next();
-    let name = parts
+    let owner = parts
         .next()
         .ok_or_else(|| format_err!("Invalid remote url"))?;
-    let owner = parts
+    let name = parts
         .next()
         .ok_or_else(|| format_err!("Invalid remote url"))?;
 

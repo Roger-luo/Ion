@@ -65,3 +65,9 @@ impl From<url::ParseError> for CliError {
         CliError::new(err.into(), 1)
     }
 }
+
+impl From<octocrab::Error> for CliError {
+    fn from(err: octocrab::Error) -> CliError {
+        CliError::new(err.into(), 1)
+    }
+}

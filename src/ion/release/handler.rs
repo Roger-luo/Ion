@@ -1,15 +1,15 @@
 use super::version_spec::VersionSpec;
 use crate::{
-    utils::{current_root_project, git},
+    utils::{current_root_project, git, auth::Auth},
     JuliaProject, Registry,
 };
 use anyhow::{format_err, Result};
 use tokio::runtime::Builder;
-use tokio::time::{sleep, Duration};
 use colorful::Colorful;
 use dialoguer::Confirm;
 use node_semver::Version;
 use std::path::PathBuf;
+use octocrab::Octocrab;
 
 // user inputs
 
@@ -332,11 +332,16 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn summon_registrator(&mut self) -> Result<&mut Self> {
+        let auth = Auth::new(
+            vec!["public_repo".to_string(), "read:org".to_string()]
+        );
+        let token = auth.get_token()?;
+
         let result = Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
-            .block_on(self.request_registrator());
+            .block_on(self.summon_registrator_task(token));
 
         if let Err(e) = result {
             match self.revert_commit_maybe() {
@@ -352,9 +357,32 @@ impl ReleaseHandler<'_> {
         Ok(self)
     }
 
-    pub async fn request_registrator(&self) -> Result<()> {
+    pub async fn summon_registrator_task(&self, token: String) -> Result<()> {
+        let body = self.registerator_comment();
+        let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
+        let sha = self.current_sha256()?;
+        let octocrab = Octocrab::builder().personal_token(token).build()?;
+        log::debug!("owner: {}, repo: {}, sha: {}", owner, repo, sha);
+        let commits = octocrab.commits(owner, repo);
+        let future = commits.create_comment(
+            sha,
+            body
+        ).send().await;
+        match future {
+            Ok(_) => println!("JuliaRegistrator summoned! You are good to go!"),
+            Err(e) => {return Err(e.into())},
+        }
+        Ok(())
+    }
+
+    fn registerator_comment(&self) -> String {
         let watermark: String = "release via [ion](https://rogerluo.dev)\n".into();
+
+        #[cfg(debug_assertions)]
+        let body: String = "JuliaRegistrator register".into();
+        #[cfg(not(debug_assertions))]
         let body: String = "@JuliaRegistrator register".into();
+
         let body = format!("{}\n\n{}", watermark, body);
 
         let body = match &self.info.branch {
@@ -371,17 +399,11 @@ impl ReleaseHandler<'_> {
             Some(note) => format!("{}\n\nRelease notes:\n\n{}", body, note),
             None => body,
         };
-
-        let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
-        let sha = self.current_sha256()?;
-
-        let octocrab = octocrab::instance();
-        let commits = octocrab.commits(owner, repo);
-        commits.create_comment(sha, body).send().await?;
-        Ok(())
+        body
     }
 
     pub fn revert_commit_maybe(&mut self) -> Result<&mut Self> {
+        if !self.revert_changes { return Ok(self) }
         // git revert --no-edit --no-commit HEAD
         // git commit -m "revert version bump due to an error occured in IonCLI"
         if let Some(sha) = &self.version_bump_sha {
