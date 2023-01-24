@@ -1,8 +1,8 @@
 use node_semver::Range;
+use serde_derive::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use url::Url;
-use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackageSpec {

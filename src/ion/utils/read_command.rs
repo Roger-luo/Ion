@@ -1,6 +1,9 @@
 use anyhow::{format_err, Error};
 use log::debug;
-use std::{process::{Command, Output}, fmt::Debug};
+use std::{
+    fmt::Debug,
+    process::{Command, Output},
+};
 
 use super::JuliaCommand;
 

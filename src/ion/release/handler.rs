@@ -3,9 +3,9 @@ use crate::{
     utils::{current_root_project, git},
     JuliaProject, Registry,
 };
-use dialoguer::Confirm;
 use anyhow::{format_err, Result};
 use colorful::Colorful;
+use dialoguer::Confirm;
 use node_semver::Version;
 use std::path::PathBuf;
 
@@ -29,7 +29,11 @@ pub struct Release {
 }
 
 impl Release {
-    pub fn plan(path: PathBuf, version_spec: VersionSpec, registry_name: impl AsRef<str>) -> Result<Release> {
+    pub fn plan(
+        path: PathBuf,
+        version_spec: VersionSpec,
+        registry_name: impl AsRef<str>,
+    ) -> Result<Release> {
         let (project, toml) = match current_root_project(path) {
             Some((project, path)) => (project, path),
             None => return Err(format_err!("No Project.toml found")),
@@ -55,8 +59,11 @@ impl Release {
 
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
         let registry = Registry::read(registry_name.as_ref())?;
-        let uuid = project.uuid.as_ref().ok_or_else(|| format_err!("No UUID found"))?;
-        
+        let uuid = project
+            .uuid
+            .as_ref()
+            .ok_or_else(|| format_err!("No UUID found"))?;
+
         let mut handle = registry.package();
         let latest_ver = handle
             .uuid(uuid)
@@ -120,8 +127,9 @@ impl Release {
 
     pub fn ask_note(&mut self) -> Result<&mut Self> {
         if let Some(note) = dialoguer::Editor::new()
-                .extension("md")
-                .edit("your release note")? {
+            .extension("md")
+            .edit("your release note")?
+        {
             self.note = Some(note);
         } else {
             println!("Abort!");
@@ -140,7 +148,11 @@ impl Release {
     }
 
     pub fn get_version(&self) -> Result<Version> {
-        let version = self.project.version.as_ref().ok_or(format_err!("No version found"))?;
+        let version = self
+            .project
+            .version
+            .as_ref()
+            .ok_or(format_err!("No version found"))?;
         Ok(version.clone())
     }
 }
@@ -183,7 +195,9 @@ impl ReleaseHandler<'_> {
                     return Err(anyhow::format_err!("release cancelled").into());
                 }
             } else {
-                return Err(anyhow::format_err!("current version is not a registered version").into());
+                return Err(
+                    anyhow::format_err!("current version is not a registered version").into(),
+                );
             }
         }
 
@@ -192,7 +206,10 @@ impl ReleaseHandler<'_> {
 
     pub fn ask_about_new_package(&mut self) -> Result<&mut Self> {
         if self.not_registered() {
-            eprintln!("{}: this package is not registered yet", "warning".yellow().bold());
+            eprintln!(
+                "{}: this package is not registered yet",
+                "warning".yellow().bold()
+            );
             self.confirm_release()?;
         }
         Ok(self)
@@ -201,10 +218,11 @@ impl ReleaseHandler<'_> {
     pub fn confirm_release(&mut self) -> Result<&mut Self> {
         if self.final_confirm {
             if !Confirm::new()
-                    .with_prompt("do you want to register this version?")
-                    .default(true)
-                    .show_default(true)
-                    .interact()? {
+                .with_prompt("do you want to register this version?")
+                .default(true)
+                .show_default(true)
+                .interact()?
+            {
                 return Err(anyhow::format_err!("release cancelled").into());
             }
             self.final_confirm = false;
@@ -213,7 +231,12 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn report(&mut self) -> Result<&mut Self> {
-        let project_name = self.info.project.name.as_ref().ok_or(format_err!("No name found"))?;
+        let project_name = self
+            .info
+            .project
+            .name
+            .as_ref()
+            .ok_or(format_err!("No name found"))?;
         let version = self.info.get_version()?;
         let latest_version = &self.info.latest_version;
         let release_version = match &self.version_to_release {
@@ -320,7 +343,6 @@ impl ReleaseHandler<'_> {
 
         let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
         let sha = self.current_sha256()?;
-
 
         // let octocrab = octocrab::instance();
         // let page = octocrab

@@ -1,10 +1,10 @@
+use crate::utils::{Julia, ReadCommand};
+use anyhow::{format_err, Result};
 use node_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use url::Url;
-use anyhow::{format_err, Result};
-use crate::utils::{Julia, ReadCommand};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackagePath {
@@ -90,7 +90,11 @@ impl<'de> RegistryHandler<'de> {
             match self.registry.packages.get(uuid) {
                 Some(package) => package.path.clone(),
                 None => {
-                    return Err(format_err!("Package {} not found in {}", uuid, self.registry.name));
+                    return Err(format_err!(
+                        "Package {} not found in {}",
+                        uuid,
+                        self.registry.name
+                    ));
                 }
             }
         } else if let Some(name) = &self.name {
@@ -104,7 +108,11 @@ impl<'de> RegistryHandler<'de> {
                         }
                     }
                     None => {
-                        return Err(format_err!("Package {} not found in {}", name, self.registry.name));
+                        return Err(format_err!(
+                            "Package {} not found in {}",
+                            name,
+                            self.registry.name
+                        ));
                     }
                 }
             }
@@ -119,7 +127,7 @@ impl<'de> RegistryHandler<'de> {
     pub fn version_info(&mut self) -> Result<&VersionInfo> {
         if self.versions.is_none() {
             let data = &self.registry_data("Versions.toml")?;
-            let versions : VersionInfo = toml::from_str(data.as_str())?;
+            let versions: VersionInfo = toml::from_str(data.as_str())?;
             self.versions = Some(versions);
         }
         Ok(self.versions.as_ref().unwrap())
@@ -171,14 +179,12 @@ impl<'de> RegistryHandler<'de> {
     }
 
     pub fn registry_data(&mut self, name: impl AsRef<str>) -> Result<String> {
-        let file = PathBuf::from(self.package_path()?)
-            .join(name.as_ref());
+        let file = PathBuf::from(self.package_path()?).join(name.as_ref());
         let file = file.to_str().unwrap();
         let data = registry_data(file, &self.registry.name)?;
         Ok(data)
-    }    
+    }
 }
-
 
 pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<String> {
     format!(

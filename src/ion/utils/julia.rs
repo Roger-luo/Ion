@@ -1,6 +1,6 @@
 use crate::errors::CliResult;
 use anyhow::format_err;
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 use std::process::{Command, Output};
 
 pub struct JuliaCommand {
