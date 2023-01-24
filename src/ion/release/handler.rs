@@ -60,6 +60,11 @@ impl Release {
         }
 
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
+        let subdir = if subdir.components().count() == 0 {
+            None
+        } else {
+            Some(subdir.to_path_buf())
+        };
         let registry = Registry::read(registry_name.as_ref())?;
         let uuid = project
             .uuid
@@ -83,7 +88,7 @@ impl Release {
             project,
             project_toml: toml,
             path_to_repo,
-            subdir: Some(subdir.to_path_buf()),
+            subdir,
             latest_version: latest_ver,
             note: None,
         })
@@ -369,7 +374,10 @@ impl ReleaseHandler<'_> {
             body
         ).send().await;
         match future {
-            Ok(_) => println!("JuliaRegistrator summoned! You are good to go!"),
+            Ok(comment) => {
+                println!("JuliaRegistrator summoned! You are good to go!");
+                println!("Comment: {}", comment.html_url);
+            },
             Err(e) => {return Err(e.into())},
         }
         Ok(())
