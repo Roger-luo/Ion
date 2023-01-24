@@ -1,3 +1,4 @@
+use colorful::Colorful;
 use keyring::Entry;
 use anyhow::Result;
 use either::Either;
@@ -5,6 +6,7 @@ use reqwest::header::ACCEPT;
 use std::time::Duration;
 use tokio::runtime::Builder;
 use secrecy::{ExposeSecret, Secret};
+use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct Auth {
     github: Entry,
@@ -92,10 +94,24 @@ impl GithubHandler<'_> {
                 &self.auth.scope,
             ).await?;
 
-        println!(
-            "Go to {} and enter code {}",
-            codes.verification_uri, codes.user_code
-        );
+        let mut ctx = ClipboardContext::new().unwrap();
+        let user_code = codes.user_code.to_owned();
+        if let Err(_) = ctx.set_contents(user_code.to_owned()) {
+            println!("Failed to copy your one-time code to \
+            clipboard, please copy it manually: {}", user_code.to_owned().bold());
+        } else {
+            println!("your one-time code has been copied to \
+            clipboard: {}", user_code.to_owned().bold());
+        }
+
+        if dialoguer::Confirm::new()
+            .with_prompt("open authentication page in browser?")
+            .default(true)
+            .interact()? {
+            open::that(codes.verification_uri.to_owned())?;
+        } else {
+            println!("Then open this page in your browser: {}", codes.verification_uri.to_owned().underlined());
+        }
 
         let mut interval = Duration::from_secs(codes.interval);
         let mut clock = tokio::time::interval(interval);
@@ -119,7 +135,7 @@ impl GithubHandler<'_> {
                 },
             }
         };
-
+        println!("Successfully authenticated.");
         Ok(auth.access_token.expose_secret().to_string())
     }
 }

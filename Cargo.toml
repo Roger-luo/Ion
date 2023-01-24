@@ -44,6 +44,7 @@ either = "1.8.0"
 secrecy = "0.8.0"
 reqwest = "0.11.14"
 keyring = "1.2.1"
+copypasta = "0.8.1"
 
 [build-dependencies]
 copy_to_output = "2.0.0"
