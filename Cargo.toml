@@ -39,6 +39,7 @@ uuid = { version = "1.2.2", features = ["v4"] }
 ion_derive = { version = "0.1.0", path = "ion_derive" }
 octocrab = { git = "https://github.com/XAMPPRocky/octocrab.git", version = "0.18.1" }
 colorful = "0.2.2"
+tokio = "1.24.2"
 
 [build-dependencies]
 copy_to_output = "2.0.0"

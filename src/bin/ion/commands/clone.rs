@@ -5,6 +5,7 @@ use ion::errors::CliResult;
 use ion::utils::git;
 use ion::Registry;
 use std::path::PathBuf;
+use log::debug;
 use url::Url;
 
 pub fn cli() -> Command {

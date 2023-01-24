@@ -8,8 +8,8 @@ use std::path::PathBuf;
 pub struct JuliaProject {
     pub name: Option<String>,
     pub uuid: Option<String>,
-    pub version: Option<Version>,
     pub authors: Option<Vec<String>>,
+    pub version: Option<Version>,
     pub description: Option<String>,
     pub license: Option<String>,
     pub deps: BTreeMap<String, String>,

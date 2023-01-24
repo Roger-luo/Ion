@@ -115,7 +115,25 @@ pub fn isdirty_cached(path: &PathBuf) -> Result<bool> {
     Ok(!p.success())
 }
 
+pub fn add(path: &PathBuf, item: impl AsRef<str>) -> Result<Output> {
+    log::debug!("git add {}", item.as_ref());
+    let output = Command::new("git")
+        .arg("add")
+        .arg(item.as_ref())
+        .current_dir(path)
+        .output()?;
+
+    if output.status.success() {
+        Ok(output)
+    } else {
+        let out = String::from_utf8(output.stdout)?.trim().to_string();
+        let err = String::from_utf8(output.stderr)?.trim().to_string();
+        return Err(format_err!("Failed to add:\n{}{}", out, err));
+    }
+}
+
 pub fn commit(path: &PathBuf, msg: &str) -> Result<Output> {
+    log::debug!("git commit -m {}", msg);
     let output = Command::new("git")
         .arg("commit")
         .arg("-m")
@@ -126,11 +144,14 @@ pub fn commit(path: &PathBuf, msg: &str) -> Result<Output> {
     if output.status.success() {
         Ok(output)
     } else {
-        return Err(format_err!("Failed to commit"));
+        let out = String::from_utf8(output.stdout)?.trim().to_string();
+        let err = String::from_utf8(output.stderr)?.trim().to_string();
+        return Err(format_err!("Failed to commit:\n{}{}", out, err));
     }
 }
 
 pub fn pull(path: &PathBuf) -> Result<Output> {
+    log::debug!("git pull");
     let output = Command::new("git").arg("pull").current_dir(path).output()?;
 
     if output.status.success() {
@@ -141,6 +162,7 @@ pub fn pull(path: &PathBuf) -> Result<Output> {
 }
 
 pub fn push(path: &PathBuf) -> Result<Output> {
+    log::debug!("git push");
     let output = Command::new("git").arg("push").current_dir(path).output()?;
 
     if output.status.success() {
@@ -150,15 +172,16 @@ pub fn push(path: &PathBuf) -> Result<Output> {
     }
 }
 
-pub fn clone(url: &str, path: &PathBuf) -> Result<Output> {
-    let output = Command::new("git")
+pub fn clone(url: &str, path: &PathBuf) -> Result<()> {
+    log::debug!("git clone {} {}", url, path.display());
+    let p = Command::new("git")
         .arg("clone")
         .arg(url)
         .arg(path)
-        .output()?;
+        .status()?;
 
-    if output.status.success() {
-        Ok(output)
+    if p.success() {
+        Ok(())
     } else {
         return Err(format_err!("Failed to clone"));
     }

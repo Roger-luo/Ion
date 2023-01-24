@@ -4,6 +4,8 @@ use crate::{
     JuliaProject, Registry,
 };
 use anyhow::{format_err, Result};
+use tokio::runtime::Builder;
+use tokio::time::{sleep, Duration};
 use colorful::Colorful;
 use dialoguer::Confirm;
 use node_semver::Version;
@@ -126,9 +128,14 @@ impl Release {
     }
 
     pub fn ask_note(&mut self) -> Result<&mut Self> {
+        // don't ask for patch release
+        if self.version_spec.is_patch() {
+            return Ok(self);
+        }
+
         if let Some(note) = dialoguer::Editor::new()
             .extension("md")
-            .edit("your release note")?
+            .edit("## Release Note\n")?
         {
             self.note = Some(note);
         } else {
@@ -245,22 +252,22 @@ impl ReleaseHandler<'_> {
         };
         let registry_name = self.info.registry_name.to_owned();
 
-        eprintln!("{}: {}", "          project".cyan(), project_name);
+        eprintln!("{}: {}", "            project".cyan(), project_name);
         if let Some(b) = self.info.branch.as_ref() {
-            eprintln!("{}: {}", "           branch".cyan(), b)
+            eprintln!("{}: {}", "             branch".cyan(), b)
         }
-        eprintln!("{}: {}", "         registry".cyan(), registry_name);
+        eprintln!("{}: {}", "           registry".cyan(), registry_name);
         if let Some(latest) = latest_version {
             if latest == &version {
                 eprintln!("{}: {}", "latest/current version".cyan(), latest);
             } else {
-                eprintln!("{}: {}", "   latest version".blue(), latest);
-                eprintln!("{}: {}", "  current version".blue(), version);
+                eprintln!("{}: {}", "     latest version".blue(), latest);
+                eprintln!("{}: {}", "    current version".blue(), version);
             }
         } else {
-            eprintln!("{}: {}", "  current version".blue(), version);
+            eprintln!("{}: {}", "    current version".blue(), version);
         }
-        eprintln!("{}: {}", "  release version".blue(), release_version);
+        eprintln!("{}: {}", "    release version".blue(), release_version);
         Ok(self)
     }
 
@@ -292,10 +299,12 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn write_project(&mut self) -> Result<&mut Self> {
-        match self.info.version_spec {
-            VersionSpec::Current => {} // do nothing
-            _ => {
-                self.info.project.write(&self.info.project_toml)?;
+        if let Some(release) = &self.version_to_release {
+            if *release != self.info.get_version()? {
+                let mut project = self.info.project.clone();
+                let version_to_release = release.clone();
+                project.version = Some(version_to_release);
+                project.write(&self.info.project_toml)?;
             }
         }
         Ok(self)
@@ -306,14 +315,15 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn commit_changes(&mut self) -> Result<&mut Self> {
-        match self.info.version_spec {
-            VersionSpec::Current => {} // do nothing
-            _ => {
+        if let Some(release) = &self.version_to_release {
+            if *release != self.info.get_version()? {
                 let version_to_release = self
                     .version_to_release
                     .as_ref()
                     .ok_or_else(|| format_err!("No version to release found"))?;
-                let message = format!("bump version  to {}", version_to_release);
+                let message = format!("bump version to {}", version_to_release);
+                let item = (&self).info.project_toml.to_str().unwrap();
+                git::add(&self.info.path_to_repo, item)?;
                 git::commit(&self.info.path_to_repo, &message)?;
             }
         }
@@ -322,6 +332,27 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn summon_registrator(&mut self) -> Result<&mut Self> {
+        let result = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(self.request_registrator());
+
+        if let Err(e) = result {
+            match self.revert_commit_maybe() {
+                Ok(_) => {
+                    return Err(format_err!("release failed due to:\n\n {}\n\n\
+                    reverted to previous commit", e))
+                },
+                Err(e) => {
+                    return Err(format_err!("release failed, and failed to revert changes: {}", e))
+                }
+            }
+        }
+        Ok(self)
+    }
+
+    pub async fn request_registrator(&self) -> Result<()> {
         let watermark: String = "release via [ion](https://rogerluo.dev)\n".into();
         let body: String = "@JuliaRegistrator register".into();
         let body = format!("{}\n\n{}", watermark, body);
@@ -344,14 +375,25 @@ impl ReleaseHandler<'_> {
         let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
         let sha = self.current_sha256()?;
 
-        // let octocrab = octocrab::instance();
-        // let page = octocrab
-        //     .commits(owner, repo)
-        //     .create_comment(sha, body);
-        Ok(self)
+        let octocrab = octocrab::instance();
+        let commits = octocrab.commits(owner, repo);
+        commits.create_comment(sha, body).send().await?;
+        Ok(())
     }
 
     pub fn revert_commit_maybe(&mut self) -> Result<&mut Self> {
+        // git revert --no-edit --no-commit HEAD
+        // git commit -m "revert version bump due to an error occured in IonCLI"
+        if let Some(sha) = &self.version_bump_sha {
+            std::process::Command::new("git")
+                .arg("revert")
+                .arg("--no-edit")
+                .arg("--no-commit")
+                .arg(sha).status()?;
+
+            let message = "revert version bump due to an error occured in ion";
+            git::commit(&self.info.path_to_repo, message)?;
+        }
         Ok(self)
     }
 }

@@ -30,6 +30,13 @@ impl VersionSpec {
             VersionSpec::Current => version.clone(),
         }
     }
+
+    pub fn is_patch(&self) -> bool {
+        match self {
+            VersionSpec::Patch => true,
+            _ => false,
+        }
+    }
 }
 
 trait BumpVersion {
