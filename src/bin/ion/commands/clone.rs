@@ -20,10 +20,10 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let dest = matches.get_one::<PathBuf>("dest");
     let registry_name = matches.get_one::<String>("registry").unwrap().to_owned();
 
-    let (url, name) = match Url::parse(&*url_or_name) {
+    let (url, name) = match Url::parse(&url_or_name) {
         Ok(url) => {
             let name: Option<String> = match url.path_segments() {
-                Some(segments) => segments.last().and_then(|name| Some(name.to_string())),
+                Some(segments) => segments.last().map(|name| name.to_string()),
                 None => None,
             };
             (url, name)
@@ -31,7 +31,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         Err(_) => {
             let url = Registry::read(registry_name)?
                 .package()
-                .name(url_or_name.to_owned())
+                .name(&url_or_name)
                 .get_url()?;
             (url, Some(url_or_name))
         }

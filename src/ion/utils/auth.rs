@@ -1,12 +1,12 @@
-use colorful::Colorful;
-use keyring::Entry;
 use anyhow::Result;
+use colorful::Colorful;
+use copypasta::{ClipboardContext, ClipboardProvider};
 use either::Either;
+use keyring::Entry;
 use reqwest::header::ACCEPT;
+use secrecy::{ExposeSecret, Secret};
 use std::time::Duration;
 use tokio::runtime::Builder;
-use secrecy::{ExposeSecret, Secret};
-use copypasta::{ClipboardContext, ClipboardProvider};
 
 pub struct Auth {
     github: Entry,
@@ -25,12 +25,10 @@ impl Auth {
     pub fn new<I, S>(scope: I) -> Self
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str>, {
+        S: AsRef<str>,
+    {
         Self {
-            github: Entry::new(
-                "dev.rogerluo.ion-github-authentication", 
-                "github.auth"
-            ),
+            github: Entry::new("dev.rogerluo.ion-github-authentication", "github.auth"),
             scope: scope.into_iter().map(|s| s.as_ref().to_string()).collect(),
         }
     }
@@ -89,28 +87,36 @@ impl GithubHandler<'_> {
             .add_header(ACCEPT, "application/json".to_string())
             .build()?;
         let codes = crab
-            .authenticate_as_device(
-                &client_id,
-                &self.auth.scope,
-            ).await?;
+            .authenticate_as_device(&client_id, &self.auth.scope)
+            .await?;
 
         let mut ctx = ClipboardContext::new().unwrap();
         let user_code = codes.user_code.to_owned();
         if let Err(_) = ctx.set_contents(user_code.to_owned()) {
-            println!("Failed to copy your one-time code to \
-            clipboard, please copy it manually: {}", user_code.to_owned().bold());
+            println!(
+                "Failed to copy your one-time code to \
+            clipboard, please copy it manually: {}",
+                user_code.to_owned().bold()
+            );
         } else {
-            println!("your one-time code has been copied to \
-            clipboard: {}", user_code.to_owned().bold());
+            println!(
+                "your one-time code has been copied to \
+            clipboard: {}",
+                user_code.to_owned().bold()
+            );
         }
 
         if dialoguer::Confirm::new()
             .with_prompt("open authentication page in browser?")
             .default(true)
-            .interact()? {
-            open::that(codes.verification_uri.to_owned())?;
+            .interact()?
+        {
+            open::that(&codes.verification_uri)?;
         } else {
-            println!("Then open this page in your browser: {}", codes.verification_uri.to_owned().underlined());
+            println!(
+                "Then open this page in your browser: {}",
+                codes.verification_uri.to_owned().underlined()
+            );
         }
 
         let mut interval = Duration::from_secs(codes.interval);

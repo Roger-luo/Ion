@@ -1,15 +1,15 @@
 use super::version_spec::VersionSpec;
 use crate::{
-    utils::{current_root_project, git, auth::Auth},
+    utils::{auth::Auth, current_root_project, git},
     JuliaProject, Registry,
 };
 use anyhow::{format_err, Result};
-use tokio::runtime::Builder;
 use colorful::Colorful;
 use dialoguer::Confirm;
 use node_semver::Version;
-use std::path::PathBuf;
 use octocrab::Octocrab;
+use std::path::PathBuf;
+use tokio::runtime::Builder;
 
 // user inputs
 
@@ -201,15 +201,15 @@ impl ReleaseHandler<'_> {
                     .with_prompt("do you want to release current version?")
                     .interact()?
                 {
-                    self.version_to_release = Some(self.info.get_version()?.clone());
+                    self.version_to_release = Some(self.info.get_version()?);
                     self.report()?;
                 } else {
-                    return Err(anyhow::format_err!("release cancelled").into());
+                    return Err(anyhow::format_err!("release cancelled"));
                 }
             } else {
-                return Err(
-                    anyhow::format_err!("current version is not a registered version").into(),
-                );
+                return Err(anyhow::format_err!(
+                    "current version is not a registered version"
+                ));
             }
         }
 
@@ -235,7 +235,7 @@ impl ReleaseHandler<'_> {
                 .show_default(true)
                 .interact()?
             {
-                return Err(anyhow::format_err!("release cancelled").into());
+                return Err(anyhow::format_err!("release cancelled"));
             }
             self.final_confirm = false;
         }
@@ -291,7 +291,7 @@ impl ReleaseHandler<'_> {
     pub fn is_current_continuously_greater(&self) -> Result<bool> {
         let ver = self.info.get_version()?;
         match &self.info.latest_version {
-            Some(latest) => Ok(is_version_continuously_greater(&latest, &ver)),
+            Some(latest) => Ok(is_version_continuously_greater(latest, &ver)),
             None => Ok(true),
         }
     }
@@ -327,7 +327,7 @@ impl ReleaseHandler<'_> {
                     .as_ref()
                     .ok_or_else(|| format_err!("No version to release found"))?;
                 let message = format!("bump version to {}", version_to_release);
-                let item = (&self).info.project_toml.to_str().unwrap();
+                let item = self.info.project_toml.to_str().unwrap();
                 git::add(&self.info.path_to_repo, item)?;
                 git::commit(&self.info.path_to_repo, &message)?;
             }
@@ -337,9 +337,7 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn summon_registrator(&mut self) -> Result<&mut Self> {
-        let auth = Auth::new(
-            vec!["repo", "read:org"],
-        );
+        let auth = Auth::new(vec!["repo", "read:org"]);
         let token = auth.get_token()?;
 
         let result = Builder::new_current_thread()
@@ -350,12 +348,8 @@ impl ReleaseHandler<'_> {
 
         if let Err(e) = result {
             match self.revert_commit_maybe() {
-                Ok(_) => {
-                    return Err(format_err!("release failed due to:\n\n {:#?}", e))
-                },
-                Err(e) => {
-                    return Err(format_err!("release failed : {:#?}", e))
-                }
+                Ok(_) => return Err(format_err!("release failed due to:\n\n {:#?}", e)),
+                Err(e) => return Err(format_err!("release failed : {:#?}", e)),
             }
         }
         Ok(self)
@@ -368,16 +362,13 @@ impl ReleaseHandler<'_> {
         let octocrab = Octocrab::builder().personal_token(token).build()?;
         log::debug!("owner: {}, repo: {}, sha: {}", owner, repo, sha);
         let commits = octocrab.commits(owner, repo);
-        let future = commits.create_comment(
-            sha,
-            body
-        ).send().await;
+        let future = commits.create_comment(sha, body).send().await;
         match future {
             Ok(comment) => {
                 println!("JuliaRegistrator summoned! You are good to go!");
                 println!("Comment: {}", comment.html_url);
-            },
-            Err(e) => {return Err(e.into())},
+            }
+            Err(e) => return Err(e.into()),
         }
         Ok(())
     }
@@ -410,7 +401,9 @@ impl ReleaseHandler<'_> {
     }
 
     pub fn revert_commit_maybe(&mut self) -> Result<&mut Self> {
-        if !self.revert_changes { return Ok(self) }
+        if !self.revert_changes {
+            return Ok(self);
+        }
         // git revert --no-edit --no-commit HEAD
         // git commit -m "revert version bump due to an error occured in IonCLI"
         if let Some(sha) = &self.version_bump_sha {
@@ -418,7 +411,8 @@ impl ReleaseHandler<'_> {
                 .arg("revert")
                 .arg("--no-edit")
                 .arg("--no-commit")
-                .arg(sha).status()?;
+                .arg(sha)
+                .status()?;
             log::warn!("reverted to previous commit due to an error occured in ion");
             let message = "revert version bump due to an error occured in ion";
             git::commit(&self.info.path_to_repo, message)?;
