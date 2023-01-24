@@ -32,10 +32,7 @@ impl VersionSpec {
     }
 
     pub fn is_patch(&self) -> bool {
-        match self {
-            VersionSpec::Patch => true,
-            _ => false,
-        }
+        matches!(self, VersionSpec::Patch)
     }
 }
 

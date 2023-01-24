@@ -89,7 +89,7 @@ pub fn default_branch(path: &PathBuf) -> Result<String> {
     let parts = refs.split('/');
     let default = parts
         .last()
-        .ok_or(format_err!("Invalid default branch"))?
+        .ok_or_else(|| format_err!("Invalid default branch"))?
         .to_string();
     Ok(default)
 }

@@ -92,7 +92,7 @@ impl GithubHandler<'_> {
 
         let mut ctx = ClipboardContext::new().unwrap();
         let user_code = codes.user_code.to_owned();
-        if let Err(_) = ctx.set_contents(user_code.to_owned()) {
+        if ctx.set_contents(user_code.to_owned()).is_err() {
             println!(
                 "Failed to copy your one-time code to \
             clipboard, please copy it manually: {}",

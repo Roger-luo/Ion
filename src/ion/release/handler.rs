@@ -164,7 +164,7 @@ impl Release {
             .project
             .version
             .as_ref()
-            .ok_or(format_err!("No version found"))?;
+            .ok_or_else(|| format_err!("No version found"))?;
         Ok(version.clone())
     }
 }
@@ -248,7 +248,7 @@ impl ReleaseHandler<'_> {
             .project
             .name
             .as_ref()
-            .ok_or(format_err!("No name found"))?;
+            .ok_or_else(|| format_err!("No name found"))?;
         let version = self.info.get_version()?;
         let latest_version = &self.info.latest_version;
         let release_version = match &self.version_to_release {
