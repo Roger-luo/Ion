@@ -20,10 +20,16 @@ pub struct GithubHandler<'a> {
 }
 
 impl Auth {
-    pub fn new(scope: Vec<String>) -> Self {
+    pub fn new<I, S>(scope: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>, {
         Self {
-            github: Entry::new("dev.rogerluo.ion", "github"),
-            scope,
+            github: Entry::new(
+                "dev.rogerluo.ion-github-authentication", 
+                "github.auth"
+            ),
+            scope: scope.into_iter().map(|s| s.as_ref().to_string()).collect(),
         }
     }
 

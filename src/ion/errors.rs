@@ -71,3 +71,9 @@ impl From<octocrab::Error> for CliError {
         CliError::new(err.into(), 1)
     }
 }
+
+impl From<keyring::Error> for CliError {
+    fn from(err: keyring::Error) -> CliError {
+        CliError::new(err.into(), 1)
+    }
+}

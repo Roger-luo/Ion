@@ -338,7 +338,7 @@ impl ReleaseHandler<'_> {
 
     pub fn summon_registrator(&mut self) -> Result<&mut Self> {
         let auth = Auth::new(
-            vec!["public_repo".to_string(), "read:org".to_string()]
+            vec!["repo", "read:org"],
         );
         let token = auth.get_token()?;
 
@@ -351,11 +351,10 @@ impl ReleaseHandler<'_> {
         if let Err(e) = result {
             match self.revert_commit_maybe() {
                 Ok(_) => {
-                    return Err(format_err!("release failed due to:\n\n {}\n\n\
-                    reverted to previous commit", e))
+                    return Err(format_err!("release failed due to:\n\n {:#?}", e))
                 },
                 Err(e) => {
-                    return Err(format_err!("release failed, and failed to revert changes: {}", e))
+                    return Err(format_err!("release failed : {:#?}", e))
                 }
             }
         }
@@ -420,7 +419,7 @@ impl ReleaseHandler<'_> {
                 .arg("--no-edit")
                 .arg("--no-commit")
                 .arg(sha).status()?;
-
+            log::warn!("reverted to previous commit due to an error occured in ion");
             let message = "revert version bump due to an error occured in ion";
             git::commit(&self.info.path_to_repo, message)?;
         }
