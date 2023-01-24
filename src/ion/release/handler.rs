@@ -1,7 +1,7 @@
 use super::version_spec::VersionSpec;
 use crate::{
-    utils::{current_root_project, find, git},
-    JuliaProject,
+    utils::{current_root_project, git},
+    JuliaProject, Registry,
 };
 use dialoguer::Confirm;
 use anyhow::{format_err, Result};
@@ -40,13 +40,28 @@ impl Release {
             None => return Err(format_err!("No parent directory found")),
         };
 
-        let path_to_repo = git::get_toplevel_path(&path_to_project)?;
+        let path_to_repo = match git::get_toplevel_path(&path_to_project) {
+            Ok(path) => path,
+            Err(_) => return Err(format_err!("No git repository found")),
+        };
+
+        if git::isdirty(&path_to_repo)? {
+            return Err(format_err!("The repository is dirty"));
+        }
+
+        if !git::remote_exists(&path_to_repo)? {
+            return Err(format_err!("remote does not exist"));
+        }
+
         let subdir = path_to_project.strip_prefix(&path_to_repo)?;
-        let latest_ver =
-            match find::maximum_version(project.name.as_ref().unwrap(), registry_name.as_ref()) {
-                Ok(ver) => Some(ver),
-                Err(_) => None,
-            };
+        let registry = Registry::read(registry_name.as_ref())?;
+        let uuid = project.uuid.as_ref().ok_or_else(|| format_err!("No UUID found"))?;
+        
+        let mut handle = registry.package();
+        let latest_ver = handle
+            .uuid(uuid)
+            .has_package()
+            .then_some(handle.get_latest_version()?);
 
         if git::isdirty(&path_to_repo)? {
             return Err(format_err!("The repository is dirty"));
@@ -90,7 +105,7 @@ impl Release {
         if branch != default_branch {
             let confirm = dialoguer::Confirm::new()
                 .with_prompt(format!(
-                    "You are not on the default branch ({})",
+                    "You are not on the default branch ({}), continue?",
                     default_branch
                 ))
                 .interact()?;

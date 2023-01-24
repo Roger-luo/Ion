@@ -2,8 +2,9 @@ use node_semver::Range;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use url::Url;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PackageSpec {
     name: Option<String>,
     url: Option<String>,

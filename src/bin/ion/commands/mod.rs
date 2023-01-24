@@ -3,10 +3,12 @@ use ion::errors::CliResult;
 
 pub mod new;
 pub mod pkg;
+pub mod clone;
 pub mod release;
 
 pub fn builtin() -> Vec<Command> {
     vec![
+        clone::cli(),
         release::cli(),
         new::cli(),
         pkg::add::cli(),
@@ -22,6 +24,7 @@ pub fn builtin() -> Vec<Command> {
 
 pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
     let f = match cmd {
+        "clone" => clone::exec,
         "release" => release::exec,
         "new" => new::exec,
         "add" => pkg::add::exec,

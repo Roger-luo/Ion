@@ -3,6 +3,18 @@ use anyhow::{format_err, Result};
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
+// git ls-remote --exit-code --heads origin main
+pub fn remote_exists(path: &PathBuf) -> Result<bool> {
+    let output = Command::new("git")
+        .arg("ls-remote")
+        .arg("--exit-code")
+        .arg("--heads")
+        .arg("origin")
+        .current_dir(path)
+        .output()?;
+    Ok(output.status.success())
+}
+
 // `git show -s --format="%H" $branch`
 pub fn sha_256(path: &PathBuf, branch: &str) -> Result<String> {
     Command::new("git")
@@ -17,11 +29,11 @@ pub fn sha_256(path: &PathBuf, branch: &str) -> Result<String> {
 pub fn remote_repo(local: &PathBuf) -> Result<(String, String)> {
     let url = remote_origin_url(local)?;
     let url = url.trim_end_matches(".git");
-    let url = url.trim_end_matches("/");
+    let url = url.trim_end_matches('/');
     let url = url.trim_start_matches("https://");
 
     // https://github.com/QuEraComputing/Bloqade.jl
-    let mut parts = url.split("/");
+    let mut parts = url.split('/');
     parts.next();
     let name = parts.next()
         .ok_or_else(|| format_err!("Invalid remote url"))?;
@@ -72,7 +84,7 @@ pub fn default_branch(path: &PathBuf) -> Result<String> {
         .current_dir(path)
         .read_command()?;
     // refs/remotes/origin/master
-    let mut parts = refs.split("/");
+    let parts = refs.split('/');
     let default = parts
         .last()
         .ok_or(format_err!("Invalid default branch"))?
@@ -133,5 +145,19 @@ pub fn push(path: &PathBuf) -> Result<Output> {
         Ok(output)
     } else {
         return Err(format_err!("Failed to push"));
+    }
+}
+
+pub fn clone(url: &str, path: &PathBuf) -> Result<Output> {
+    let output = Command::new("git")
+        .arg("clone")
+        .arg(url)
+        .arg(path)
+        .output()?;
+
+    if output.status.success() {
+        Ok(output)
+    } else {
+        return Err(format_err!("Failed to clone"));
     }
 }

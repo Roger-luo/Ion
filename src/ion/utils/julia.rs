@@ -1,11 +1,18 @@
 use crate::errors::CliResult;
 use anyhow::format_err;
-use std::fmt::Display;
+use std::fmt::{Display, Debug};
 use std::process::{Command, Output};
 
 pub struct JuliaCommand {
     cmd: Command,
     script: String,
+}
+
+impl Debug for JuliaCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.cmd)?;
+        write!(f, "{}", self.script)
+    }
 }
 
 impl JuliaCommand {

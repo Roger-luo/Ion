@@ -1,5 +1,6 @@
 use anyhow::{format_err, Error};
-use std::process::{Command, Output};
+use log::debug;
+use std::{process::{Command, Output}, fmt::Debug};
 
 use super::JuliaCommand;
 
@@ -21,8 +22,9 @@ pub trait ReadCommand {
     fn read_command(&mut self) -> Result<String, Error>;
 }
 
-impl<T: CommandMarker> ReadCommand for T {
+impl<T: CommandMarker + Debug> ReadCommand for T {
     fn read_command(&mut self) -> Result<String, Error> {
+        debug!("Running command: {:#?}", self);
         let output = self.output()?;
         if output.status.success() {
             let raw = String::from_utf8(output.stdout)?.trim().to_string();

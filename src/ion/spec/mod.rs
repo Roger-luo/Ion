@@ -4,4 +4,4 @@ pub mod registry;
 
 pub use pkgspec::PackageSpec;
 pub use project::JuliaProject;
-pub use registry::{Registry, RegistryList};
+pub use registry::Registry;

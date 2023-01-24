@@ -59,3 +59,9 @@ impl From<node_semver::SemverError> for CliError {
         CliError::new(err.into(), 1)
     }
 }
+
+impl From<url::ParseError> for CliError {
+    fn from(err: url::ParseError) -> CliError {
+        CliError::new(err.into(), 1)
+    }
+}

@@ -34,8 +34,8 @@ type DepsInfo = BTreeMap<String, BTreeMap<String, String>>;
 type CompatInfo = BTreeMap<String, BTreeMap<String, String>>;
 
 #[derive(Debug)]
-pub struct RegistryHandler<'de> {
-    registry: &'de Registry,
+pub struct RegistryHandler<'reg> {
+    registry: &'reg Registry,
     name: Option<String>, // package name
     uuid: Option<String>, // package uuid
     package_path: Option<String>,
@@ -66,7 +66,7 @@ impl Registry {
     }
 }
 
-impl<'de> RegistryHandler<'de> {
+impl RegistryHandler<'_> {
     pub fn name(&mut self, name: impl AsRef<str>) -> &mut Self {
         self.name = Some(name.as_ref().to_string());
         self
@@ -77,37 +77,27 @@ impl<'de> RegistryHandler<'de> {
         self
     }
 
-    pub fn has_package(&mut self) -> bool {
-        self.package_path().is_ok()
-    }
-
     pub fn package_path(&mut self) -> Result<String> {
         if self.package_path.is_some() {
             return Ok(self.package_path.as_ref().unwrap().clone());
         }
 
-        let path = if let Some(uuid) = &self.uuid {
-            match self.registry.packages.get(uuid) {
+        let path = if let Some(uuid) = self.uuid {
+            match self.registry.packages.get(&uuid) {
                 Some(package) => package.path.clone(),
                 None => {
                     return Err(format_err!("Package {} not found in {}", uuid, self.registry.name));
                 }
             }
-        } else if let Some(name) = &self.name {
-            let mut pkgs = self.registry.packages.values();
-            loop {
-                let pkginfo = pkgs.next();
-                match pkginfo {
-                    Some(pkginfo) => {
-                        if pkginfo.name == *name {
-                            break pkginfo.path.clone();
-                        }
-                    }
-                    None => {
-                        return Err(format_err!("Package {} not found in {}", name, self.registry.name));
-                    }
+        } else if let Some(name) = self.name {
+            let mut path: String;
+            for pkginfo in self.registry.packages.values() {
+                if pkginfo.name == name {
+                    path = pkginfo.path.clone();
+                    break
                 }
             }
+            path
         } else {
             return Err(format_err!("Package name or uuid not set"));
         };
@@ -116,10 +106,17 @@ impl<'de> RegistryHandler<'de> {
         Ok(path)
     }
 
+    fn query_file<'de, T: serde::Deserialize<'de>>(&self, name: impl AsRef<str>) -> Result<T> {
+        let file = PathBuf::from(self.package_path()?)
+            .join(name.as_ref()).to_str().unwrap();
+        let data = registry_data(file, &self.registry.name)?;
+        let query: T = toml::from_str(&data)?;
+        Ok(query)
+    }
+
     pub fn version_info(&mut self) -> Result<&VersionInfo> {
         if self.versions.is_none() {
-            let data = &self.registry_data("Versions.toml")?;
-            let versions : VersionInfo = toml::from_str(data.as_str())?;
+            let versions = self.query_file::<VersionInfo>("Versions.toml")?;
             self.versions = Some(versions);
         }
         Ok(self.versions.as_ref().unwrap())
@@ -127,8 +124,7 @@ impl<'de> RegistryHandler<'de> {
 
     pub fn package_info(&mut self) -> Result<&PackageInfo> {
         if self.package.is_none() {
-            let data = &self.registry_data("Package.toml")?;
-            let package: PackageInfo = toml::from_str(data.as_str())?;
+            let package = self.query_file::<PackageInfo>("Package.toml")?;
             self.package = Some(package);
         }
         Ok(self.package.as_ref().unwrap())
@@ -136,8 +132,7 @@ impl<'de> RegistryHandler<'de> {
 
     pub fn deps_info(&mut self) -> Result<&DepsInfo> {
         if self.deps.is_none() {
-            let data = &self.registry_data("Deps.toml")?;
-            let deps: DepsInfo = toml::from_str(data.as_str())?;
+            let deps = self.query_file::<DepsInfo>("Deps.toml")?;
             self.deps = Some(deps);
         }
         Ok(self.deps.as_ref().unwrap())
@@ -145,8 +140,7 @@ impl<'de> RegistryHandler<'de> {
 
     pub fn compat_info(&mut self) -> Result<&CompatInfo> {
         if self.compat.is_none() {
-            let data = &self.registry_data("Compat.toml")?;
-            let compat: CompatInfo = toml::from_str(data.as_str())?;
+            let compat = self.query_file::<CompatInfo>("Compat.toml")?;
             self.compat = Some(compat);
         }
         Ok(self.compat.as_ref().unwrap())
@@ -169,16 +163,7 @@ impl<'de> RegistryHandler<'de> {
         let versions = self.version_info()?;
         Ok(versions.keys().max().unwrap().clone())
     }
-
-    pub fn registry_data(&mut self, name: impl AsRef<str>) -> Result<String> {
-        let file = PathBuf::from(self.package_path()?)
-            .join(name.as_ref());
-        let file = file.to_str().unwrap();
-        let data = registry_data(file, &self.registry.name)?;
-        Ok(data)
-    }    
 }
-
 
 pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<String> {
     format!(
