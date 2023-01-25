@@ -1,7 +1,6 @@
-use super::version_spec::VersionSpec;
 use crate::{
     utils::{auth::Auth, current_root_project, git},
-    JuliaProject, Registry,
+    JuliaProject, Registry, VersionSpec,
 };
 use anyhow::{format_err, Result};
 use colorful::Colorful;

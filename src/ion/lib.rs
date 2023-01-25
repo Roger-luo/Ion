@@ -1,6 +1,8 @@
 pub mod blueprints;
 pub mod errors;
 pub mod release;
+pub mod report;
+pub mod version;
 pub mod spec;
 pub mod utils;
 
