@@ -107,10 +107,7 @@ mod tests {
         assert_eq!(VersionSpec::from_string("patch")?, VersionSpec::Patch);
         assert_eq!(VersionSpec::from_string("minor")?, VersionSpec::Minor);
         assert_eq!(VersionSpec::from_string("major")?, VersionSpec::Major);
-        assert_eq!(
-            VersionSpec::from_string("current")?,
-            VersionSpec::Current
-        );
+        assert_eq!(VersionSpec::from_string("current")?, VersionSpec::Current);
         assert_eq!(
             VersionSpec::from_string("0.1.0")?,
             VersionSpec::Spec(Version::parse("0.1.0")?)

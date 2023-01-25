@@ -114,7 +114,6 @@ impl Display for PackageSpec {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,7 +138,10 @@ mod tests {
 
         let spec = PackageSpec::new(&r#"https://github.com/Example/Example.git"#.to_string());
         assert_eq!(spec.name, None);
-        assert_eq!(spec.url, Some(r#"https://github.com/Example/Example.git"#.to_string()));
+        assert_eq!(
+            spec.url,
+            Some(r#"https://github.com/Example/Example.git"#.to_string())
+        );
         assert_eq!(spec.path, None);
         assert_eq!(spec.subdir, None);
         assert_eq!(spec.rev, None);
@@ -147,7 +149,10 @@ mod tests {
 
         let spec = PackageSpec::new(&r#"https://github.com/Example/Example.git#main"#.to_string());
         assert_eq!(spec.name, None);
-        assert_eq!(spec.url, Some(r#"https://github.com/Example/Example.git"#.to_string()));
+        assert_eq!(
+            spec.url,
+            Some(r#"https://github.com/Example/Example.git"#.to_string())
+        );
         assert_eq!(spec.path, None);
         assert_eq!(spec.subdir, None);
         assert_eq!(spec.rev, Some("main".to_string()));

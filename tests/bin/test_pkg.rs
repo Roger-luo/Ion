@@ -1,12 +1,18 @@
-use assert_cmd::{Command, cargo::cargo_bin};
-use std::{env, path::PathBuf, fs::{create_dir_all, remove_dir_all}};
-use rexpect::spawn;
 use anyhow::Result;
-use rexpect::error::*;
+use assert_cmd::{cargo::cargo_bin, Command};
+use rexpect::spawn;
+use std::{
+    env,
+    fs::{create_dir_all, remove_dir_all},
+    path::PathBuf,
+};
 
 fn setup() {
     let root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let scratch = PathBuf::from(root).join("tests").join("packages").join("scratch");
+    let scratch = PathBuf::from(root)
+        .join("tests")
+        .join("packages")
+        .join("scratch");
     create_dir_all(scratch.clone()).unwrap();
     env::set_current_dir(scratch).unwrap();
 }
@@ -14,10 +20,17 @@ fn setup() {
 #[test]
 fn test_cli_example() {
     setup();
-    Command::cargo_bin("ion").unwrap()
-        .arg("help").assert().success();
-    Command::cargo_bin("ion").unwrap()
-        .arg("clone").arg("Example").assert().success();
+    Command::cargo_bin("ion")
+        .unwrap()
+        .arg("help")
+        .assert()
+        .success();
+    Command::cargo_bin("ion")
+        .unwrap()
+        .arg("clone")
+        .arg("Example")
+        .assert()
+        .success();
     remove_dir_all("Example").unwrap();
 }
 
@@ -36,7 +49,10 @@ fn test_new_package() -> Result<()> {
     assert!(PathBuf::from("TestNew").join("LICENSE").is_file());
     assert!(PathBuf::from("TestNew").join("README.md").is_file());
     assert!(PathBuf::from("TestNew").join(".gitignore").is_file());
-    assert!(PathBuf::from("TestNew").join("src").join("TestNew.jl").is_file());
+    assert!(PathBuf::from("TestNew")
+        .join("src")
+        .join("TestNew.jl")
+        .is_file());
 
     let test_dir = PathBuf::from("TestNew").join("tests");
     assert!(test_dir.join("runtests.jl").is_file());

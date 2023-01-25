@@ -209,7 +209,6 @@ pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<Str
     .read_command()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,7 +219,10 @@ mod tests {
         let mut handler = registry.package();
         handler.name("Example");
         let url = handler.get_url().unwrap();
-        assert_eq!(url, Url::parse("https://github.com/JuliaLang/Example.jl.git").unwrap());
+        assert_eq!(
+            url,
+            Url::parse("https://github.com/JuliaLang/Example.jl.git").unwrap()
+        );
         let uuid = handler.get_uuid().unwrap();
         assert_eq!(uuid, "7876af07-990d-54b4-ab0e-23690620f79a");
     }

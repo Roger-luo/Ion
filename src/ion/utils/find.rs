@@ -43,6 +43,6 @@ pub fn current_root_project(dir: PathBuf) -> Option<(JuliaProject, PathBuf)> {
                 Some(parent) => current_root_project(parent.to_path_buf()),
                 None => None,
             }
-        },
+        }
     }
 }

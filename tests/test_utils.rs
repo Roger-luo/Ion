@@ -1,7 +1,7 @@
+use anyhow::Result;
 use ion::utils::*;
 use std::env::*;
 use std::path::PathBuf;
-use anyhow::Result;
 
 #[test]
 fn test_current_project() -> Result<()> {
@@ -13,7 +13,10 @@ fn test_current_project() -> Result<()> {
 
     let cwd = current_dir().unwrap();
     let project = current_project(cwd.to_owned()).unwrap();
-    assert_eq!(project, package_dir.join("A").join("B").join("Project.toml"));
+    assert_eq!(
+        project,
+        package_dir.join("A").join("B").join("Project.toml")
+    );
 
     let (toml, path) = current_root_project(cwd.to_owned()).unwrap();
     assert_eq!(path, package_dir.join("A").join("Project.toml"));

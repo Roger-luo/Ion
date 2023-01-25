@@ -31,7 +31,6 @@ impl JuliaProject {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

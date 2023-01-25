@@ -106,12 +106,17 @@ mod tests {
 
     #[test]
     fn test_cli_error_from_clap() {
-        use clap::error::{ContextValue, ContextKind, ErrorKind};
+        use clap::error::{ContextKind, ContextValue, ErrorKind};
         let cmd = clap::Command::new("prog");
-        let mut err = clap::Error::new(ErrorKind::ValueValidation)
-            .with_cmd(&cmd);
-        err.insert(ContextKind::InvalidArg, ContextValue::String("--foo".to_owned()));
-        err.insert(ContextKind::InvalidValue, ContextValue::String("bar".to_owned()));
+        let mut err = clap::Error::new(ErrorKind::ValueValidation).with_cmd(&cmd);
+        err.insert(
+            ContextKind::InvalidArg,
+            ContextValue::String("--foo".to_owned()),
+        );
+        err.insert(
+            ContextKind::InvalidValue,
+            ContextValue::String("bar".to_owned()),
+        );
 
         let err = CliError::from(err);
         assert_eq!(err.exit_code, 1);
@@ -119,10 +124,7 @@ mod tests {
 
     #[test]
     fn test_cli_error_from_io() {
-        let err = CliError::from(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "test",
-        ));
+        let err = CliError::from(std::io::Error::new(std::io::ErrorKind::Other, "test"));
         assert_eq!(err.exit_code, 1);
         assert_eq!(err.error.unwrap().to_string(), "test");
     }
@@ -146,6 +148,9 @@ mod tests {
     fn test_cli_error_from_keyring() {
         let err = CliError::from(keyring::Error::NoEntry);
         assert_eq!(err.exit_code, 1);
-        assert_eq!(err.error.unwrap().to_string(), "No matching entry found in secure storage");
+        assert_eq!(
+            err.error.unwrap().to_string(),
+            "No matching entry found in secure storage"
+        );
     }
 }

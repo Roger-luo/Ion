@@ -423,18 +423,12 @@ impl ReleaseHandler<'_> {
 
 fn is_version_continuously_greater(latest: &Version, release: &Version) -> bool {
     // major release
-    if latest.major + 1 == release.major
-        && release.minor == 0
-        && release.patch == 0
-    {
+    if latest.major + 1 == release.major && release.minor == 0 && release.patch == 0 {
         return true;
     }
 
     // minor release
-    if latest.major == release.major
-        && latest.minor + 1 == release.minor
-        && release.patch == 0
-    {
+    if latest.major == release.major && latest.minor + 1 == release.minor && release.patch == 0 {
         return true;
     }
 
@@ -447,7 +441,6 @@ fn is_version_continuously_greater(latest: &Version, release: &Version) -> bool 
     }
     false
 }
-
 
 #[cfg(test)]
 mod tests {
