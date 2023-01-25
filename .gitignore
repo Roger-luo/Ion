@@ -2,3 +2,4 @@
 Cargo.lock
 /*.rs
 !/build.rs
+/tests/packages/scratch

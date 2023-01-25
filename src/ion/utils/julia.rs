@@ -98,3 +98,26 @@ impl<T: Display> Julia for T {
         JuliaCommand { cmd, script }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::ffi::OsStr;
+    use super::*;
+
+    #[test]
+    fn test_julia_command() {
+        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();
+        assert_eq!(cmd.cmd.get_program(), "julia");
+        let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
+        assert_eq!(args.is_empty(), true);
+        assert_eq!(cmd.script, "using Pkg; Pkg.add(\"Foo\")");
+
+        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();
+        cmd.project("Foo").arg("Bar").arg("Baz");
+        let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
+        assert_eq!(args.len(), 3);
+        assert_eq!(args[0], "--project=Foo");
+        assert_eq!(args[1], "Bar");
+        assert_eq!(args[2], "Baz");
+    }
+}

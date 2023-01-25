@@ -30,3 +30,30 @@ impl JuliaProject {
         Ok(())
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Error;
+    use node_semver::Version;
+
+    #[test]
+    fn test_update_version() -> Result<(), Error> {
+        let mut project = JuliaProject {
+            name: Some("Test".to_string()),
+            uuid: Some("12345678".to_string()),
+            authors: Some(vec!["Test".to_string()]),
+            version: Some(Version::parse("0.1.0")?),
+            description: Some("Test".to_string()),
+            license: Some("MIT".to_string()),
+            deps: BTreeMap::new(),
+            compat: None,
+            extras: None,
+            targets: None,
+        };
+        project.update_version(&Version::parse("0.2.0")?);
+        assert_eq!(project.version, Some(Version::parse("0.2.0")?));
+        Ok(())
+    }
+}

@@ -37,3 +37,16 @@ impl<T: CommandMarker + Debug> ReadCommand for T {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_command() {
+        let mut cmd = Command::new("echo");
+        cmd.arg("hello");
+        let output = cmd.read_command().unwrap();
+        assert_eq!(output, "hello");
+    }
+}

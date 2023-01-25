@@ -422,13 +422,10 @@ impl ReleaseHandler<'_> {
 }
 
 fn is_version_continuously_greater(latest: &Version, release: &Version) -> bool {
-    if release > latest {
-        return true;
-    }
-    // patch release
-    if latest.major == release.major
-        && latest.minor == release.minor
-        && latest.patch + 1 == release.patch
+    // major release
+    if latest.major + 1 == release.major
+        && release.minor == 0
+        && release.patch == 0
     {
         return true;
     }
@@ -436,17 +433,58 @@ fn is_version_continuously_greater(latest: &Version, release: &Version) -> bool 
     // minor release
     if latest.major == release.major
         && latest.minor + 1 == release.minor
-        && latest.patch == release.patch
+        && release.patch == 0
     {
         return true;
     }
 
-    // major release
-    if latest.major + 1 == release.major
+    // patch release
+    if latest.major == release.major
         && latest.minor == release.minor
-        && latest.patch == release.patch
+        && latest.patch + 1 == release.patch
     {
         return true;
     }
     false
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_version_continuously_greater() {
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.1.1").unwrap();
+        assert!(is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.2.0").unwrap();
+        assert!(is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("1.0.0").unwrap();
+        assert!(is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.1.0").unwrap();
+        assert!(!is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.0.0").unwrap();
+        assert!(!is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.1.2").unwrap();
+        assert!(!is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("0.2.1").unwrap();
+        assert!(!is_version_continuously_greater(&latest, &release));
+
+        let latest = Version::parse("0.1.0").unwrap();
+        let release = Version::parse("1.0.1").unwrap();
+        assert!(!is_version_continuously_greater(&latest, &release));
+    }
 }

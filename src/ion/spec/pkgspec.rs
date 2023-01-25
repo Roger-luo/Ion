@@ -113,3 +113,44 @@ impl Display for PackageSpec {
         write!(f, "PackageSpec({})", fields.join(", "))
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_package_spec() {
+        let spec = PackageSpec::new(&"foo".to_string());
+        assert_eq!(spec.name, Some("foo".to_string()));
+        assert_eq!(spec.url, None);
+        assert_eq!(spec.path, None);
+        assert_eq!(spec.subdir, None);
+        assert_eq!(spec.rev, None);
+        assert_eq!(spec.version, None);
+
+        let spec = PackageSpec::new(&"Example@0.1".to_string());
+        assert_eq!(spec.name, Some("Example".to_string()));
+        assert_eq!(spec.url, None);
+        assert_eq!(spec.path, None);
+        assert_eq!(spec.subdir, None);
+        assert_eq!(spec.rev, None);
+        assert_eq!(spec.version, Some("0.1".to_string()));
+
+        let spec = PackageSpec::new(&r#"https://github.com/Example/Example.git"#.to_string());
+        assert_eq!(spec.name, None);
+        assert_eq!(spec.url, Some(r#"https://github.com/Example/Example.git"#.to_string()));
+        assert_eq!(spec.path, None);
+        assert_eq!(spec.subdir, None);
+        assert_eq!(spec.rev, None);
+        assert_eq!(spec.version, None);
+
+        let spec = PackageSpec::new(&r#"https://github.com/Example/Example.git#main"#.to_string());
+        assert_eq!(spec.name, None);
+        assert_eq!(spec.url, Some(r#"https://github.com/Example/Example.git"#.to_string()));
+        assert_eq!(spec.path, None);
+        assert_eq!(spec.subdir, None);
+        assert_eq!(spec.rev, Some("main".to_string()));
+        assert_eq!(spec.version, None);
+    }
+}
