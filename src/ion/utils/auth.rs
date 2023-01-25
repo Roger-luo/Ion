@@ -7,6 +7,7 @@ use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, Secret};
 use std::time::Duration;
 use tokio::runtime::Builder;
+use spinoff::{Spinner, Spinners, Color};
 
 pub struct Auth {
     github: Entry,
@@ -119,6 +120,11 @@ impl GithubHandler<'_> {
             );
         }
 
+        let spinner = Spinner::new(
+            Spinners::Dots,
+            "waiting github...",
+            Color::Blue
+        );
         let mut interval = Duration::from_secs(codes.interval);
         let mut clock = tokio::time::interval(interval);
         let auth = loop {
@@ -141,7 +147,7 @@ impl GithubHandler<'_> {
                 },
             }
         };
-        println!("Successfully authenticated.");
+        spinner.success("Successfully authenticated!");
         Ok(auth.access_token.expose_secret().to_string())
     }
 }

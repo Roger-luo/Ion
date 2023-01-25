@@ -7,9 +7,10 @@ use anyhow::{format_err, Result};
 use colorful::Colorful;
 use dialoguer::Confirm;
 use node_semver::Version;
-use octocrab::Octocrab;
+use octocrab::{Octocrab, models::commits::Comment};
 use std::path::PathBuf;
 use tokio::runtime::Builder;
+use spinoff::{Spinner, Spinners, Color};
 
 // user inputs
 
@@ -340,22 +341,29 @@ impl ReleaseHandler<'_> {
         let auth = Auth::new(vec!["repo", "read:org"]);
         let token = auth.get_token()?;
 
+        let spinner = Spinner::new(Spinners::Dots, "Summon JuliaRegistrator...", Color::Blue); 
         let result = Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
             .block_on(self.summon_registrator_task(token));
 
-        if let Err(e) = result {
-            match self.revert_commit_maybe() {
-                Ok(_) => return Err(format_err!("release failed due to:\n\n {:#?}", e)),
-                Err(e) => return Err(format_err!("release failed : {:#?}", e)),
-            }
+        match result {
+            Ok(comment) => {
+                spinner.success("JuliaRegistrator summoned! You are good to go!");
+                println!("Comment: {}", comment.html_url);
+                Ok(self)
+            },
+            Err(e) => {
+                match self.revert_commit_maybe() {
+                    Ok(_) => return Err(format_err!("release failed due to:\n\n {:#?}", e)),
+                    Err(e) => return Err(format_err!("release failed : {:#?}", e)),
+                }
+            },
         }
-        Ok(self)
     }
 
-    pub async fn summon_registrator_task(&self, token: String) -> Result<()> {
+    pub async fn summon_registrator_task(&self, token: String) -> Result<Comment> {
         let body = self.registerator_comment();
         let (owner, repo) = git::remote_repo(&self.info.path_to_repo)?;
         let sha = self.current_sha256()?;
@@ -365,12 +373,10 @@ impl ReleaseHandler<'_> {
         let future = commits.create_comment(sha, body).send().await;
         match future {
             Ok(comment) => {
-                println!("JuliaRegistrator summoned! You are good to go!");
-                println!("Comment: {}", comment.html_url);
-            }
-            Err(e) => return Err(e.into()),
+                Ok(comment)
+            },
+            Err(e) => Err(e.into()),
         }
-        Ok(())
     }
 
     fn registerator_comment(&self) -> String {
