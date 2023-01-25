@@ -39,6 +39,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         .bump(version_spec)?
         .registry(registry_name)
         .confirm(matches.get_flag("no-prompt"))?
+        .print_report()
         .write()?
         .commit(matches.get_flag("no-commit"))?;
     Ok(())

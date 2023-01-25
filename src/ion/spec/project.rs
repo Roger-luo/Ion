@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::VersionSpec;
 use crate::utils::current_root_project;
-use crate::version::bump::VersionBump;
+use crate::bump::VersionBump;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JuliaProject {

@@ -46,6 +46,11 @@ impl VersionBump {
         }
     }
 
+    pub fn print_report(&mut self) -> &mut Self {
+        println!("{}", self.report());
+        self
+    }
+
     pub fn validate(&mut self) -> Result<VersionBumpValidation> {
         self.version_to_release = Some(self.version_spec.update_version(&self.get_version()));
         if self.not_registered() {
