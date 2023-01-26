@@ -1,6 +1,6 @@
 use anyhow::format_err;
 use clap::parser::ArgMatches;
-use clap::{arg, Command};
+use clap::{arg, Command, ValueHint};
 use ion::errors::CliResult;
 use ion::utils::git;
 use ion::Registry;
@@ -10,8 +10,14 @@ use url::Url;
 pub fn cli() -> Command {
     Command::new("clone")
         .about("Clone a package from URL or registry")
-        .arg(arg!(url_or_name: <URL> "The name/url of the package"))
-        .arg(arg!(dest: [PATH] "The path of the package"))
+        .arg(
+            arg!(url_or_name: <URL> "The name/url of the package")
+                .value_hint(ValueHint::Url)
+        )
+        .arg(
+            arg!(dest: [PATH] "The path of the package")
+                .value_hint(ValueHint::AnyPath)
+        )
         .arg(arg!(registry: --registry [REGISTRY] "The registry to use").default_value("General"))
 }
 

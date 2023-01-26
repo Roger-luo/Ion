@@ -8,6 +8,7 @@ pub mod pkg;
 pub mod release;
 pub mod bump;
 pub mod summon;
+pub mod completions;
 
 pub fn builtin() -> Vec<Command> {
     vec![
@@ -25,6 +26,7 @@ pub fn builtin() -> Vec<Command> {
         pkg::remove::cli(),
         pkg::status::cli(),
         pkg::update::cli(),
+        completions::cli(),
     ]
 }
 
@@ -44,6 +46,7 @@ pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
         "remove" => pkg::remove::exec,
         "status" => pkg::status::exec,
         "update" => pkg::update::exec,
+        "completions" => completions::exec,
         _ => return None,
     };
     Some(f)
