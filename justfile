@@ -12,8 +12,8 @@ tarball target="aarch64-apple-darwin":
     echo "::set-output name=archive::$ARCHIVE"
 
 delete-release tag:
-    gh release delete {{tag}} -y
-    git push --delete origin {{tag}}
+    gh release delete v{{tag}} -y
+    git push --delete origin v{{tag}}
 
 release tag:
     cargo bump {{tag}}
