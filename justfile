@@ -16,7 +16,7 @@ delete-release tag:
     git push --delete origin {{tag}}
 
 release tag:
-    gh release create {{tag}} -t {{tag}} --generate-notes -p
+    gh release create {{tag}} -t {{tag}} --generate-notes
 
 
 [macos]
