@@ -10,3 +10,7 @@ tarball target="aarch64-apple-darwin":
     cd target/{{target}} && tar -czf ion-{{target}}.tar.gz dist
     ARCHIVE="target/{{target}}/ion-{{target}}.tar.gz"
     echo "::set-output name=archive::$ARCHIVE"
+
+delete-release tag:
+    gh release delete {{tag}} -y
+    git push --delete origin {{tag}}
