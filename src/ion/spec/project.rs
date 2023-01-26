@@ -4,8 +4,9 @@ use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::VersionSpec;
+use crate::summon::JuliaRegistrator;
 use crate::utils::current_root_project;
-use crate::bump::VersionBump;
+use crate::bump::VersionBumpHandler;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JuliaProject {
@@ -60,24 +61,29 @@ impl JuliaProjectFile {
         })
     }
 
+    pub fn get_version(&self) -> Result<Version> {
+        match &self.project.version {
+            Some(version) => Ok(version.to_owned()),
+            None => Err(format_err!("No version found")),
+        }
+    }
+
     pub fn update_version(&mut self, version: &Version) -> &mut Self {
         self.project.update_version(version);
         self
     }
 
     pub fn write(&self) -> Result<()> {
-        self.project.write(&self.path)?;
+        self.project.write(&self.toml)?;
         Ok(())
     }
 
-    pub fn bump(&self, version_spec: VersionSpec) -> Result<VersionBump> {
-        Ok(VersionBump {
-            version_spec,
-            registry_name: None,
-            project: self.clone(),
-            latest_version: None,
-            version_to_release: None,
-        })
+    pub fn bump(&self, version_spec: VersionSpec) -> VersionBumpHandler {
+        VersionBumpHandler::new(self.clone(), version_spec)
+    }
+
+    pub fn summon(&self) -> Result<JuliaRegistrator> {
+        JuliaRegistrator::from_project(self.clone())
     }
 }
 

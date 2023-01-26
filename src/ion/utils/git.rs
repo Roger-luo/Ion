@@ -60,6 +60,7 @@ pub fn remote_repo_url(repo: &PathBuf, remote: &str) -> Result<String> {
 }
 
 pub fn get_toplevel_path(path: &PathBuf) -> Result<PathBuf> {
+    log::debug!("get_toplevel_path({:?})", path);
     let raw = Command::new("git")
         .arg("rev-parse")
         .arg("--show-toplevel")
@@ -70,6 +71,7 @@ pub fn get_toplevel_path(path: &PathBuf) -> Result<PathBuf> {
 }
 
 pub fn current_branch(path: &PathBuf) -> Result<String> {
+    log::debug!("current_branch({:?})", path);
     Command::new("git")
         .arg("rev-parse")
         .arg("--abbrev-ref")
@@ -185,4 +187,35 @@ pub fn clone(url: &str, path: &PathBuf) -> Result<()> {
     } else {
         return Err(format_err!("Failed to clone"));
     }
+}
+
+pub fn checkout_branch(path: &PathBuf, branch: impl AsRef<str>) -> Result<()> {
+    log::debug!("git checkout {}", branch.as_ref());
+    let p = Command::new("git")
+        .arg("checkout")
+        .arg(branch.as_ref())
+        .current_dir(path)
+        .status()?;
+
+    if p.success() {
+        Ok(())
+    } else {
+        return Err(format_err!("Failed to checkout branch"));
+    }
+}
+
+pub fn checkout_and<S, F>(path: &PathBuf, branch: &Option<S>, mut action: F) -> Result<()>
+    where
+        S: AsRef<str>,
+        F: FnMut() -> Result<()>, 
+    {
+    if let Some(branch) = branch {
+        let current = current_branch(path)?;
+        checkout_branch(path, branch)?;
+        action()?;
+        checkout_branch(path, current)?;
+    } else {
+        action()?;
+    }
+    Ok(())
 }

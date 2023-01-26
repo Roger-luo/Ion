@@ -65,7 +65,7 @@ impl Display for ReleaseReport {
         }
 
         for (field, value) in fields.iter().zip(values.iter()) {
-            writeln!(f, "{:width$} : {}", field, value, width = max_field_len)?;
+            writeln!(f, "   {:>width$} : {}", field.to_string(), value, width = max_field_len)?;
         }
         Ok(())
     }

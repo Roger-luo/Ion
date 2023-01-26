@@ -7,9 +7,12 @@ pub mod new;
 pub mod pkg;
 pub mod release;
 pub mod bump;
+pub mod summon;
 
 pub fn builtin() -> Vec<Command> {
     vec![
+        summon::cli(),
+        bump::cli(),
         auth::cli(),
         clone::cli(),
         release::cli(),
@@ -27,6 +30,8 @@ pub fn builtin() -> Vec<Command> {
 
 pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
     let f = match cmd {
+        "summon" => summon::exec,
+        "bump" => bump::exec,
         "auth" => auth::exec,
         "clone" => clone::exec,
         "release" => release::exec,

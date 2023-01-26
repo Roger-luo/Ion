@@ -1,5 +1,6 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command};
+use ion::Registry;
 use ion::errors::CliResult;
 use ion::spec::{VersionSpec, JuliaProjectFile};
 use ion::utils::current_project;
@@ -10,8 +11,10 @@ pub fn cli() -> Command {
         .about("bump the version of a package")
         .arg(arg!(<VERSION> "The version to release"))
         .arg(arg!([PATH] "The path of the package"))
-        .arg(arg!(--no-prompt "Do not prompt for confirmation"))
-        .arg(arg!(--no-commit "Do not commit changes"))
+        .arg(arg!(-b --branch [BRANCH] "The branch to release"))
+        .arg(arg!(--"no-prompt" "Do not prompt for confirmation"))
+        .arg(arg!(--"no-commit" "Do not commit changes"))
+        .arg(arg!(--"no-report" "Do not report changes"))
         .arg(arg!(--registry [REGISTRY] "The registry to release").default_value("General"))
         .arg_required_else_help(true)
 }
@@ -35,12 +38,16 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         None => "General".to_owned(),
     };
 
+    let branch = matches.get_one::<String>("branch");
+
+    log::debug!("bumping version of {} in registry {}", path.display(), registry_name);
     JuliaProjectFile::root_project(path)?
-        .bump(version_spec)?
-        .registry(registry_name)
-        .confirm(matches.get_flag("no-prompt"))?
-        .print_report()
-        .write()?
-        .commit(matches.get_flag("no-commit"))?;
+        .bump(version_spec)
+        .registry(Registry::read(registry_name)?)?
+        .branch(branch)
+        .confirm(!matches.get_flag("no-prompt"))
+        .report(!matches.get_flag("no-report"))
+        .commit(!matches.get_flag("no-commit"))
+        .write()?;
     Ok(())
 }
