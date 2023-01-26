@@ -16,7 +16,10 @@ delete-release tag:
     git push --delete origin {{tag}}
 
 release tag:
-    gh release create {{tag}} -t {{tag}} --generate-notes
+    cargo bump {{tag}}
+    git add Cargo.toml
+    git commit -m "Bump version to {{tag}}"
+    gh release create v{{tag}} -t v{{tag}} --generate-notes
 
 
 [macos]
@@ -27,7 +30,7 @@ install:
     mkdir -p $HOME/Library/Application\ Support/ion
     cp -r resources $HOME/Library/Application\ Support/ion/resources
 
-[unix]
+[linux]
 install:
     #!/usr/bin/env bash
     cargo build --bin ion --release
