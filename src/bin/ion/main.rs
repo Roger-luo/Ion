@@ -1,12 +1,13 @@
-use clap::{ArgMatches, Command};
-
+use clap::{ArgMatches, Command, crate_version, crate_description, crate_authors};
 use ion::errors::{CliError, CliResult};
 
 pub mod commands;
 
 fn cli() -> Command {
     Command::new("ion")
-        .about("The ion package manager for Julia")
+        .about(crate_description!())
+        .author(crate_authors!())
+        .version(crate_version!())
         .subcommand_required(true)
         .arg_required_else_help(true)
         .allow_external_subcommands(true)

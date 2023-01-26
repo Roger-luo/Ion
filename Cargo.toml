@@ -3,6 +3,7 @@ name = "ion"
 version = "0.1.0"
 edition = "2021"
 publish = false
+authors = ["Roger Luo <rogerluo.rl18@gmail.com>"]
 description = "a CLI toolbox for Julia developer"
 
 [profile.release]
@@ -20,7 +21,7 @@ path = "src/ion/lib.rs"
 [dependencies]
 anyhow = "1.0.68"
 chrono = "0.4.23"
-clap = { version = "4.1.1", features = ["derive"] }
+clap = { version = "4.1.1", features = ["derive", "cargo"] }
 dialoguer = "0.10.3"
 dirs = "4.0.0"
 env_logger = "0.10.0"
