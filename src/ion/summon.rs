@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use crate::spec::JuliaProjectFile;
+use crate::utils::{git, Auth};
 use anyhow::{format_err, Result};
 use dialoguer::{Confirm, Editor};
-use crate::utils::{git, Auth};
-use crate::spec::JuliaProjectFile;
-use octocrab::{Octocrab, models::commits::Comment};
+use octocrab::{models::commits::Comment, Octocrab};
+use spinoff::{Color, Spinner, Spinners};
+use std::path::PathBuf;
 use tokio::runtime::Builder;
-use spinoff::{Spinner, Spinners, Color};
 
 pub struct JuliaRegistrator {
     pub project: JuliaProjectFile,
@@ -36,11 +36,12 @@ impl JuliaRegistrator {
         let subdir = if subdir.components().count() == 0 {
             None
         } else {
-            Some(subdir
+            Some(
+                subdir
                     .to_path_buf()
                     .to_str()
                     .expect("non-unicode path")
-                    .to_string()
+                    .to_string(),
             )
         };
 
@@ -68,17 +69,18 @@ impl JuliaRegistrator {
         let commet = self.registerator_comment();
         println!("You are about to summon JuliaRegistrator with the following comment:");
         println!("{}", commet);
-        if self.prompt && !Confirm::new()
-            .with_prompt("Do you want to continue?")
-            .default(true)
-            .interact()?
+        if self.prompt
+            && !Confirm::new()
+                .with_prompt("Do you want to continue?")
+                .default(true)
+                .interact()?
         {
             return Ok(());
         }
 
         let path = self.path_to_repo.clone();
         let branch = self.branch.clone();
-        git::checkout_and(&path, &branch, ||{
+        git::checkout_and(&path, &branch, || {
             log::debug!("syncing with remote");
             git::pull(repo)?;
             git::push(repo)?;
@@ -86,11 +88,7 @@ impl JuliaRegistrator {
             let auth = Auth::new(vec!["repo", "read:org"]);
             let token = auth.get_token()?;
 
-            let spinner = Spinner::new(
-                Spinners::Dots, 
-                "Summon JuliaRegistrator...",
-                Color::Blue
-            );
+            let spinner = Spinner::new(Spinners::Dots, "Summon JuliaRegistrator...", Color::Blue);
             let result = Builder::new_current_thread()
                 .enable_all()
                 .build()
@@ -102,11 +100,11 @@ impl JuliaRegistrator {
                     spinner.success("JuliaRegistrator summoned! You are good to go!");
                     println!("Comment: {}", comment.html_url);
                     Ok(())
-                },
+                }
                 Err(e) => {
                     spinner.fail("Failed to summon JuliaRegistrator");
                     Err(e.into())
-                },
+                }
             }
         })
     }
@@ -119,9 +117,7 @@ impl JuliaRegistrator {
         let commits = octocrab.commits(owner, repo);
         let future = commits.create_comment(sha, body).send().await;
         match future {
-            Ok(comment) => {
-                Ok(comment)
-            },
+            Ok(comment) => Ok(comment),
             Err(e) => Err(e.into()),
         }
     }
@@ -187,12 +183,11 @@ impl JuliaRegistrator {
     }
 
     fn ask_note(&mut self, skip: bool) -> Result<&mut Self> {
-        if skip {return Ok(self); }
+        if skip {
+            return Ok(self);
+        }
 
-        if let Some(note) = Editor::new()
-            .extension("md")
-            .edit("## Release Note\n")?
-        {
+        if let Some(note) = Editor::new().extension("md").edit("## Release Note\n")? {
             self.note = Some(note);
         } else {
             println!("Abort!");

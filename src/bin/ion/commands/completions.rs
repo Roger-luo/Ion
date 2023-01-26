@@ -1,15 +1,15 @@
-use clap::{Command, arg, value_parser, ArgMatches};
+use anyhow::format_err;
+use clap::{arg, value_parser, ArgMatches, Command};
 use clap_complete::{generate, Shell};
 use ion::errors::CliResult;
 use std::io;
-use anyhow::format_err;
 
 pub fn cli() -> Command {
     Command::new("completions")
         .about("generate shell completion scripts")
         .arg(
             arg!([SHELL] "The shell to generate completions for")
-               .value_parser(value_parser!(Shell)),
+                .value_parser(value_parser!(Shell)),
         )
 }
 

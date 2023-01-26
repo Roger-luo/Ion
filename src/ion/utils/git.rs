@@ -205,10 +205,10 @@ pub fn checkout_branch(path: &PathBuf, branch: impl AsRef<str>) -> Result<()> {
 }
 
 pub fn checkout_and<S, F>(path: &PathBuf, branch: &Option<S>, mut action: F) -> Result<()>
-    where
-        S: AsRef<str>,
-        F: FnMut() -> Result<()>, 
-    {
+where
+    S: AsRef<str>,
+    F: FnMut() -> Result<()>,
+{
     if let Some(branch) = branch {
         let current = current_branch(path)?;
         checkout_branch(path, branch)?;

@@ -5,9 +5,9 @@ use either::Either;
 use keyring::Entry;
 use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, Secret};
+use spinoff::{Color, Spinner, Spinners};
 use std::time::Duration;
 use tokio::runtime::Builder;
-use spinoff::{Spinner, Spinners, Color};
 
 pub struct Auth {
     github: Entry,
@@ -120,11 +120,7 @@ impl GithubHandler<'_> {
             );
         }
 
-        let spinner = Spinner::new(
-            Spinners::Dots,
-            "waiting github...",
-            Color::Blue
-        );
+        let spinner = Spinner::new(Spinners::Dots, "waiting github...", Color::Blue);
         let mut interval = Duration::from_secs(codes.interval);
         let mut clock = tokio::time::interval(interval);
         let auth = loop {

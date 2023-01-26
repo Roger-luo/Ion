@@ -10,10 +10,7 @@ use std::path::PathBuf;
 pub fn cli() -> Command {
     Command::new("new")
         .about("Create a new package")
-        .arg(
-            arg!(path: [PATH] "The path of the package")
-                .value_hint(ValueHint::AnyPath)
-        )
+        .arg(arg!(path: [PATH] "The path of the package").value_hint(ValueHint::AnyPath))
         .arg(arg!(--list "List available templates"))
         .arg(arg!(-f --force "Overwrite existing files"))
         .arg(arg!(--"no-interactive" "Do not prompt for user input"))

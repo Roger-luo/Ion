@@ -1,7 +1,7 @@
-use node_semver::Version;
+use colorful::core::color_string::CString;
 use colorful::Colorful;
 use core::fmt::{Display, Formatter};
-use colorful::core::color_string::CString;
+use node_semver::Version;
 
 #[derive(Debug)]
 pub struct ReleaseReport {
@@ -65,7 +65,13 @@ impl Display for ReleaseReport {
         }
 
         for (field, value) in fields.iter().zip(values.iter()) {
-            writeln!(f, "   {:>width$} : {}", field.to_string(), value, width = max_field_len)?;
+            writeln!(
+                f,
+                "   {:>width$} : {}",
+                field.to_string(),
+                value,
+                width = max_field_len
+            )?;
         }
         Ok(())
     }

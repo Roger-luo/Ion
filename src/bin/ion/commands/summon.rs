@@ -8,10 +8,7 @@ use std::path::PathBuf;
 pub fn cli() -> Command {
     Command::new("summon")
         .about("summon JuliaRegistrator to register the package")
-        .arg(
-            arg!([PATH] "The path of the package")
-                .value_hint(ValueHint::DirPath)
-        )
+        .arg(arg!([PATH] "The path of the package").value_hint(ValueHint::DirPath))
         .arg(arg!(-b --branch [BRANCH] "The branch to release"))
         .arg(arg!(--"no-prompt" "Do not prompt for confirmation"))
         .arg(arg!(--"skip-note" "Skip interactive release note editing"))

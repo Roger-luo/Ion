@@ -1,9 +1,9 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use ion::Registry;
 use ion::errors::CliResult;
-use ion::spec::{VersionSpec, JuliaProjectFile};
+use ion::spec::{JuliaProjectFile, VersionSpec};
 use ion::utils::current_project;
+use ion::Registry;
 use std::path::PathBuf;
 
 pub fn version_parser(value: &str) -> Result<VersionSpec, String> {
@@ -13,14 +13,8 @@ pub fn version_parser(value: &str) -> Result<VersionSpec, String> {
 pub fn cli() -> Command {
     Command::new("bump")
         .about("bump the version of a package")
-        .arg(
-            arg!(<VERSION> "The version to release")
-                .value_parser(version_parser)
-        )
-        .arg(
-            arg!([PATH] "The path of the package")
-                .value_hint(ValueHint::DirPath)
-        )
+        .arg(arg!(<VERSION> "The version to release").value_parser(version_parser))
+        .arg(arg!([PATH] "The path of the package").value_hint(ValueHint::DirPath))
         .arg(arg!(-b --branch [BRANCH] "The branch to release"))
         .arg(arg!(--"no-prompt" "Do not prompt for confirmation"))
         .arg(arg!(--"no-commit" "Do not commit changes"))
@@ -50,7 +44,11 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
 
     let branch = matches.get_one::<String>("branch");
 
-    log::debug!("bumping version of {} in registry {}", path.display(), registry_name);
+    log::debug!(
+        "bumping version of {} in registry {}",
+        path.display(),
+        registry_name
+    );
     JuliaProjectFile::root_project(path)?
         .bump(version_spec)
         .registry(Registry::read(registry_name)?)?

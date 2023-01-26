@@ -1,10 +1,14 @@
+use crate::utils::git;
+use crate::{
+    report::ReleaseReport,
+    spec::{JuliaProjectFile, VersionSpec},
+    Registry,
+};
+use anyhow::{format_err, Result};
 use colorful::core::color_string::CString;
-use node_semver::Version;
 use colorful::Colorful;
 use dialoguer::Confirm;
-use anyhow::{format_err, Result};
-use crate::{spec::{VersionSpec, JuliaProjectFile}, report::ReleaseReport, Registry};
-use crate::utils::git;
+use node_semver::Version;
 
 pub enum VersionBumpValidation {
     NotRegistered,
@@ -83,14 +87,14 @@ impl VersionBumpHandler {
 
         let path = self.bump.project.path.clone();
         let branch = self.branch.clone();
-        git::checkout_and(&path, &branch, ||{
+        git::checkout_and(&path, &branch, || {
             log::debug!("Writing version bump");
             self.bump.confirm(self.confirm)?;
 
             if self.report {
                 println!("{}", &self.report_content());
             }
-    
+
             if self.confirm && self.report {
                 if !Confirm::new()
                     .with_prompt("Do you want to continue?")
@@ -100,7 +104,7 @@ impl VersionBumpHandler {
                     return Ok(());
                 }
             }
-    
+
             self.bump.write()?;
             self.bump.commit()?;
             Ok(())
@@ -119,13 +123,13 @@ pub struct VersionBump {
 }
 
 impl VersionBump {
-
     pub fn new(project: JuliaProjectFile, version_spec: VersionSpec) -> Self {
-        let version = project.project.version.clone()
+        let version = project
+            .project
+            .version
+            .clone()
             .expect("The project file does not contain a version");
-        let version_to_release = Some(
-            version_spec.update_version(&version)
-        );
+        let version_to_release = Some(version_spec.update_version(&version));
         Self {
             registry_name: None,
             project,
@@ -140,28 +144,28 @@ impl VersionBump {
     /// and the version to release to the
     /// version specified by the version spec
     /// in the registry
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `registry` - the registry to add
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// * `Result<&mut Self>` - the version bumper
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// * `Error` - if the registry does not contain
     /// the project
-    /// 
+    ///
     /// # Example
-    /// 
+    ///
     /// ```
     /// use ion::spec::JuliaProjectFile;
     /// use ion::bump::VersionBump;
     /// use ion::spec::VersionSpec;
     /// use ion::Registry;
-    /// 
+    ///
     /// let project = JuliaProjectFile::root_project(std::env::current_dir()?)?;
     /// let mut bump = project.bump(VersionSpec::Patch)?;
     /// let registry = Registry::new("General")?;
@@ -171,26 +175,27 @@ impl VersionBump {
         self.registry_name = Some(registry.name.to_owned());
         self.latest_version = Some(
             registry
-                .package().uuid(self.get_uuid()?)
-                .get_latest_version()?
+                .package()
+                .uuid(self.get_uuid()?)
+                .get_latest_version()?,
         );
         Ok(self)
     }
 
     pub fn get_name(&self) -> Result<String> {
-        self.project.project.name
+        self.project
+            .project
+            .name
             .clone()
-            .ok_or_else(|| {
-                format_err!("The project file does not contain a name")
-            })
+            .ok_or_else(|| format_err!("The project file does not contain a name"))
     }
 
     pub fn get_uuid(&self) -> Result<String> {
-        self.project.project.uuid
+        self.project
+            .project
+            .uuid
             .clone()
-            .ok_or_else(|| {
-                format_err!("The project file does not contain a uuid")
-            })
+            .ok_or_else(|| format_err!("The project file does not contain a uuid"))
     }
 
     pub fn get_version(&self) -> Version {
@@ -222,7 +227,8 @@ impl VersionBump {
                 println!(
                     "The current version ({}) is not \
                     registered in the registry {}.",
-                    self.get_version(), self.registry_name.clone().unwrap()
+                    self.get_version(),
+                    self.registry_name.clone().unwrap()
                 );
 
                 if Confirm::new()
@@ -234,7 +240,7 @@ impl VersionBump {
                 } else {
                     Err(format_err!("Aborted"))
                 }
-            },
+            }
             CurrentContinuousGreater => {
                 println!(
                     "The current version ({}) \
@@ -244,9 +250,10 @@ impl VersionBump {
                     self.latest_version.clone().unwrap()
                 );
 
-                if prompt && Confirm::new()
-                    .with_prompt("Do you want to keep it instead?")
-                    .interact()?
+                if prompt
+                    && Confirm::new()
+                        .with_prompt("Do you want to keep it instead?")
+                        .interact()?
                 {
                     self.version_to_release = Some(self.get_version());
                     Ok(self)
@@ -301,7 +308,10 @@ impl VersionBump {
         }
 
         git::add(&self.project.path, "Project.toml")?;
-        let msg = format!("Bump version to {}", self.version_to_release.clone().unwrap());
+        let msg = format!(
+            "Bump version to {}",
+            self.version_to_release.clone().unwrap()
+        );
         git::commit(&self.project.path, msg.as_str())?;
         Ok(self)
     }

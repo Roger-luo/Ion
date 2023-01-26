@@ -2,13 +2,13 @@ use clap::{ArgMatches, Command};
 use ion::errors::CliResult;
 
 pub mod auth;
+pub mod bump;
 pub mod clone;
+pub mod completions;
 pub mod new;
 pub mod pkg;
 pub mod release;
-pub mod bump;
 pub mod summon;
-pub mod completions;
 
 pub fn builtin() -> Vec<Command> {
     vec![

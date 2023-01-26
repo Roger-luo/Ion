@@ -1,4 +1,4 @@
-use clap::{ArgMatches, Command, crate_version, crate_description, crate_authors};
+use clap::{crate_authors, crate_description, crate_version, ArgMatches, Command};
 use ion::errors::{CliError, CliResult};
 
 pub mod commands;

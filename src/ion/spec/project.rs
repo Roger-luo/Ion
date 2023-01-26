@@ -1,12 +1,12 @@
-use anyhow::{Result, format_err};
+use crate::bump::VersionBumpHandler;
+use crate::summon::JuliaRegistrator;
+use crate::utils::current_root_project;
+use crate::VersionSpec;
+use anyhow::{format_err, Result};
 use node_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use crate::VersionSpec;
-use crate::summon::JuliaRegistrator;
-use crate::utils::current_root_project;
-use crate::bump::VersionBumpHandler;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JuliaProject {
