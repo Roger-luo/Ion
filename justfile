@@ -26,16 +26,16 @@ release tag:
 
 
 [macos]
-install:
+install prefix="$HOME/.ion":
     cargo build --bin ion --release
-    mkdir -p $HOME/.ion/bin
-    cp target/release/ion $HOME/.ion/bin
-    cp -r resources $HOME/.ion/resources
+    mkdir -p {{prefix}}/bin
+    cp target/release/ion {{prefix}}/bin
+    cp -r resources {{prefix}}/resources
 
 [linux]
-install:
+install prefix="$HOME/.ion":
     #!/usr/bin/env bash
     cargo build --bin ion --release
-    mkdir -p $HOME/.ion/bin
-    cp target/release/ion $HOME/.ion/bin/ion
-    cp -r resources $HOME/.ion/resources
+    mkdir -p {{prefix}}/bin
+    cp target/release/ion {{prefix}}/bin/ion
+    cp -r resources {{prefix}}/resources
