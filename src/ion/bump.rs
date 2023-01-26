@@ -95,10 +95,13 @@ impl VersionBumpHandler {
                 println!("{}", &self.report_content());
             }
 
-            if self.confirm && self.report && !Confirm::new()
+            if self.confirm
+                && self.report
+                && !Confirm::new()
                     .with_prompt("Do you want to continue?")
                     .default(true)
-                    .interact()? {
+                    .interact()?
+            {
                 return Ok(());
             }
 
