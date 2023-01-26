@@ -14,3 +14,6 @@ tarball target="aarch64-apple-darwin":
 delete-release tag:
     gh release delete {{tag}} -y
     git push --delete origin {{tag}}
+
+release tag:
+    gh release create {{tag}} -t {{tag}} --generate-notes -p
