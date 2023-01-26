@@ -157,20 +157,6 @@ impl VersionBump {
     ///
     /// * `Error` - if the registry does not contain
     /// the project
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use ion::spec::JuliaProjectFile;
-    /// use ion::bump::VersionBump;
-    /// use ion::spec::VersionSpec;
-    /// use ion::Registry;
-    ///
-    /// let project = JuliaProjectFile::root_project(std::env::current_dir()?)?;
-    /// let mut bump = project.bump(VersionSpec::Patch)?;
-    /// let registry = Registry::new("General")?;
-    /// bump.registry(registry)?;
-    /// ```
     pub fn registry(&mut self, registry: Registry) -> Result<&mut Self> {
         self.registry_name = Some(registry.name.to_owned());
         self.latest_version = Some(
