@@ -64,16 +64,14 @@ jobs:
         sudo apt-get update
         sudo apt-get install gcc-arm-linux-gnueabihf
 
-    - name: Build ion {{ matrix.target }}
-      uses: m3y/rust-just-action@v1
-      with:
-        command: build {{ matrix.target }}
+    - name: Setup Just
+      run: cargo install just
 
-    - name: Package ion {{ matrix.target }}
+    - name: Build ion {{ matrix.target }}
       id: package
-      uses: m3y/rust-just-action@v1
-      with:
-        command: tarball {{ matrix.target }}
+      run: |
+        just build {{ matrix.target }}
+        just tarball {{ matrix.target }}
 
     - name: Publish Archive
       uses: softprops/action-gh-release@v0.1.5
