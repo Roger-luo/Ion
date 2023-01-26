@@ -37,6 +37,8 @@ jobs:
             ${{ runner.os }}-test-
             ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@v1
+      - run: git config --global user.name abc
+      - run: git config --global user.email abc@abc.com
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal

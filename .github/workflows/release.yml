@@ -64,10 +64,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install gcc-arm-linux-gnueabihf
 
-    - name: Ref Type
-      id: ref-type
-      run: cargo run --package ref-type -- --reference ${{ github.ref }}
-
     - name: Package
       id: package
       env:
