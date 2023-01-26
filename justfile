@@ -17,3 +17,12 @@ delete-release tag:
 
 release tag:
     gh release create {{tag}} -t {{tag}} --generate-notes -p
+
+
+[macos]
+install:
+    cargo build --bin ion --release
+    mkdir -p $HOME/.local/bin
+    cp target/release/ion $HOME/.local/bin
+    mkdir -p $HOME/Library/Application\ Support/ion
+    cp -r resources $HOME/Library/Application\ Support/ion/resources

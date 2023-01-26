@@ -29,6 +29,7 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
+#[cfg(debug_assertions)]
 pub fn resources_dir() -> Result<PathBuf> {
     Ok(std::env::current_exe()?
         .parent()
@@ -36,6 +37,13 @@ pub fn resources_dir() -> Result<PathBuf> {
             anyhow::anyhow!("Could not find the parent directory of the current executable")
         })?
         .join("resources"))
+}
+
+#[cfg(not(debug_assertions))]
+pub fn resources_dir() -> Result<PathBuf> {
+    let path = dirs::config_dir().expect("Could not find the config directory");
+    let ion_dir = path.join("ion");
+    Ok(ion_dir.join("resources"))
 }
 
 pub fn components_dir() -> Result<PathBuf> {
