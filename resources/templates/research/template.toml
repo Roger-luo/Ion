@@ -1,5 +1,18 @@
 name="research"
-description = "A research description"
+description = "A research package description"
 
+[project_file]
+[readme]
 [src_dir]
-template = "components:src/module.jl"
+[documenter]
+[license]
+[tests]
+[repo]
+[codecov]
+[citation]
+[github.ci]
+arch = ["x86", "x86_64"]
+os = ["ubuntu-latest", "macos-latest", "windows-latest"]
+
+[github.tagbot]
+[github.compat_helper]
