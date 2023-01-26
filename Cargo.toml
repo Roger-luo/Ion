@@ -1,17 +1,17 @@
 [package]
 name = "ion"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 publish = false
 authors = ["Roger Luo <rogerluo.rl18@gmail.com>"]
 description = "a CLI toolbox for Julia developer"
 
-[profile.release]
-lto = true
-
 [package.metadata.bundle]
 identifier = "dev.rogerluo.ion"
 resources = ["resources/*"]
+
+[profile.release]
+lto = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
