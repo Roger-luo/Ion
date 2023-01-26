@@ -15,10 +15,7 @@ jobs:
       matrix:
         target:
         - aarch64-apple-darwin
-        - aarch64-unknown-linux-musl
-        - armv7-unknown-linux-musleabihf
         - x86_64-apple-darwin
-        - x86_64-pc-windows-msvc
         - x86_64-unknown-linux-musl
         include:
         - target: aarch64-apple-darwin
@@ -65,11 +62,11 @@ jobs:
         sudo apt-get install gcc-arm-linux-gnueabihf
 
     - uses: extractions/setup-just@v1
-    - name: Build ion {{ matrix.target }}
+    - name: Build ion ${{ matrix.target }}
       id: package
       run: |
-        just build {{ matrix.target }}
-        just tarball {{ matrix.target }}
+        just build ${{ matrix.target }}
+        just tarball ${{ matrix.target }}
 
     - name: Publish Archive
       uses: softprops/action-gh-release@v0.1.5
