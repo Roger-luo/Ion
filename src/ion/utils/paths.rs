@@ -31,19 +31,21 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 
 #[cfg(debug_assertions)]
 pub fn resources_dir() -> Result<PathBuf> {
-    Ok(std::env::current_exe()?
-        .parent()
-        .ok_or_else(|| {
-            anyhow::anyhow!("Could not find the parent directory of the current executable")
-        })?
-        .join("resources"))
+    Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources"))
 }
 
 #[cfg(not(debug_assertions))]
 pub fn resources_dir() -> Result<PathBuf> {
-    let path = dirs::config_dir().expect("Could not find the config directory");
-    let ion_dir = path.join("ion");
-    Ok(ion_dir.join("resources"))
+    let exe = std::env::current_exe()?;
+    let bin = exe
+        .parent()
+        .expect("Failed to get parent directory of executable");
+    let resources = bin
+        .parent()
+        .expect("Failed to get parent directory of bin")
+        .join("resources")
+        .canonicalize()?;
+    Ok(resources)
 }
 
 pub fn components_dir() -> Result<PathBuf> {
