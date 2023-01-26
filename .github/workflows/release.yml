@@ -52,6 +52,12 @@ jobs:
         sudo apt-get update
         sudo apt-get install gcc-arm-linux-gnueabihf
 
+    - name: Install linux openssl
+      if: ${{ matrix.target == 'x86_64-unknown-linux-musl' }}
+      run: |
+        sudo apt-get update
+        sudo apt-get install pkg-config libssl-dev
+
     - uses: extractions/setup-just@v1
     - name: Build ion ${{ matrix.target }}
       id: package
