@@ -11,11 +11,11 @@ pub mod summon;
 
 pub fn builtin() -> Vec<Command> {
     vec![
-        summon::cli(),
-        bump::cli(),
         auth::cli(),
         clone::cli(),
         release::cli(),
+        summon::cli(),
+        bump::cli(),
         new::cli(),
         pkg::add::cli(),
         pkg::develop::cli(),
@@ -30,11 +30,11 @@ pub fn builtin() -> Vec<Command> {
 
 pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
     let f = match cmd {
-        "summon" => summon::exec,
-        "bump" => bump::exec,
         "auth" => auth::exec,
         "clone" => clone::exec,
         "release" => release::exec,
+        "summon" => summon::exec,
+        "bump" => bump::exec,
         "new" => new::exec,
         "add" => pkg::add::exec,
         "develop" => pkg::develop::exec,
