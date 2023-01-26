@@ -26,3 +26,17 @@ install:
     cp target/release/ion $HOME/.local/bin
     mkdir -p $HOME/Library/Application\ Support/ion
     cp -r resources $HOME/Library/Application\ Support/ion/resources
+
+[unix]
+install:
+    #!/usr/bin/env bash
+    cargo build --bin ion --release
+    mkdir -p $HOME/.local/bin
+    cp target/release/ion $HOME/.local/bin
+    if [[ -z "${XDG_CONFIG_HOME}" ]]; then
+        CONFIG_PATH="${HOME}/.config"
+    else
+        CONFIG_PATH="${XDG_CONFIG_HOME}"
+    fi
+    mkdir -p $CONFIG_PATH/ion
+    cp -r resources $CONFIG_PATH/ion/resources
