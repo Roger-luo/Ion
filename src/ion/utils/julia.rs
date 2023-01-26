@@ -108,8 +108,7 @@ mod test {
     fn test_julia_command() {
         let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();
         assert_eq!(cmd.cmd.get_program(), "julia");
-        let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
-        assert_eq!(args.is_empty(), true);
+        assert!(cmd.cmd.get_args().next().is_none());
         assert_eq!(cmd.script, "using Pkg; Pkg.add(\"Foo\")");
 
         let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();

@@ -18,7 +18,7 @@ fn test_current_project() -> Result<()> {
         package_dir.join("A").join("B").join("Project.toml")
     );
 
-    let (toml, path) = current_root_project(cwd.to_owned()).unwrap();
+    let (toml, path) = current_root_project(cwd).unwrap();
     assert_eq!(path, package_dir.join("A").join("Project.toml"));
     assert_eq!(toml.name.unwrap(), "A");
     Ok(())

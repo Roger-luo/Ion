@@ -103,7 +103,7 @@ impl JuliaRegistrator {
                 }
                 Err(e) => {
                     spinner.fail("Failed to summon JuliaRegistrator");
-                    Err(e.into())
+                    Err(e)
                 }
             }
         })
@@ -126,7 +126,7 @@ impl JuliaRegistrator {
     where
         S: Into<String>,
     {
-        self.branch = branch.and_then(|b| Some(b.into()));
+        self.branch = branch.map(|b| b.into());
         self
     }
 

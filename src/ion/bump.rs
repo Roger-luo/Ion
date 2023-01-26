@@ -48,7 +48,7 @@ impl VersionBumpHandler {
     where
         S: Into<String>,
     {
-        self.branch = branch.and_then(|b| Some(b.into()));
+        self.branch = branch.map(|b| b.into());
         self
     }
 
@@ -95,14 +95,11 @@ impl VersionBumpHandler {
                 println!("{}", &self.report_content());
             }
 
-            if self.confirm && self.report {
-                if !Confirm::new()
+            if self.confirm && self.report && !Confirm::new()
                     .with_prompt("Do you want to continue?")
                     .default(true)
-                    .interact()?
-                {
-                    return Ok(());
-                }
+                    .interact()? {
+                return Ok(());
             }
 
             self.bump.write()?;
