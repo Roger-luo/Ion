@@ -5,7 +5,8 @@ tarball target="aarch64-apple-darwin":
     #!/usr/bin/env bash
     DIST="target/{{target}}/dist"
     mkdir -p $DIST
-    cp target/{{target}}/release/ion $DIST/ion
+    mkdir -p $DIST/bin
+    cp target/{{target}}/release/ion $DIST/bin/ion
     cp -r resources $DIST/resources
     cd target/{{target}} && tar -czf ion-{{target}}.tar.gz dist
     ARCHIVE="target/{{target}}/ion-{{target}}.tar.gz"
@@ -27,21 +28,14 @@ release tag:
 [macos]
 install:
     cargo build --bin ion --release
-    mkdir -p $HOME/.local/bin
-    cp target/release/ion $HOME/.local/bin
-    mkdir -p $HOME/Library/Application\ Support/ion
-    cp -r resources $HOME/Library/Application\ Support/ion/resources
+    mkdir -p $HOME/.ion/bin
+    cp target/release/ion $HOME/.ion/bin
+    cp -r resources $HOME/.ion/resources
 
 [linux]
 install:
     #!/usr/bin/env bash
     cargo build --bin ion --release
-    mkdir -p $HOME/.local/bin
-    cp target/release/ion $HOME/.local/bin
-    if [[ -z "${XDG_CONFIG_HOME}" ]]; then
-        CONFIG_PATH="${HOME}/.config"
-    else
-        CONFIG_PATH="${XDG_CONFIG_HOME}"
-    fi
-    mkdir -p $CONFIG_PATH/ion
-    cp -r resources $CONFIG_PATH/ion/resources
+    mkdir -p $HOME/.ion/bin
+    cp target/release/ion $HOME/.ion/bin/ion
+    cp -r resources $HOME/.ion/resources
