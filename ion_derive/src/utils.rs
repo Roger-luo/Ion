@@ -1,11 +1,15 @@
 use proc_macro2::Ident;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::{self, DeriveInput};
 
-pub fn emit_field_calls(ast: &DeriveInput, template: &Ident,  method_name: &str) -> proc_macro2::TokenStream {
-// Build the trait implementation
+pub fn emit_field_calls(
+    ast: &DeriveInput,
+    template: &Ident,
+    method_name: &str,
+) -> proc_macro2::TokenStream {
+    // Build the trait implementation
     let data = &ast.data;
-    let mut gen = quote!{};
+    let mut gen = quote! {};
     let func = format_ident!("{}", method_name);
 
     if let syn::Data::Struct(data) = data {

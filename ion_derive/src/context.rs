@@ -11,12 +11,11 @@ pub fn emit_context() -> TokenStream {
     for entry in d.read_dir().expect("read_dir failed") {
         if let Ok(entry) = entry {
             if entry.path().extension().unwrap().eq("rs") && !entry.file_name().eq("mod.rs") {
-                let mod_name = entry.file_name()
-                    .into_string()
-                    .unwrap()[0..entry.file_name().len() - 3]
+                let mod_name = entry.file_name().into_string().unwrap()
+                    [0..entry.file_name().len() - 3]
                     .to_string();
                 let mod_ident = Ident::new(&mod_name, Span::call_site());
-                info = quote!{
+                info = quote! {
                     #info
                     pub #mod_ident: Option<super::components::#mod_ident::Info>,
                 };
@@ -28,7 +27,7 @@ pub fn emit_context() -> TokenStream {
         }
     }
 
-    let gen = quote!{
+    let gen = quote! {
         use serde_derive::Serialize;
 
         #[derive(Debug, Serialize, Clone)]
