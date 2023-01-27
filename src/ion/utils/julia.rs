@@ -22,12 +22,12 @@ impl JuliaCommand {
     }
 
     pub fn project(&mut self, project: &str) -> &mut Self {
-        self.cmd.arg(format!("--project={}", project));
+        self.cmd.arg(format!("--project={project}"));
         self
     }
 
     pub fn compile(&mut self, option: &str) -> &mut Self {
-        self.cmd.arg(format!("--compile={}", option));
+        self.cmd.arg(format!("--compile={option}"));
         self
     }
 

@@ -68,7 +68,7 @@ impl JuliaRegistrator {
 
         let commet = self.registerator_comment();
         println!("You are about to summon JuliaRegistrator with the following comment:");
-        println!("{}", commet);
+        println!("{commet}");
         if self.prompt
             && !Confirm::new()
                 .with_prompt("Do you want to continue?")
@@ -169,8 +169,7 @@ impl JuliaRegistrator {
         if branch != default_branch {
             let confirm = dialoguer::Confirm::new()
                 .with_prompt(format!(
-                    "You are not on the default branch ({}), continue?",
-                    default_branch
+                    "You are not on the default branch ({default_branch}), continue?"
                 ))
                 .interact()?;
             if !confirm {
@@ -203,20 +202,20 @@ impl JuliaRegistrator {
         #[cfg(not(debug_assertions))]
         let body: String = "@JuliaRegistrator register".into();
 
-        let body = format!("{}\n\n{}", watermark, body);
+        let body = format!("{watermark}\n\n{body}");
 
         let body = match &self.branch {
-            Some(branch) => format!("{} branch={}", body, branch),
+            Some(branch) => format!("{body} branch={branch}"),
             None => body,
         };
 
         let body = match &self.subdir {
-            Some(subdir) => format!("{} subdir={}", body, subdir),
+            Some(subdir) => format!("{body} subdir={subdir}"),
             None => body,
         };
 
         let body = match &self.note {
-            Some(note) => format!("{}\n\nRelease notes:\n\n{}", body, note),
+            Some(note) => format!("{body}\n\nRelease notes:\n\n{note}"),
             None => body,
         };
         body

@@ -6,7 +6,7 @@ pub fn package_spec_list(matches: &ArgMatches) -> String {
 
     packages
         .map(PackageSpec::new)
-        .map(|p| format!("{}", p))
+        .map(|p| format!("{p}"))
         .collect::<Vec<_>>()
         .join(",")
 }

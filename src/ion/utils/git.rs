@@ -53,7 +53,7 @@ pub fn remote_repo_url(repo: &PathBuf, remote: &str) -> Result<String> {
     let output = Command::new("git")
         .arg("config")
         .arg("--get")
-        .arg(format!("remote.{}.url", remote))
+        .arg(format!("remote.{remote}.url"))
         .current_dir(repo)
         .read_command()?;
     Ok(output)

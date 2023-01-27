@@ -22,12 +22,11 @@ impl PackageSpec {
 
         name = if expr.contains('@') {
             let parts = expr.split('@').collect::<Vec<_>>();
-            assert!(parts.len() == 2, "Invalid package name: {}", expr);
+            assert!(parts.len() == 2, "Invalid package name: {expr}");
             let version_str = expr.split('@').last().unwrap();
             assert!(
                 Range::parse(version_str).is_ok(),
-                "Invalid version: {}",
-                version_str
+                "Invalid version: {version_str}"
             );
             version = Some(version_str.to_string());
             parts[0].to_string()
@@ -37,8 +36,8 @@ impl PackageSpec {
 
         name = if name.contains('#') {
             let parts = name.split('#').collect::<Vec<_>>();
-            println!("{:?}", parts);
-            assert!(parts.len() == 2, "Invalid package name: {}", expr);
+            println!("{parts:?}");
+            assert!(parts.len() == 2, "Invalid package name: {expr}");
             rev = Some(parts[1].to_string());
             parts[0].to_string()
         } else {
@@ -93,22 +92,22 @@ impl Display for PackageSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut fields = Vec::<String>::new();
         if let Some(name) = &self.name {
-            fields.push(format!("name=\"{}\"", name));
+            fields.push(format!("name=\"{name}\""));
         }
         if let Some(url) = &self.url {
-            fields.push(format!("url=\"{}\"", url));
+            fields.push(format!("url=\"{url}\""));
         }
         if let Some(path) = &self.path {
-            fields.push(format!("path=\"{}\"", path));
+            fields.push(format!("path=\"{path}\""));
         }
         if let Some(subdir) = &self.subdir {
-            fields.push(format!("subdir=\"{}\"", subdir));
+            fields.push(format!("subdir=\"{subdir}\""));
         }
         if let Some(rev) = &self.rev {
-            fields.push(format!("rev=\"{}\"", rev));
+            fields.push(format!("rev=\"{rev}\""));
         }
         if let Some(version) = &self.version {
-            fields.push(format!("version=\"{}\"", version));
+            fields.push(format!("version=\"{version}\""));
         }
         write!(f, "PackageSpec({})", fields.join(", "))
     }

@@ -21,6 +21,6 @@ impl Blueprint for SrcDir {
         let module = ctx.project.name.to_owned();
         self.template
             .as_template()?
-            .render(ctx, format!("{}.jl", module).as_str())
+            .render(ctx, format!("{module}.jl").as_str())
     }
 }

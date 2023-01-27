@@ -31,7 +31,7 @@ fn main() {
         let CliError { error, exit_code } = err;
         if let Some(error) = error {
             // display_error(&error, shell);
-            eprintln!("{}", error);
+            eprintln!("{error}");
         }
         std::process::exit(exit_code)
     }

@@ -43,11 +43,11 @@ impl Blueprint for GitRepo {
         let repo = package.to_string() + &self.suffix;
 
         let remote = if self.ssh {
-            format!(r#"git@github.com:{}/{}.git"#, user, repo)
+            format!(r#"git@github.com:{user}/{repo}.git"#)
         } else {
-            format!("https://github.com/{}/{}.git", user, repo)
+            format!("https://github.com/{user}/{repo}.git")
         };
-        let url = format!("https://github.com/{}/{}", user, repo);
+        let url = format!("https://github.com/{user}/{repo}");
 
         ctx.repo = Some(Info {
             url,

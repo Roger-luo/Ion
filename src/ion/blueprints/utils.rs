@@ -70,7 +70,7 @@ fn promot_for_an_author() -> Result<Author> {
 
 fn promote_for_author_field(field: &str) -> Option<String> {
     let input = Input::<String>::new()
-        .with_prompt(format!("{} (optional)", field))
+        .with_prompt(format!("{field} (optional)"))
         .allow_empty(true)
         .interact_text()
         .expect("error");
