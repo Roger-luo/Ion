@@ -12,5 +12,6 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    format!("using Pkg; Pkg.free([{}])", package_spec_list(matches)).julia_exec()
+    format!("using Pkg; Pkg.free([{}])", package_spec_list(matches)).julia_exec()?;
+    Ok(())
 }

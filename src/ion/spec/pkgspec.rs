@@ -6,12 +6,12 @@ use url::Url;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackageSpec {
-    name: Option<String>,
-    url: Option<String>,
-    path: Option<String>,
-    subdir: Option<String>,
-    rev: Option<String>,
-    version: Option<String>,
+    pub name: Option<String>,
+    pub url: Option<String>,
+    pub path: Option<String>,
+    pub subdir: Option<String>,
+    pub rev: Option<String>,
+    pub version: Option<String>,
 }
 
 impl PackageSpec {

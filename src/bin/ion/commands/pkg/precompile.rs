@@ -25,8 +25,9 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             .map(|s| format!("\"{s}\""))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("using Pkg; Pkg.precompile([{packages}]; {strict})").julia_exec()
+        format!("using Pkg; Pkg.precompile([{packages}]; {strict})").julia_exec()?;
     } else {
-        format!("using Pkg; Pkg.precompile(;{strict})").julia_exec()
+        format!("using Pkg; Pkg.precompile(;{strict})").julia_exec()?;
     }
+    Ok(())
 }

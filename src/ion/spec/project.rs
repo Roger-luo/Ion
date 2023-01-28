@@ -6,7 +6,7 @@ use anyhow::{format_err, Result};
 use node_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JuliaProject {
@@ -23,6 +23,15 @@ pub struct JuliaProject {
 }
 
 impl JuliaProject {
+    pub fn from_file<P>(path: P) -> Result<Self>
+    where
+        P: AsRef<Path>,
+    {
+        let toml = std::fs::read_to_string(path)?;
+        let project: JuliaProject = toml::from_str(&toml)?;
+        Ok(project)
+    }
+
     pub fn update_version(&mut self, version: &Version) -> &mut Self {
         self.version = Some(version.to_owned());
         self

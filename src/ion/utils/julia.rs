@@ -1,5 +1,4 @@
-use crate::errors::CliResult;
-use anyhow::format_err;
+use anyhow::{format_err, Result};
 use std::fmt::{Debug, Display};
 use std::process::{Command, Output};
 
@@ -62,7 +61,7 @@ pub trait Julia {
         cmd
     }
 
-    fn julia_exec_project_quiet(&self, project: &str) -> CliResult {
+    fn julia_exec_project_quiet(&self, project: &str) -> Result<()> {
         let p = self.julia_exec_cmd(project).output()?;
 
         if p.status.success() {
@@ -72,7 +71,7 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec_project(&self, project: &str) -> CliResult {
+    fn julia_exec_project(&self, project: &str) -> Result<()> {
         let p = self.julia_exec_cmd(project).status()?;
 
         if p.success() {
@@ -82,11 +81,11 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec(&self) -> CliResult {
+    fn julia_exec(&self) -> Result<()> {
         self.julia_exec_project("@.")
     }
 
-    fn julia_exec_quiet(&self) -> CliResult {
+    fn julia_exec_quiet(&self) -> Result<()> {
         self.julia_exec_project_quiet("@.")
     }
 }

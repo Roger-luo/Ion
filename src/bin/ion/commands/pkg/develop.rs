@@ -16,5 +16,6 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    format!("using Pkg; Pkg.develop([{}])", package_spec_list(matches)).julia_exec()
+    format!("using Pkg; Pkg.develop([{}])", package_spec_list(matches)).julia_exec()?;
+    Ok(())
 }

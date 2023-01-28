@@ -23,5 +23,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     if matches.get_flag("manifest") {
         options.push("manifest=true".to_string());
     }
-    format!("using Pkg; Pkg.status(;{})", options.join(", ")).julia_exec()
+    format!("using Pkg; Pkg.status(;{})", options.join(", ")).julia_exec()?;
+    Ok(())
 }

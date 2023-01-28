@@ -65,7 +65,7 @@ impl Blueprint for Documenter {
         )
         .julia_exec_project_quiet("docs")
         {
-            return Err(e.error.unwrap());
+            return Err(e);
         }
         Ok(())
     }

@@ -8,6 +8,7 @@ pub mod completions;
 pub mod new;
 pub mod pkg;
 pub mod release;
+pub mod run;
 pub mod summon;
 
 pub fn builtin() -> Vec<Command> {
@@ -18,6 +19,7 @@ pub fn builtin() -> Vec<Command> {
         summon::cli(),
         bump::cli(),
         new::cli(),
+        run::cli(),
         pkg::add::cli(),
         pkg::develop::cli(),
         pkg::free::cli(),
@@ -38,6 +40,7 @@ pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
         "summon" => summon::exec,
         "bump" => bump::exec,
         "new" => new::exec,
+        "run" => run::exec,
         "add" => pkg::add::exec,
         "develop" => pkg::develop::exec,
         "free" => pkg::free::exec,

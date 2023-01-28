@@ -10,5 +10,6 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(_: &ArgMatches) -> CliResult {
-    "using Pkg; Pkg.gc()".julia_exec()
+    "using Pkg; Pkg.gc()".julia_exec()?;
+    Ok(())
 }
