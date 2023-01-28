@@ -32,7 +32,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         None => return Err(format_err!("No path provided").into()),
     };
 
-    if args.len() == 0 {
+    if args.is_empty() {
         return Err(format_err!("No path provided").into());
     }
 
@@ -41,15 +41,15 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let mut cmd = Script::from_path(path.as_str())?.cmd();
 
     if let Some(path) = matches.get_one::<String>("sysimage") {
-        cmd.arg(format!("--sysimage={}", path));
+        cmd.arg(format!("--sysimage={path}"));
     }
 
     if let Some(path) = matches.get_one::<String>("threads") {
-        cmd.arg(format!("--threads={}", path));
+        cmd.arg(format!("--threads={path}"));
     }
 
     if let Some(path) = matches.get_one::<String>("process") {
-        cmd.arg(format!("--procs={}", path));
+        cmd.arg(format!("--procs={path}"));
     }
 
     if matches.get_flag("quiet") {
@@ -57,7 +57,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     }
 
     if let Some(opt) = matches.get_one::<String>("color") {
-        cmd.arg(format!("--color={}", opt));
+        cmd.arg(format!("--color={opt}"));
     }
 
     cmd.arg("--");

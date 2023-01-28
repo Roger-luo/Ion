@@ -67,7 +67,7 @@ pub trait Julia {
         if p.status.success() {
             Ok(())
         } else {
-            Err(format_err!("Julia command failed").into())
+            Err(format_err!("Julia command failed"))
         }
     }
 
@@ -77,7 +77,7 @@ pub trait Julia {
         if p.success() {
             Ok(())
         } else {
-            Err(format_err!("Julia command failed").into())
+            Err(format_err!("Julia command failed"))
         }
     }
 

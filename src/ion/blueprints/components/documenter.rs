@@ -59,14 +59,11 @@ impl Blueprint for Documenter {
             .as_template()?
             .render(ctx, "Project.toml")?;
 
-        if let Err(e) = format!(
+        format!(
             "using Pkg; Pkg.develop({})",
             PackageSpec::from_path(&ctx.project.path)
         )
-        .julia_exec_project_quiet("docs")
-        {
-            return Err(e);
-        }
+        .julia_exec_project_quiet("docs")?;
         Ok(())
     }
 }

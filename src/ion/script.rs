@@ -32,7 +32,7 @@ impl ScriptDeps {
                 break;
             } else if within_toml {
                 toml_str.push_str(line);
-                toml_str.push_str("\n");
+                toml_str.push('\n');
             }
         }
         log::debug!("toml_str:\n {}", toml_str);
@@ -75,11 +75,11 @@ impl Script {
         let mut cmd = Command::new("julia");
 
         if let Some(env) = &self.env {
-            cmd.arg(format!("--project={}", env));
+            cmd.arg(format!("--project={env}"));
         } else {
             cmd.arg("--project");
         }
-        return cmd;
+        cmd
     }
 }
 
@@ -90,7 +90,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps) -> Result<String> {
         .parent()
         .expect("cannot find parent of executable")
         .join("env")
-        .join(format!("env-{}", sha));
+        .join(format!("env-{sha}"));
 
     log::debug!("env: {}", env.display());
     if env.is_dir() {
@@ -105,8 +105,8 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps) -> Result<String> {
     match deps.deps {
         DepdencyList::List(ref deps) => {
             let script = deps
-                .into_iter()
-                .map(|s| format!(r#""{}""#, s))
+                .iter()
+                .map(|s| format!(r#""{s}""#))
                 .collect::<Vec<_>>()
                 .join(", ");
 
@@ -132,7 +132,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps) -> Result<String> {
 
             let script = pkgs
                 .into_iter()
-                .map(|s| format!("{}", s))
+                .map(|s| format!("{s}"))
                 .collect::<Vec<_>>()
                 .join(", ");
             log::debug!("script: {}", script);
@@ -160,7 +160,7 @@ fn check_deps(env: PathBuf, deps: &ScriptDeps) -> Result<bool> {
                     return Ok(false);
                 }
             }
-            return Ok(true);
+            Ok(true)
         }
         DepdencyList::Dict(ref deps) => {
             let manifest = Manifest::from_file(env.join("Manifest.toml"))?;
@@ -182,7 +182,7 @@ fn check_deps(env: PathBuf, deps: &ScriptDeps) -> Result<bool> {
                     return Ok(false);
                 }
             }
-            return Ok(true);
+            Ok(true)
         }
     }
 }
