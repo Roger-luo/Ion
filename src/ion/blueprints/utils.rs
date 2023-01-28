@@ -1,4 +1,5 @@
 use crate::blueprints::*;
+use crate::spec::Author;
 use crate::utils::template_dir;
 use anyhow::{format_err, Error, Result};
 use dialoguer::{Confirm, Input};

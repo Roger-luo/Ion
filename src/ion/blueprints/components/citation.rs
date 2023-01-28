@@ -1,4 +1,5 @@
 use crate::blueprints::*;
+use crate::spec::Author;
 use chrono::Datelike;
 use dialoguer::{Confirm, Input};
 use serde_derive::{Deserialize, Serialize};

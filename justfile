@@ -24,7 +24,6 @@ release tag:
     git push origin main
     gh release create v{{tag}} -t v{{tag}} --generate-notes
 
-
 [macos]
 install prefix="$HOME/.ion":
     cargo build --bin ion --release

@@ -6,14 +6,10 @@ use ion::utils::current_project;
 use ion::Registry;
 use std::path::PathBuf;
 
-pub fn version_parser(value: &str) -> Result<VersionSpec, String> {
-    VersionSpec::from_string(value).map_err(|e| e.to_string())
-}
-
 pub fn cli() -> Command {
     Command::new("bump")
         .about("bump the version of a package")
-        .arg(arg!(<VERSION> "The version to release").value_parser(version_parser))
+        .arg(arg!(<VERSION> "The version to release"))
         .arg(arg!([PATH] "The path of the package").value_hint(ValueHint::DirPath))
         .arg(arg!(-b --branch [BRANCH] "The branch to release"))
         .arg(arg!(--"no-prompt" "Do not prompt for confirmation"))

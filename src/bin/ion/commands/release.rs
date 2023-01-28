@@ -1,4 +1,3 @@
-use crate::commands::bump::version_parser;
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
 use ion::errors::CliResult;
@@ -6,7 +5,7 @@ use ion::errors::CliResult;
 pub fn cli() -> Command {
     Command::new("release")
         .about("release a new version of a package")
-        .arg(arg!(<VERSION> "The version to release").value_parser(version_parser))
+        .arg(arg!(<VERSION> "The version to release"))
         .arg(arg!([PATH] "The path of the package").value_hint(ValueHint::DirPath))
         .arg(arg!(-b --branch [BRANCH] "The branch to release"))
         .arg(arg!(--registry [REGISTRY] "The registry to release").default_value("General"))
