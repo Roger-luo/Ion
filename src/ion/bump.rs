@@ -106,7 +106,9 @@ impl VersionBumpHandler {
             }
 
             self.bump.write()?;
-            self.bump.commit()?;
+            if self.commit {
+                self.bump.commit()?;   
+            }
             Ok(())
         })?;
         Ok(())
