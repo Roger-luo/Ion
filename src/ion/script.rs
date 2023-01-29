@@ -2,6 +2,7 @@ use crate::utils::normalize_path;
 use crate::{utils::Julia, JuliaProject, Manifest, PackageSpec};
 use anyhow::{format_err, Result};
 use node_semver::Range;
+use std::path::Path;
 use serde_derive::{Deserialize, Serialize};
 use std::process::Command;
 use std::{collections::BTreeMap, path::PathBuf};
@@ -190,7 +191,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
         .join(", ");
 
     log::debug!("script: {}", script);
-    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(project.to_owned());
+    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(&project);
 
     let p = if verbose {
         cmd.status()?
@@ -204,7 +205,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
     Ok(project)
 }
 
-fn check_deps(env: &PathBuf, deps: &ScriptDeps) -> Result<bool> {
+fn check_deps(env: &Path, deps: &ScriptDeps) -> Result<bool> {
     log::debug!("checking deps: {:?}", deps);
 
     if !env.join("Project.toml").is_file() {
@@ -216,16 +217,11 @@ fn check_deps(env: &PathBuf, deps: &ScriptDeps) -> Result<bool> {
 
     for (name, info) in deps {
         if project.deps.contains_key(name) {
-            match info {
-                DepdencyInfo::Version { uuid, .. } => {
-                    if let Some(pkg_uuid) = uuid {
-                        let deps_uuid = project.deps.get(name).unwrap();
-                        if deps_uuid != pkg_uuid {
-                            return Ok(false);
-                        }
-                    }
+            if let DepdencyInfo::Version { uuid : Some(pkg_uuid), .. } = info {
+                let deps_uuid = project.deps.get(name).unwrap();
+                if deps_uuid != pkg_uuid {
+                    return Ok(false);
                 }
-                _ => {}
             }
         } else {
             return Ok(false);
@@ -251,7 +247,7 @@ trait Contains {
     fn contains_local(
         &self,
         _name: impl AsRef<str>,
-        _path: &String,
+        _path: &str,
         _subdir: &Option<String>,
     ) -> bool {
         false
@@ -259,7 +255,7 @@ trait Contains {
     fn contains_remote(
         &self,
         _name: impl AsRef<str>,
-        _url: &String,
+        _url: &str,
         _rev: &Option<String>,
         _subdir: &Option<String>,
     ) -> bool {
@@ -276,12 +272,12 @@ impl Contains for JuliaProject {
             DepdencyInfo::Version { uuid, .. } => {
                 if let Some(pkg_uuid) = uuid {
                     let deps_uuid = self.deps.get(name.as_ref()).unwrap();
-                    return Ok(deps_uuid != pkg_uuid);
+                    Ok(deps_uuid != pkg_uuid)
                 } else {
-                    return Ok(true);
+                    Ok(true)
                 }
             }
-            _ => return Ok(true),
+            _ => Ok(true),
         }
     }
 }
@@ -331,7 +327,7 @@ impl Contains for Manifest {
     fn contains_local(
         &self,
         name: impl AsRef<str>,
-        path: &String,
+        path: &str,
         subdir: &Option<String>,
     ) -> bool {
         let path = PathBuf::from(path);
@@ -372,7 +368,7 @@ impl Contains for Manifest {
     fn contains_remote(
         &self,
         name: impl AsRef<str>,
-        url: &String,
+        url: &str,
         rev: &Option<String>,
         subdir: &Option<String>,
     ) -> bool {

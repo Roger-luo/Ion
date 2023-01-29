@@ -133,9 +133,9 @@ impl Display for PackageSpec {
         }
         if let Some(pinned) = &self.pinned {
             if *pinned {
-                fields.push(format!("pinned=true"));
+                fields.push("pinned=true".to_string());
             } else {
-                fields.push(format!("pinned=false"));
+                fields.push("pinned=false".to_string());
             }
         }
         write!(f, "PackageSpec({})", fields.join(", "))
