@@ -4,14 +4,18 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use url::Url;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageSpec {
     pub name: Option<String>,
-    pub url: Option<String>,
-    pub path: Option<String>,
-    pub subdir: Option<String>,
-    pub rev: Option<String>,
+    pub uuid: Option<String>,
     pub version: Option<String>,
+    pub tree_hash: Option<String>,
+    // pub repo: Option<String>,
+    pub path: Option<String>,
+    pub pinned: Option<bool>,
+    pub url: Option<String>,
+    pub rev: Option<String>,
+    pub subdir: Option<String>,
 }
 
 impl PackageSpec {
@@ -47,11 +51,14 @@ impl PackageSpec {
         if PathBuf::from(name.clone()).is_dir() {
             return Self {
                 name: None,
+                uuid: None,
                 url: None,
                 path: Some(name),
                 subdir: None,
                 rev,
                 version,
+                tree_hash: None,
+                pinned: None,
             };
         }
 
@@ -63,6 +70,9 @@ impl PackageSpec {
                 subdir: None,
                 rev,
                 version,
+                uuid: None,
+                tree_hash: None,
+                pinned: None,
             };
         }
 
@@ -73,6 +83,9 @@ impl PackageSpec {
             subdir: None,
             rev,
             version,
+            uuid: None,
+            tree_hash: None,
+            pinned: None,
         }
     }
 
@@ -84,6 +97,9 @@ impl PackageSpec {
             subdir: None,
             rev: None,
             version: None,
+            uuid: None,
+            tree_hash: None,
+            pinned: None,
         }
     }
 }
@@ -108,6 +124,19 @@ impl Display for PackageSpec {
         }
         if let Some(version) = &self.version {
             fields.push(format!("version=\"{version}\""));
+        }
+        if let Some(uuid) = &self.uuid {
+            fields.push(format!("uuid=\"{uuid}\""));
+        }
+        if let Some(tree_hash) = &self.tree_hash {
+            fields.push(format!("tree_hash=\"{tree_hash}\""));
+        }
+        if let Some(pinned) = &self.pinned {
+            if *pinned {
+                fields.push(format!("pinned=true"));
+            } else {
+                fields.push(format!("pinned=false"));
+            }
         }
         write!(f, "PackageSpec({})", fields.join(", "))
     }

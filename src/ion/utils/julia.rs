@@ -52,9 +52,9 @@ impl JuliaCommand {
 pub trait Julia {
     fn as_julia_command(&self) -> JuliaCommand;
 
-    fn julia_exec_cmd(&self, project: &str) -> JuliaCommand {
+    fn julia_exec_cmd(&self, project: impl AsRef<str>) -> JuliaCommand {
         let mut cmd = self.as_julia_command();
-        cmd.project(project)
+        cmd.project(project.as_ref())
             .no_startup_file()
             .color()
             .compile("min");

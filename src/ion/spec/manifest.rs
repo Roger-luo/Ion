@@ -1,12 +1,22 @@
 use anyhow::Result;
+use node_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PackageInfo {
-    pub version: Option<String>,
+    pub version: Option<Version>,
     pub uuid: String,
     pub deps: Option<Vec<String>>,
+    #[serde(rename = "git-tree-sha1")]
+    pub git_tree_sha1: Option<String>,
+    #[serde(rename = "repo-rev")]
+    pub repo_rev: Option<String>,
+    #[serde(rename = "repo-url")]
+    pub repo_url: Option<String>,
+    #[serde(rename = "repo-subdir")]
+    pub repo_subdir: Option<String>,
+    pub path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

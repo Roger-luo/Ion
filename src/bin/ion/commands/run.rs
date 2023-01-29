@@ -5,6 +5,7 @@ use ion::{errors::CliResult, script::Script};
 pub fn cli() -> Command {
     Command::new("run")
         .about("Run a script")
+        .arg(arg!(verbose: -v --verbose "show detailed output"))
         .arg(
             arg!(sysimage: -J --sysimage [PATH] "Path to the sysimage to use")
                 .value_hint(ValueHint::FilePath),
@@ -38,7 +39,8 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
 
     let path = args[0].clone();
     let args = &args[1..];
-    let mut cmd = Script::from_path(path.as_str())?.cmd();
+    let verbose = matches.get_flag("verbose");
+    let mut cmd = Script::from_path(path.as_str(), verbose)?.cmd();
 
     if let Some(path) = matches.get_one::<String>("sysimage") {
         cmd.arg(format!("--sysimage={path}"));
