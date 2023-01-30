@@ -8,7 +8,7 @@ use std::process::Command;
 use std::{collections::BTreeMap, path::PathBuf};
 use toml;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum DepdencyInfo {
     /// short-hand version of Version {version } without uuid
@@ -38,6 +38,21 @@ pub enum DepdencyInfo {
 }
 
 impl DepdencyInfo {
+    pub fn normalize(&self, root: &Path) -> Self {
+        if let DepdencyInfo::LocalPackage { path, subdir } = &self {
+            let path = PathBuf::from(path);
+            let path = root.join(path);
+            let path = normalize_path(path.as_path());
+            let path = path.to_str().unwrap();
+            return DepdencyInfo::LocalPackage {
+                path: path.to_string(),
+                subdir: subdir.clone(),
+            }
+        } else {
+            self.clone()
+        }
+    }
+
     pub fn to_package_spec(&self, name: &str) -> PackageSpec {
         match self {
             DepdencyInfo::Short(range) => PackageSpec {
@@ -74,13 +89,9 @@ impl DepdencyInfo {
                 pinned: None,
             },
             DepdencyInfo::LocalPackage { path, subdir } => {
-                let path = PathBuf::from(path);
-                let path = std::env::current_dir().unwrap().join(path);
-                let path = normalize_path(path.as_path());
-                let path = path.to_str().unwrap();
                 PackageSpec {
                     name: Some(name.to_string()),
-                    path: Some(path.to_string()),
+                    path: Some(path.to_owned()),
                     subdir: subdir.clone(),
                     url: None,
                     rev: None,
@@ -184,9 +195,12 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
 
     std::fs::create_dir_all(&env)?;
 
+    let root = PathBuf::from(path.as_ref());
     let script = deps
         .iter()
-        .map(|(name, info)| format!("{}", info.to_package_spec(name)))
+        .map(|(name, info)| format!("{}", {
+            info.normalize(root.as_path()).to_package_spec(name)
+        }))
         .collect::<Vec<_>>()
         .join(", ");
 
