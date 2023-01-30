@@ -19,7 +19,7 @@ delete-release tag:
 release tag:
     cargo bump {{tag}}
     git add Cargo.toml
-    git commit -m "Bump version to {{tag}}"
+    git diff --quiet && git diff --staged --quiet || git commit -m "Bump version to {{tag}}"
     git pull origin main
     git push origin main
     gh release create v{{tag}} -t v{{tag}} --generate-notes
