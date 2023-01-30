@@ -10,32 +10,34 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
+    title: 'Standalone',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        Ion is a standalone binary that can be downloaded and used without
+        installing any other dependencies.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
+    title: 'Julia Pkg in terminal',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
+        Ion integrates with the Julia package manager and can be used to
+        install, update, and remove packages from the terminal without
+        starting a Julia REPL.
       </>
     ),
   },
   {
-    title: 'Powered by React',
+    title: 'Julia scripts with dependencies',
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        Ion can be used to run Julia scripts with dependencies. Ion will
+        automatically install the dependencies and run the script. Help
+        you to run Julia scripts with reproduceable environment.
       </>
     ),
   },
