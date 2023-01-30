@@ -2,8 +2,8 @@ use crate::utils::normalize_path;
 use crate::{utils::Julia, JuliaProject, Manifest, PackageSpec};
 use anyhow::{format_err, Result};
 use node_semver::Range;
-use std::path::Path;
 use serde_derive::{Deserialize, Serialize};
+use std::path::Path;
 use std::process::Command;
 use std::{collections::BTreeMap, path::PathBuf};
 use toml;
@@ -217,7 +217,11 @@ fn check_deps(env: &Path, deps: &ScriptDeps) -> Result<bool> {
 
     for (name, info) in deps {
         if project.deps.contains_key(name) {
-            if let DepdencyInfo::Version { uuid : Some(pkg_uuid), .. } = info {
+            if let DepdencyInfo::Version {
+                uuid: Some(pkg_uuid),
+                ..
+            } = info
+            {
                 let deps_uuid = project.deps.get(name).unwrap();
                 if deps_uuid != pkg_uuid {
                     return Ok(false);
@@ -324,12 +328,7 @@ impl Contains for Manifest {
         false
     }
 
-    fn contains_local(
-        &self,
-        name: impl AsRef<str>,
-        path: &str,
-        subdir: &Option<String>,
-    ) -> bool {
+    fn contains_local(&self, name: impl AsRef<str>, path: &str, subdir: &Option<String>) -> bool {
         let path = PathBuf::from(path);
         let path = std::env::current_dir().unwrap().join(path);
         let path = normalize_path(path.as_path());
