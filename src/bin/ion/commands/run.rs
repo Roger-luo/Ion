@@ -35,7 +35,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     };
 
     if args.is_empty() {
-        return run_julia_repl(matches)
+        return run_julia_repl(matches);
     }
 
     let path = args[0].clone();
@@ -89,5 +89,5 @@ fn run_julia_repl(matches: &ArgMatches) -> CliResult {
         Ok(())
     } else {
         Err(format_err!("Julia exited with non-zero status code").into())
-    }
+    };
 }

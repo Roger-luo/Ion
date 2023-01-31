@@ -22,7 +22,7 @@ pub fn cli() -> Command {
         .subcommand(
             Command::new("repl")
                 .about("start a REPL from the script environment")
-                .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),   
+                .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),
         )
 }
 
