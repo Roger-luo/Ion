@@ -47,11 +47,11 @@ pub fn resources_dir() -> Result<PathBuf> {
 #[cfg(not(debug_assertions))]
 pub fn resources_dir() -> Result<PathBuf> {
     match dot_julia_dir() {
-        Some(mut dot_julia) => {
+        Ok(mut dot_julia) => {
             dot_julia.push("resources");
             Ok(dot_julia)
         }
-        None => next_bin_resources_dir(),
+        Err(_) => next_bin_resources_dir(),
     }
 }
 

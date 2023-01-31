@@ -1,7 +1,7 @@
 use anyhow::format_err;
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use dialoguer::{Input, Confirm};
+use dialoguer::{Confirm, Input};
 use ion::blueprints::*;
 use ion::errors::CliResult;
 use ion::template::RemoteTemplate;
@@ -31,7 +31,8 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         if Confirm::new()
             .with_prompt("Template not found, download from registry?")
             .default(true)
-            .interact()? {
+            .interact()?
+        {
             RemoteTemplate::default().download()?;
         } else {
             return Ok(());
