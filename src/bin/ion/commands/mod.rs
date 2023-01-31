@@ -10,6 +10,7 @@ pub mod pkg;
 pub mod release;
 pub mod run;
 pub mod summon;
+pub mod template;
 
 pub fn builtin() -> Vec<Command> {
     vec![
@@ -29,6 +30,7 @@ pub fn builtin() -> Vec<Command> {
         pkg::status::cli(),
         pkg::update::cli(),
         completions::cli(),
+        template::cli(),
     ]
 }
 
@@ -50,6 +52,7 @@ pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
         "status" => pkg::status::exec,
         "update" => pkg::update::exec,
         "completions" => completions::exec,
+        "template" => template::exec,
         _ => return None,
     };
     Some(f)

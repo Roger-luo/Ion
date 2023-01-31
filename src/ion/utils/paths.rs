@@ -31,11 +31,22 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 
 #[cfg(debug_assertions)]
 pub fn resources_dir() -> Result<PathBuf> {
-    Ok(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources"))
+    next_bin_resources_dir()
 }
 
 #[cfg(not(debug_assertions))]
 pub fn resources_dir() -> Result<PathBuf> {
+    match dirs::config_dir() {
+        Some(mut config) => {
+            config.push("ion");
+            config.push("resources");
+            Ok(config)
+        }
+        None => next_bin_resources_dir(),
+    }
+}
+
+fn next_bin_resources_dir() -> Result<PathBuf> {
     let exe = std::env::current_exe()?;
     let bin = exe
         .parent()
@@ -43,9 +54,8 @@ pub fn resources_dir() -> Result<PathBuf> {
     let resources = bin
         .parent()
         .expect("Failed to get parent directory of bin")
-        .join("resources")
-        .canonicalize()?;
-    Ok(resources)
+        .join("resources");
+    Ok(normalize_path(&resources))
 }
 
 pub fn components_dir() -> Result<PathBuf> {

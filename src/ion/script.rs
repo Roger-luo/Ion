@@ -47,7 +47,7 @@ impl DepdencyInfo {
             return DepdencyInfo::LocalPackage {
                 path: path.to_string(),
                 subdir: subdir.clone(),
-            }
+            };
         } else {
             self.clone()
         }
@@ -88,19 +88,17 @@ impl DepdencyInfo {
                 tree_hash: None,
                 pinned: None,
             },
-            DepdencyInfo::LocalPackage { path, subdir } => {
-                PackageSpec {
-                    name: Some(name.to_string()),
-                    path: Some(path.to_owned()),
-                    subdir: subdir.clone(),
-                    url: None,
-                    rev: None,
-                    version: None,
-                    uuid: None,
-                    tree_hash: None,
-                    pinned: None,
-                }
-            }
+            DepdencyInfo::LocalPackage { path, subdir } => PackageSpec {
+                name: Some(name.to_string()),
+                path: Some(path.to_owned()),
+                subdir: subdir.clone(),
+                url: None,
+                rev: None,
+                version: None,
+                uuid: None,
+                tree_hash: None,
+                pinned: None,
+            },
         }
     }
 }
@@ -198,9 +196,11 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
     let root = PathBuf::from(path.as_ref());
     let script = deps
         .iter()
-        .map(|(name, info)| format!("{}", {
-            info.normalize(root.as_path()).to_package_spec(name)
-        }))
+        .map(|(name, info)| {
+            format!("{}", {
+                info.normalize(root.as_path()).to_package_spec(name)
+            })
+        })
         .collect::<Vec<_>>()
         .join(", ");
 
