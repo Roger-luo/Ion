@@ -22,7 +22,7 @@ impl Default for RemoteTemplate {
 
 impl RemoteTemplate {
     pub fn new(url: String) -> RemoteTemplate {
-        RemoteTemplate { url: url }
+        RemoteTemplate { url }
     }
 
     pub fn download(&self) -> Result<()> {

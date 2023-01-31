@@ -44,10 +44,10 @@ impl DepdencyInfo {
             let path = root.join(path);
             let path = normalize_path(path.as_path());
             let path = path.to_str().unwrap();
-            return DepdencyInfo::LocalPackage {
+            DepdencyInfo::LocalPackage {
                 path: path.to_string(),
                 subdir: subdir.clone(),
-            };
+            }
         } else {
             self.clone()
         }
