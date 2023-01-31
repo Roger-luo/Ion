@@ -63,7 +63,7 @@ pub struct CI {
 
 impl CI {
     fn default_template() -> String {
-        "github/workflows/CI.yml.hbs".into()
+        ".github/workflows/CI.yml.hbs".into()
     }
 }
 
@@ -75,7 +75,7 @@ pub struct TagBot {
 
 impl TagBot {
     fn default_template() -> String {
-        "github/workflows/TagBot.yml".into()
+        ".github/workflows/TagBot.yml".into()
     }
 }
 
@@ -87,14 +87,14 @@ pub struct CompatHelper {
 
 impl CompatHelper {
     fn default_template() -> String {
-        "github/workflows/CompatHelper.yml".into()
+        ".github/workflows/CompatHelper.yml".into()
     }
 }
 
 impl Default for CI {
     fn default() -> Self {
         CI {
-            template: "github/workflows/CI.yml.hbs".into(),
+            template: ".github/workflows/CI.yml.hbs".into(),
             arch: vec!["x86".to_string(), "x64".to_string()],
             os: vec![
                 "ubuntu-latest".to_string(),
@@ -108,7 +108,7 @@ impl Default for CI {
 impl Default for TagBot {
     fn default() -> Self {
         TagBot {
-            template: "github/workflows/TagBot.yml".into(),
+            template: ".github/workflows/TagBot.yml".into(),
         }
     }
 }
@@ -116,7 +116,7 @@ impl Default for TagBot {
 impl Default for CompatHelper {
     fn default() -> Self {
         CompatHelper {
-            template: "github/workflows/CompatHelper.yml".into(),
+            template: ".github/workflows/CompatHelper.yml".into(),
         }
     }
 }
