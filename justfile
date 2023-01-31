@@ -7,7 +7,6 @@ tarball target="aarch64-apple-darwin":
     mkdir -p $DIST
     mkdir -p $DIST/bin
     cp target/{{target}}/release/ion $DIST/bin/ion
-    cp -r resources $DIST/resources
     cd target/{{target}} && tar -czf ion-{{target}}.tar.gz dist
     ARCHIVE="target/{{target}}/ion-{{target}}.tar.gz"
     echo "::set-output name=archive::$ARCHIVE"
@@ -29,7 +28,6 @@ install prefix="$HOME/.ion":
     cargo build --bin ion --release
     mkdir -p {{prefix}}/bin
     cp target/release/ion {{prefix}}/bin
-    cp -r resources {{prefix}}/resources
 
 [linux]
 install prefix="$HOME/.ion":
@@ -37,4 +35,3 @@ install prefix="$HOME/.ion":
     cargo build --bin ion --release
     mkdir -p {{prefix}}/bin
     cp target/release/ion {{prefix}}/bin/ion
-    cp -r resources {{prefix}}/resources

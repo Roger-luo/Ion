@@ -1,9 +1,11 @@
 use anyhow::format_err;
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use dialoguer::Input;
+use dialoguer::{Input, Confirm};
 use ion::blueprints::*;
 use ion::errors::CliResult;
+use ion::template::RemoteTemplate;
+use ion::utils::template_dir;
 use log::debug;
 use std::path::PathBuf;
 
@@ -24,6 +26,17 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         list_templates()?;
         return Ok(());
     }
+
+    if !template_dir()?.exists() {
+        if Confirm::new()
+            .with_prompt("Template not found, download from registry?")
+            .interact()? {
+            RemoteTemplate::default().download()?;
+        } else {
+            return Ok(());
+        }
+    }
+
     let prompt = !matches.get_flag("no-interactive");
     let force = matches.get_flag("force");
     let path = match matches.get_one::<String>("path") {
@@ -54,7 +67,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
 
     let mut ctx = Context::new(prompt, Julia::default(), Project::new(package, path));
     let name = matches.get_one::<String>("template").unwrap().to_owned();
-
     let template = Template::from_name(&name)?;
     if let Err(e) = template.render(&mut ctx) {
         return Err(e.into());
