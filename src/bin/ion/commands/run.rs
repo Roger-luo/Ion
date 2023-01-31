@@ -22,6 +22,7 @@ pub fn cli() -> Command {
         .arg(arg!(color: --color [OPT] "Enable or disable color text"))
         .arg(
             arg!(<PATH> "Path to the script to run")
+                .value_hint(ValueHint::FilePath)
                 .trailing_var_arg(true)
                 .num_args(1..),
         )
