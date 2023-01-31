@@ -19,6 +19,11 @@ pub fn cli() -> Command {
                 .about("remove a script environment")
                 .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),
         )
+        .subcommand(
+            Command::new("repl")
+                .about("start a REPL from the script environment")
+                .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),   
+        )
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
@@ -31,6 +36,15 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         Some(("rm", submatches)) => {
             let path = submatches.get_one::<String>("PATH").unwrap();
             remove_old_environment(&PathBuf::from(path))?;
+        }
+        Some(("repl", submatches)) => {
+            let path = submatches.get_one::<String>("PATH").unwrap();
+            let env = env_dir(path)?;
+            log::debug!("starting REPL from {}", env.display());
+            std::process::Command::new("julia")
+                .arg(format!("--project={}", env.display()))
+                .spawn()?
+                .wait()?;
         }
         _ => unreachable!(),
     }
