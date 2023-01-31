@@ -38,6 +38,9 @@ impl RemoteTemplate {
         let tar = GzDecoder::new(tar_gz);
         let mut archive = Archive::new(tar);
         let resources_dir = resources_dir()?;
+        if !resources_dir.exists() {
+            std::fs::create_dir_all(&resources_dir)?;
+        }
         archive.entries()?.filter_map(|e| e.ok()).for_each(|mut e| {
             let path = e.path().unwrap();
             let path = path.strip_prefix("dist").unwrap();

@@ -30,6 +30,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     if !template_dir()?.exists() {
         if Confirm::new()
             .with_prompt("Template not found, download from registry?")
+            .default(true)
             .interact()? {
             RemoteTemplate::default().download()?;
         } else {

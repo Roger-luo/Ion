@@ -29,6 +29,16 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
+pub fn dot_julia_dir() -> Result<PathBuf> {
+    match dirs::home_dir() {
+        Some(mut home) => {
+            home.push(".julia");
+            Ok(home)
+        }
+        None => Err(anyhow::anyhow!("Failed to get home directory")),
+    }
+}
+
 #[cfg(debug_assertions)]
 pub fn resources_dir() -> Result<PathBuf> {
     next_bin_resources_dir()
@@ -36,11 +46,10 @@ pub fn resources_dir() -> Result<PathBuf> {
 
 #[cfg(not(debug_assertions))]
 pub fn resources_dir() -> Result<PathBuf> {
-    match dirs::config_dir() {
-        Some(mut config) => {
-            config.push("ion");
-            config.push("resources");
-            Ok(config)
+    match dot_julia_dir() {
+        Some(mut dot_julia) => {
+            dot_julia.push("resources");
+            Ok(dot_julia)
         }
         None => next_bin_resources_dir(),
     }
