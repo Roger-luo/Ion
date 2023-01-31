@@ -81,6 +81,7 @@ fn add_julia_flags(cmd: &mut std::process::Command, matches: &ArgMatches) {
 
 fn run_julia_repl(matches: &ArgMatches) -> CliResult {
     let mut cmd = std::process::Command::new("julia");
+    cmd.arg("--project");
     add_julia_flags(&mut cmd, matches);
     log::debug!("Running julia: {:?}", cmd);
     let status = cmd.spawn()?.wait()?;
