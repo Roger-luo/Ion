@@ -193,12 +193,16 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
 
     std::fs::create_dir_all(&env)?;
 
-    let root = PathBuf::from(path.as_ref());
+    let root = PathBuf::from(path.as_ref()).canonicalize()?;
+    log::debug!("root: {}", root.display());
     let script = deps
         .iter()
         .map(|(name, info)| {
             format!("{}", {
-                info.normalize(root.as_path()).to_package_spec(name)
+                info.normalize(root
+                    .as_path()
+                    .parent().expect("cannot find parent path")
+                ).to_package_spec(name)
             })
         })
         .collect::<Vec<_>>()
@@ -206,6 +210,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
 
     log::debug!("script: {}", script);
     let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(&project);
+    log::debug!("cmd: {:?}", cmd);
 
     let p = if verbose {
         cmd.status()?
