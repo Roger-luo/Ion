@@ -169,9 +169,7 @@ fn from_script(script: impl AsRef<str>) -> Result<Option<ScriptDeps>> {
     }
 }
 
-fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result<String> {
-    log::debug!("creating env for: {}", path.as_ref());
-
+pub fn env_dir(path: impl AsRef<str>) -> Result<PathBuf> {
     let sha = crc32fast::hash(path.as_ref().as_bytes());
     let env = std::env::current_exe()?;
     let env = env
@@ -179,6 +177,13 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
         .expect("cannot find parent of executable")
         .join("env")
         .join(format!("env-{sha}"));
+    Ok(env)
+}
+
+fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result<String> {
+    log::debug!("creating env for: {}", path.as_ref());
+
+    let env = env_dir(path.as_ref())?;
     let project = env.to_str().expect("invalid path").to_string();
 
     log::debug!("env: {}", env.display());
@@ -199,10 +204,8 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
         .iter()
         .map(|(name, info)| {
             format!("{}", {
-                info.normalize(root
-                    .as_path()
-                    .parent().expect("cannot find parent path")
-                ).to_package_spec(name)
+                info.normalize(root.as_path().parent().expect("cannot find parent path"))
+                    .to_package_spec(name)
             })
         })
         .collect::<Vec<_>>()

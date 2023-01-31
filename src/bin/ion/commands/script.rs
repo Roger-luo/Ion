@@ -1,0 +1,46 @@
+use clap::parser::ArgMatches;
+use clap::{arg, Command, ValueHint};
+use ion::errors::CliResult;
+use ion::script::{env_dir, Script};
+use std::path::Path;
+use std::path::PathBuf;
+
+pub fn cli() -> Command {
+    Command::new("script")
+        .about("script tools")
+        .subcommand(
+            Command::new("update")
+                .about("update the scripts environment by re-initalizing the environment")
+                .arg(arg!(verbose: -v --verbose "Verbose mode"))
+                .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),
+        )
+        .subcommand(
+            Command::new("rm")
+                .about("remove a script environment")
+                .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),
+        )
+}
+
+pub fn exec(matches: &ArgMatches) -> CliResult {
+    match matches.subcommand() {
+        Some(("update", submatches)) => {
+            let path = submatches.get_one::<String>("PATH").unwrap();
+            remove_old_environment(&PathBuf::from(path))?;
+            Script::from_path(path, submatches.get_flag("verbose"))?;
+        }
+        Some(("rm", submatches)) => {
+            let path = submatches.get_one::<String>("PATH").unwrap();
+            remove_old_environment(&PathBuf::from(path))?;
+        }
+        _ => unreachable!(),
+    }
+    Ok(())
+}
+
+fn remove_old_environment(path: &Path) -> CliResult {
+    let env = env_dir(path.to_str().expect("invalid path"))?;
+    if env.exists() {
+        std::fs::remove_dir_all(env)?;
+    }
+    Ok(())
+}
