@@ -40,6 +40,7 @@ fn test_new_package() -> Result<()> {
     let ion = cargo_bin("ion");
     let program = format!("{} new TestNew -f --template=package", ion.display());
     let mut p = spawn(program.as_str(), Some(30_000))?;
+    p.send_line("")?; // download
     p.send_line("")?; // authors
     p.send_line("")?; // description
     p.send_line("")?; // license
@@ -63,8 +64,9 @@ fn test_new_package() -> Result<()> {
     assert!(docs_dir.join("Project.toml").is_file());
     assert!(docs_dir.join("src").join("index.md").is_file());
 
-    let github_dir = PathBuf::from("TestNew").join("github");
+    let github_dir = PathBuf::from("TestNew").join(".github");
     let workflow_dir = github_dir.join("workflows");
+    println!("workflow_dir: {:?}", workflow_dir.join("CI.yml"));
     assert!(workflow_dir.join("CI.yml").is_file());
     assert!(workflow_dir.join("CompatHelper.yml").is_file());
     assert!(workflow_dir.join("TagBot.yml").is_file());
