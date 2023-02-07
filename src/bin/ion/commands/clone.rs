@@ -42,7 +42,14 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             git::clone(url.as_str(), dest)?;
         }
         (Some(name), None) => {
-            git::clone(url.as_str(), &PathBuf::from(name))?;
+            let path = if name.ends_with(".jl.git") {
+                PathBuf::from(name[..name.len() - 7].to_string())
+            } else if name.ends_with(".git") {
+                PathBuf::from(name[..name.len() - 4].to_string())
+            } else {
+                PathBuf::from(name)
+            };
+            git::clone(url.as_str(), &path)?;
         }
         (None, Some(dest)) => {
             git::clone(url.as_str(), dest)?;
