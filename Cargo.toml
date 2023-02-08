@@ -53,6 +53,7 @@ tempfile = "3.3.0"
 flate2 = "1.0.25"
 tar = "0.4.38"
 self_update = "0.34.0"
+native-tls = { version = "0.2.11", features = ["vendored"] }
 
 [build-dependencies]
 copy_to_output = "2.0.0"
