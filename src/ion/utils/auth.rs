@@ -145,7 +145,12 @@ impl GithubHandler<'_> {
             .default(true)
             .interact()?
         {
-            open::that(&codes.verification_uri)?;
+            if let Err(_) = open::that(&codes.verification_uri) {
+                println!(
+                    "Failed to open this page in your browser: {}",
+                    codes.verification_uri.to_owned().underlined()
+                );
+            }
         } else {
             println!(
                 "Then open this page in your browser: {}",
