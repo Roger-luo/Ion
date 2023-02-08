@@ -119,19 +119,24 @@ impl GithubHandler<'_> {
             .authenticate_as_device(&client_id, &self.auth.scope)
             .await?;
 
-        let mut ctx = ClipboardContext::new().unwrap();
-        let user_code = codes.user_code.to_owned();
-        if ctx.set_contents(user_code.to_owned()).is_err() {
-            println!(
-                "Failed to copy your one-time code to \
-            clipboard, please copy it manually: {}",
-                user_code.to_owned().bold()
-            );
+        if let Ok(mut ctx) = ClipboardContext::new() {
+            if ctx.set_contents(codes.user_code.to_owned()).is_err() {
+                println!(
+                    "Failed to copy your one-time code to \
+                clipboard, please copy it manually: {}",
+                    codes.user_code.to_owned().bold()
+                );
+            } else {
+                println!(
+                    "your one-time code has been copied to \
+                clipboard: {}",
+                    codes.user_code.to_owned().bold()
+                );
+            }
         } else {
             println!(
-                "your one-time code has been copied to \
-            clipboard: {}",
-                user_code.to_owned().bold()
+                "your one-time code: {}",
+                codes.user_code.to_owned().bold()
             );
         }
 
