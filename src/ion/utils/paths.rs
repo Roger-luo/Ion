@@ -39,6 +39,7 @@ pub fn dot_julia_dir() -> Result<PathBuf> {
     }
 }
 
+#[cfg(debug_assertions)]
 pub fn config_dir() -> Result<PathBuf> {
     let exe = std::env::current_exe()?;
     let bin = exe
