@@ -1,10 +1,14 @@
-use anyhow::format_err;
+use anyhow::{format_err, Result};
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
+use dialoguer::Confirm;
 use ion::errors::CliResult;
+use ion::utils::auth::Auth;
 use ion::utils::git;
-use ion::Registry;
+use ion::{clone, Registry};
+use octocrab::Octocrab;
 use std::path::PathBuf;
+use tokio::runtime::Builder;
 use url::Url;
 
 pub fn cli() -> Command {
@@ -20,43 +24,9 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let dest = matches.get_one::<PathBuf>("dest");
     let registry_name = matches.get_one::<String>("registry").unwrap().to_owned();
 
-    let (url, name) = match Url::parse(&url_or_name) {
-        Ok(url) => {
-            let name: Option<String> = match url.path_segments() {
-                Some(segments) => segments.last().map(|name| name.to_string()),
-                None => None,
-            };
-            (url, name)
-        }
-        Err(_) => {
-            let url = Registry::read(registry_name)?
-                .package()
-                .name(&url_or_name)
-                .get_url()?;
-            (url, Some(url_or_name))
-        }
-    };
-
-    match (name, dest) {
-        (Some(_), Some(dest)) => {
-            git::clone(url.as_str(), dest)?;
-        }
-        (Some(name), None) => {
-            let path = if name.ends_with(".jl.git") {
-                PathBuf::from(name[..name.len() - 7].to_string())
-            } else if name.ends_with(".git") {
-                PathBuf::from(name[..name.len() - 4].to_string())
-            } else {
-                PathBuf::from(name)
-            };
-            git::clone(url.as_str(), &path)?;
-        }
-        (None, Some(dest)) => {
-            git::clone(url.as_str(), dest)?;
-        }
-        (None, None) => {
-            return Err(format_err!("No name or destination provided").into());
-        }
-    }
+    clone::Clone::new(registry_name)
+        .from_github(url_or_name)?
+        .dest(dest)?
+        .run()?;
     Ok(())
 }

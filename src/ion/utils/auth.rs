@@ -50,6 +50,13 @@ impl Auth {
         Ok(token)
     }
 
+    // TODO: read from config
+    pub fn get_username(&self) -> Result<String> {
+        let token = self.get_token()?;
+        let username = self.github().get_username(token)?;
+        Ok(username)
+    }
+
     pub fn expire_token(&self) -> Result<()> {
         self.keyring().delete_token()?;
         Ok(())
@@ -79,6 +86,23 @@ impl GithubHandler<'_> {
             .block_on(self.get_token_task())?;
         self.auth.keyring().set_token(token.as_str())?;
         Ok(token)
+    }
+
+    pub fn get_username(&self, token: String) -> Result<String> {
+        let username = Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(self.get_username_task(token.clone()))?;
+        Ok(username)
+    }
+
+    async fn get_username_task(&self, token: String) -> Result<String> {
+        let octocrab = octocrab::Octocrab::builder()
+            .personal_token(token)
+            .build()?;
+        let user = octocrab.current().user().await?;
+        Ok(user.login)
     }
 
     async fn get_token_task(&self) -> Result<String> {

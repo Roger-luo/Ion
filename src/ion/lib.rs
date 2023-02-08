@@ -1,5 +1,6 @@
 pub mod blueprints;
 pub mod bump;
+pub mod clone;
 pub mod config;
 pub mod errors;
 pub mod report;
