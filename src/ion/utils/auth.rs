@@ -43,6 +43,10 @@ impl Auth {
     }
 
     pub fn get_token(&self) -> Result<String> {
+        if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+            return Ok(token);
+        }
+
         let token = match self.keyring().get_token() {
             Ok(token) => token,
             Err(_) => self.github().get_token()?,
