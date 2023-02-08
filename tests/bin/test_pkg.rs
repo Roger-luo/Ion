@@ -25,13 +25,18 @@ fn test_cli_example() {
         .arg("help")
         .assert()
         .success();
-    Command::cargo_bin("ion")
-        .unwrap()
-        .arg("clone")
-        .arg("Example")
-        .assert()
-        .success();
+}
+
+#[test]
+fn test_clone() -> Result<()> {
+    setup();
+    let ion = cargo_bin("ion");
+    let program = format!("{} clone Example", ion.display());
+    let mut p = spawn(program.as_str(), Some(30_000))?;
+    p.send_line("n")?;
+    p.exp_eof()?;
     remove_dir_all("Example").unwrap();
+    Ok(())
 }
 
 #[test]
