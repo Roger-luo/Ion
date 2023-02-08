@@ -1,15 +1,11 @@
-use anyhow::{format_err, Result};
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use dialoguer::Confirm;
+
 use ion::errors::CliResult;
-use ion::utils::auth::Auth;
-use ion::utils::git;
-use ion::{clone, Registry};
-use octocrab::Octocrab;
+
+use ion::clone;
+
 use std::path::PathBuf;
-use tokio::runtime::Builder;
-use url::Url;
 
 pub fn cli() -> Command {
     Command::new("clone")

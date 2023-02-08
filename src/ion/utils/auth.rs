@@ -93,7 +93,7 @@ impl GithubHandler<'_> {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(self.get_username_task(token.clone()))?;
+            .block_on(self.get_username_task(token))?;
         Ok(username)
     }
 

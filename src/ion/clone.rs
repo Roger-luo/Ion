@@ -62,7 +62,7 @@ impl Clone {
                 repo[..repo.len() - 4].to_string(),
             )
         } else {
-            (repo.clone(), repo.clone())
+            (repo.clone(), repo)
         };
 
         let owner = match url.path_segments() {
@@ -130,7 +130,7 @@ impl RemoteProject {
                 .send()
                 .await?;
             if let Some(full_name) = fork.full_name {
-                println!("Forked to {}", full_name);
+                println!("Forked to {full_name}");
             }
             if let Some(clone_url) = fork.clone_url {
                 git::clone(clone_url.as_str(), &path)?;
