@@ -134,10 +134,7 @@ impl GithubHandler<'_> {
                 );
             }
         } else {
-            println!(
-                "your one-time code: {}",
-                codes.user_code.to_owned().bold()
-            );
+            println!("your one-time code: {}", codes.user_code.to_owned().bold());
         }
 
         if dialoguer::Confirm::new()
