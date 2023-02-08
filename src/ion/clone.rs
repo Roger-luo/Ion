@@ -31,25 +31,26 @@ impl Clone {
     }
 
     pub fn from_github(&self, url_or_name: impl AsRef<str>) -> Result<RemoteProject> {
-        let (url, repo) = match Url::parse(url_or_name.as_ref()) {
-            Ok(url) => {
-                let name = match url.path_segments() {
-                    Some(segments) => segments
-                        .last()
-                        .ok_or_else(|| format_err!("invliad URL"))?
-                        .to_string(),
-                    None => return Err(format_err!("invalid URL")),
-                };
-                (url, name)
-            }
+        let url = match Url::parse(url_or_name.as_ref()) {
+            Ok(url) => url,
             Err(_) => {
                 let url = Registry::read(self.registry.clone())?
                     .package()
                     .name(url_or_name.as_ref())
                     .get_url()?;
-                (url, url_or_name.as_ref().to_string())
+                url
             }
         };
+
+        let repo = match url.path_segments() {
+            Some(segments) => segments
+                .last()
+                .ok_or_else(|| format_err!("invliad URL"))?
+                .to_string(),
+            None => return Err(format_err!("invalid URL")),
+        };
+        log::debug!("url: {}", url);
+        log::debug!("repo: {}", repo);
 
         let (repo, dest) = if repo.ends_with(".jl.git") {
             (
@@ -64,6 +65,8 @@ impl Clone {
         } else {
             (repo.clone(), repo)
         };
+
+        log::debug!("repo: {}", repo);
 
         let owner = match url.path_segments() {
             Some(mut segments) => segments
@@ -93,10 +96,13 @@ impl RemoteProject {
         Ok(self)
     }
 
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&self, force: bool) -> Result<()> {
         let auth = Auth::new(vec!["repo", "read:org"]);
         let token = auth.get_token()?;
         let username = auth.get_username()?;
+        if force && self.dest.exists() {
+            std::fs::remove_dir_all(&self.dest)?;
+        }
 
         Builder::new_current_thread()
             .enable_all()
@@ -124,6 +130,7 @@ impl RemoteProject {
                 .default(true)
                 .interact()?
         {
+            log::debug!("forking {}/{} to {}", self.owner, self.repo, username);
             let fork = octocrab
                 .repos(self.owner.clone(), self.repo.clone())
                 .create_fork()

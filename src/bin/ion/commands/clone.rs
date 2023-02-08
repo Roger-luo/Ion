@@ -10,6 +10,7 @@ pub fn cli() -> Command {
         .arg(arg!(url_or_name: <URL> "The name/url of the package").value_hint(ValueHint::Url))
         .arg(arg!(dest: [PATH] "The path of the package").value_hint(ValueHint::AnyPath))
         .arg(arg!(registry: --registry [REGISTRY] "The registry to use").default_value("General"))
+        .arg(arg!(force: -f --force "Force clone to destination"))
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
@@ -20,6 +21,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     clone::Clone::new(registry_name)
         .from_github(url_or_name)?
         .dest(dest)?
-        .run()?;
+        .run(matches.get_flag("force"))?;
     Ok(())
 }
