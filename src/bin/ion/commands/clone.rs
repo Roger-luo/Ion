@@ -1,7 +1,7 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use ion::errors::CliResult;
 use ion::clone;
+use ion::errors::CliResult;
 use std::path::PathBuf;
 
 pub fn cli() -> Command {
