@@ -35,7 +35,7 @@ fn test_clone() -> Result<()> {
     let mut p = spawn(program.as_str(), Some(30_000))?;
     p.send_line("n")?;
     p.exp_eof()?;
-    remove_dir_all("Example").unwrap();
+    remove_dir_all("Example")?;
     Ok(())
 }
 
