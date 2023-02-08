@@ -31,11 +31,10 @@ fn test_cli_example() {
 fn test_clone() -> Result<()> {
     setup();
     let ion = cargo_bin("ion");
-    let program = format!("{} clone Example", ion.display());
+    let program = format!("{} clone -f Example", ion.display());
     let mut p = spawn(program.as_str(), Some(30_000))?;
     p.send_line("n")?;
     p.exp_eof()?;
-    remove_dir_all("Example")?;
     Ok(())
 }
 
