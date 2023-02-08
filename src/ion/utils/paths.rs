@@ -39,32 +39,28 @@ pub fn dot_julia_dir() -> Result<PathBuf> {
     }
 }
 
-#[cfg(debug_assertions)]
-pub fn resources_dir() -> Result<PathBuf> {
-    next_bin_resources_dir()
-}
-
-#[cfg(not(debug_assertions))]
-pub fn resources_dir() -> Result<PathBuf> {
-    match dot_julia_dir() {
-        Ok(mut dot_julia) => {
-            dot_julia.push("resources");
-            Ok(dot_julia)
-        }
-        Err(_) => next_bin_resources_dir(),
-    }
-}
-
-fn next_bin_resources_dir() -> Result<PathBuf> {
+pub fn config_dir() -> Result<PathBuf> {
     let exe = std::env::current_exe()?;
     let bin = exe
         .parent()
         .expect("Failed to get parent directory of executable");
-    let resources = bin
-        .parent()
-        .expect("Failed to get parent directory of bin")
-        .join("resources");
-    Ok(normalize_path(&resources))
+    Ok(bin.join("config"))
+}
+
+pub fn config_file() -> Result<PathBuf> {
+    Ok(config_dir()?.join("config.toml"))
+}
+
+#[cfg(not(debug_assertions))]
+pub fn config_dir() -> Result<PathBuf> {
+    match dirs::config_dir() {
+        Some(root) => Ok(root.join("ion")),
+        None => Err(anyhow::anyhow!("Failed to get config directory")),
+    }
+}
+
+pub fn resources_dir() -> Result<PathBuf> {
+    Ok(config_dir()?.join("resources"))
 }
 
 pub fn components_dir() -> Result<PathBuf> {
