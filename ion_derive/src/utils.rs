@@ -20,7 +20,7 @@ pub fn emit_field_calls(
                 let field_name = field.ident.as_ref().unwrap();
                 gen = quote! {
                     #gen
-                    self.#field_name.#func(#template, ctx)?;
+                    self.#field_name.#func(#template, config, ctx)?;
                 };
             }
         }

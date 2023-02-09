@@ -2,7 +2,6 @@ use anyhow::Result;
 use colorful::Colorful;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use either::Either;
-use keyring::Entry;
 use reqwest::header::ACCEPT;
 use secrecy::{ExposeSecret, Secret};
 use spinoff::{Color, Spinner, Spinners};
@@ -10,12 +9,7 @@ use std::time::Duration;
 use tokio::runtime::Builder;
 
 pub struct Auth {
-    github: Entry,
     scope: Vec<String>,
-}
-
-pub struct KeyringHandler<'a> {
-    auth: &'a Auth,
 }
 
 pub struct GithubHandler<'a> {
@@ -29,13 +23,8 @@ impl Auth {
         S: AsRef<str>,
     {
         Self {
-            github: Entry::new("dev.rogerluo.ion-github-authentication", "github.auth"),
             scope: scope.into_iter().map(|s| s.as_ref().to_string()).collect(),
         }
-    }
-
-    pub fn keyring(&self) -> KeyringHandler {
-        KeyringHandler { auth: self }
     }
 
     pub fn github(&self) -> GithubHandler {
@@ -47,11 +36,7 @@ impl Auth {
             return Ok(token);
         }
 
-        let token = match self.keyring().get_token() {
-            Ok(token) => token,
-            Err(_) => self.github().get_token()?,
-        };
-        Ok(token)
+        Ok(self.github().get_token()?)
     }
 
     // TODO: read from config
@@ -59,25 +44,6 @@ impl Auth {
         let token = self.get_token()?;
         let username = self.github().get_username(token)?;
         Ok(username)
-    }
-
-    pub fn expire_token(&self) -> Result<()> {
-        self.keyring().delete_token()?;
-        Ok(())
-    }
-}
-
-impl KeyringHandler<'_> {
-    pub fn get_token(&self) -> Result<String, keyring::Error> {
-        self.auth.github.get_password()
-    }
-
-    pub fn set_token(&self, access_token: &str) -> Result<(), keyring::Error> {
-        self.auth.github.set_password(access_token)
-    }
-
-    pub fn delete_token(&self) -> Result<(), keyring::Error> {
-        self.auth.github.delete_password()
     }
 }
 
@@ -88,7 +54,6 @@ impl GithubHandler<'_> {
             .build()
             .unwrap()
             .block_on(self.get_token_task())?;
-        self.auth.keyring().set_token(token.as_str())?;
         Ok(token)
     }
 

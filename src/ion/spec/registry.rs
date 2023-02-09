@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::utils::{Julia, ReadCommand};
 use anyhow::{format_err, Result};
 use node_semver::Version;
@@ -36,6 +37,7 @@ type CompatInfo = BTreeMap<String, BTreeMap<String, String>>;
 #[derive(Debug)]
 pub struct RegistryHandler<'de> {
     registry: &'de Registry,
+    config: Config,
     name: Option<String>, // package name
     uuid: Option<String>, // package uuid
     package_path: Option<String>,
@@ -46,15 +48,16 @@ pub struct RegistryHandler<'de> {
 }
 
 impl Registry {
-    pub fn read(name: impl AsRef<str>) -> Result<Self> {
-        let data = registry_data("Registry.toml", name)?;
+    pub fn read(config: &Config, name: impl AsRef<str>) -> Result<Self> {
+        let data = registry_data(config, "Registry.toml", name)?;
         let registry: Self = toml::from_str(&data)?;
         Ok(registry)
     }
 
-    pub fn package(&self) -> RegistryHandler {
+    pub fn package(&self, config: &Config) -> RegistryHandler {
         RegistryHandler {
             registry: self,
+            config: config.clone(),
             name: None,
             uuid: None,
             package_path: None,
@@ -181,12 +184,16 @@ impl<'de> RegistryHandler<'de> {
     pub fn registry_data(&mut self, name: impl AsRef<str>) -> Result<String> {
         let file = PathBuf::from(self.package_path()?).join(name.as_ref());
         let file = file.to_str().unwrap();
-        let data = registry_data(file, &self.registry.name)?;
+        let data = registry_data(&self.config, file, &self.registry.name)?;
         Ok(data)
     }
 }
 
-pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<String> {
+pub fn registry_data(
+    config: &Config,
+    file: impl AsRef<str>,
+    name: impl AsRef<str>,
+) -> Result<String> {
     format!(
         r#"
     using Pkg
@@ -205,7 +212,7 @@ pub fn registry_data(file: impl AsRef<str>, name: impl AsRef<str>) -> Result<Str
         file = file.as_ref(),
         name = name.as_ref()
     )
-    .as_julia_command()
+    .as_julia_command(config)
     .read_command()
 }
 
@@ -215,8 +222,9 @@ mod tests {
 
     #[test]
     fn test_registry() {
-        let registry = Registry::read("General").unwrap();
-        let mut handler = registry.package();
+        let config = Config::default();
+        let registry = Registry::read(&config, "General").unwrap();
+        let mut handler = registry.package(&config);
         handler.name("Example");
         let url = handler.get_url().unwrap();
         assert_eq!(
@@ -229,8 +237,9 @@ mod tests {
 
     #[test]
     fn test_registry_data() {
-        let registry = Registry::read("General").unwrap();
-        let mut handler = registry.package();
+        let config = Config::default();
+        let registry = Registry::read(&config, "General").unwrap();
+        let mut handler = registry.package(&config);
         handler.name("Example");
         let data = handler.registry_data("Package.toml").unwrap();
         assert!(data.contains("Example"));

@@ -1,5 +1,6 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command};
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::utils::Julia;
 
@@ -11,6 +12,6 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    "using Pkg; Pkg.gc()".julia_exec(matches.get_flag("global"))?;
+    "using Pkg; Pkg.gc()".julia_exec(&Config::read()?, matches.get_flag("global"))?;
     Ok(())
 }

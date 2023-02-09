@@ -1,5 +1,6 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::spec::{JuliaProjectFile, VersionSpec};
 use ion::utils::current_project;
@@ -45,9 +46,10 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         path.display(),
         registry_name
     );
+    let config = Config::read()?;
     JuliaProjectFile::root_project(path)?
-        .bump(version_spec)
-        .registry(Registry::read(registry_name)?)?
+        .bump(&config, version_spec)
+        .registry(Registry::read(&config, registry_name)?)?
         .branch(branch)
         .confirm(!matches.get_flag("no-prompt"))
         .report(!matches.get_flag("no-report"))

@@ -1,4 +1,5 @@
 use crate::bump::VersionBumpHandler;
+use crate::config::Config;
 use crate::summon::JuliaRegistrator;
 use crate::utils::current_root_project;
 use crate::VersionSpec;
@@ -87,8 +88,8 @@ impl JuliaProjectFile {
         Ok(())
     }
 
-    pub fn bump(&self, version_spec: VersionSpec) -> VersionBumpHandler {
-        VersionBumpHandler::new(self.clone(), version_spec)
+    pub fn bump(&self, config: &Config, version_spec: VersionSpec) -> VersionBumpHandler {
+        VersionBumpHandler::new(config, self.clone(), version_spec)
     }
 
     pub fn summon(&self) -> Result<JuliaRegistrator> {

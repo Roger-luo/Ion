@@ -1,6 +1,7 @@
 use super::badge::Badge;
 use super::components::*;
 use super::Blueprint;
+use super::Config;
 use super::{Julia, Project};
 use ion_derive::Template;
 use serde_derive::Deserialize;

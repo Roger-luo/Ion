@@ -1,6 +1,5 @@
-use crate::registry::Registry;
-use crate::utils::auth::Auth;
 use crate::utils::git;
+use crate::{config::Config, registry::Registry};
 use anyhow::{format_err, Result};
 use dialoguer::Confirm;
 use octocrab::Octocrab;
@@ -30,12 +29,16 @@ impl Clone {
         }
     }
 
-    pub fn from_github(&self, url_or_name: impl AsRef<str>) -> Result<RemoteProject> {
+    pub fn from_github(
+        &self,
+        config: &Config,
+        url_or_name: impl AsRef<str>,
+    ) -> Result<RemoteProject> {
         let url = match Url::parse(url_or_name.as_ref()) {
             Ok(url) => url,
             Err(_) => {
-                let url = Registry::read(self.registry.clone())?
-                    .package()
+                let url = Registry::read(config, self.registry.clone())?
+                    .package(config)
                     .name(url_or_name.as_ref())
                     .get_url()?;
                 url
@@ -97,9 +100,7 @@ impl RemoteProject {
     }
 
     pub fn run(&self, force: bool) -> Result<()> {
-        let auth = Auth::new(vec!["repo", "read:org"]);
-        let token = auth.get_token()?;
-        let username = auth.get_username()?;
+        let github = Config::read()?.github()?;
         if force && self.dest.exists() {
             std::fs::remove_dir_all(&self.dest)?;
         }
@@ -108,7 +109,7 @@ impl RemoteProject {
             .enable_all()
             .build()
             .unwrap()
-            .block_on(self.run_task(&username, &token))?;
+            .block_on(self.run_task(&github.username, &github.token))?;
         Ok(())
     }
 

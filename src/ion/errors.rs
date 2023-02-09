@@ -72,12 +72,6 @@ impl From<octocrab::Error> for CliError {
     }
 }
 
-impl From<keyring::Error> for CliError {
-    fn from(err: keyring::Error) -> CliError {
-        CliError::new(err.into(), 1)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -142,15 +136,5 @@ mod tests {
         let err = CliError::from(url::ParseError::EmptyHost);
         assert_eq!(err.exit_code, 1);
         assert_eq!(err.error.unwrap().to_string(), "empty host");
-    }
-
-    #[test]
-    fn test_cli_error_from_keyring() {
-        let err = CliError::from(keyring::Error::NoEntry);
-        assert_eq!(err.exit_code, 1);
-        assert_eq!(
-            err.error.unwrap().to_string(),
-            "No matching entry found in secure storage"
-        );
     }
 }

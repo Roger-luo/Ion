@@ -2,6 +2,8 @@ use anyhow::{format_err, Result};
 use std::fmt::{Debug, Display};
 use std::process::{Command, Output};
 
+use crate::config::Config;
+
 pub struct JuliaCommand {
     cmd: Command,
     script: String,
@@ -50,10 +52,10 @@ impl JuliaCommand {
 }
 
 pub trait Julia {
-    fn as_julia_command(&self) -> JuliaCommand;
+    fn as_julia_command(&self, config: &Config) -> JuliaCommand;
 
-    fn julia_exec_cmd(&self, project: impl AsRef<str>) -> JuliaCommand {
-        let mut cmd = self.as_julia_command();
+    fn julia_exec_cmd(&self, config: &Config, project: impl AsRef<str>) -> JuliaCommand {
+        let mut cmd = self.as_julia_command(config);
         cmd.project(project.as_ref())
             .no_startup_file()
             .color()
@@ -61,8 +63,8 @@ pub trait Julia {
         cmd
     }
 
-    fn julia_exec_project_quiet(&self, project: &str) -> Result<()> {
-        let p = self.julia_exec_cmd(project).output()?;
+    fn julia_exec_project_quiet(&self, config: &Config, project: &str) -> Result<()> {
+        let p = self.julia_exec_cmd(config, project).output()?;
 
         if p.status.success() {
             Ok(())
@@ -71,8 +73,8 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec_project(&self, project: &str) -> Result<()> {
-        let p = self.julia_exec_cmd(project).status()?;
+    fn julia_exec_project(&self, config: &Config, project: &str) -> Result<()> {
+        let p = self.julia_exec_cmd(config, project).status()?;
 
         if p.success() {
             Ok(())
@@ -81,8 +83,8 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec(&self, global: bool) -> Result<()> {
-        let mut cmd = self.as_julia_command();
+    fn julia_exec(&self, config: &Config, global: bool) -> Result<()> {
+        let mut cmd = self.as_julia_command(config);
         if !global {
             cmd.project("@.");
         }
@@ -95,15 +97,15 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec_quiet(&self) -> Result<()> {
-        self.julia_exec_project_quiet("@.")
+    fn julia_exec_quiet(&self, config: &Config) -> Result<()> {
+        self.julia_exec_project_quiet(config, "@.")
     }
 }
 
 impl<T: Display> Julia for T {
-    fn as_julia_command(&self) -> JuliaCommand {
+    fn as_julia_command(&self, config: &Config) -> JuliaCommand {
         let script = self.to_string();
-        let cmd = Command::new("julia");
+        let cmd = Command::new(config.julia().exe);
         JuliaCommand { cmd, script }
     }
 }
@@ -115,12 +117,13 @@ mod test {
 
     #[test]
     fn test_julia_command() {
-        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();
+        let config = Config::default();
+        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config);
         assert_eq!(cmd.cmd.get_program(), "julia");
         assert!(cmd.cmd.get_args().next().is_none());
         assert_eq!(cmd.script, "using Pkg; Pkg.add(\"Foo\")");
 
-        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command();
+        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config);
         cmd.project("Foo").arg("Bar").arg("Baz");
         let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
         assert_eq!(args.len(), 3);

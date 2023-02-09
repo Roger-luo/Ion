@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::utils::normalize_path;
 use crate::{utils::Julia, JuliaProject, Manifest, PackageSpec};
 use anyhow::{format_err, Result};
@@ -106,13 +107,14 @@ impl DepdencyInfo {
 pub type ScriptDeps = BTreeMap<String, DepdencyInfo>;
 
 pub struct Script {
+    pub config: Config,
     pub path: String,
     pub deps: Option<ScriptDeps>,
     pub env: Option<String>,
 }
 
 impl Script {
-    pub fn from_path(path: impl AsRef<str>, verbose: bool) -> Result<Self> {
+    pub fn from_path(config: &Config, path: impl AsRef<str>, verbose: bool) -> Result<Self> {
         log::debug!("loading script: {}", path.as_ref());
         let path = path.as_ref();
         let script = std::fs::read_to_string(path)?;
@@ -120,11 +122,12 @@ impl Script {
         let deps = from_script(&script)?;
         log::debug!("deps: {:?}", deps);
         let env = if let Some(deps) = &deps {
-            Some(create_env(path, deps, verbose)?)
+            Some(create_env(config, path, deps, verbose)?)
         } else {
             None
         };
         Ok(Script {
+            config: config.clone(),
             path: path.to_owned(),
             deps,
             env,
@@ -132,7 +135,7 @@ impl Script {
     }
 
     pub fn cmd(&self) -> Command {
-        let mut cmd = Command::new("julia");
+        let mut cmd = Command::new(self.config.julia().exe);
 
         if let Some(env) = &self.env {
             cmd.arg(format!("--project={env}"));
@@ -180,7 +183,12 @@ pub fn env_dir(path: impl AsRef<str>) -> Result<PathBuf> {
     Ok(env)
 }
 
-fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result<String> {
+fn create_env(
+    config: &Config,
+    path: impl AsRef<str>,
+    deps: &ScriptDeps,
+    verbose: bool,
+) -> Result<String> {
     log::debug!("creating env for: {}", path.as_ref());
 
     let env = env_dir(path.as_ref())?;
@@ -212,7 +220,7 @@ fn create_env(path: impl AsRef<str>, deps: &ScriptDeps, verbose: bool) -> Result
         .join(", ");
 
     log::debug!("script: {}", script);
-    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(&project);
+    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(config, &project);
     log::debug!("cmd: {:?}", cmd);
 
     let p = if verbose {

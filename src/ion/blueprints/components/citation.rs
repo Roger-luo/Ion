@@ -1,5 +1,5 @@
-use crate::blueprints::*;
 use crate::spec::Author;
+use crate::{blueprints::*, config::Config};
 use chrono::Datelike;
 use dialoguer::{Confirm, Input};
 use serde_derive::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ impl Citation {
 }
 
 impl Blueprint for Citation {
-    fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
         let current_date = chrono::Utc::now();
         let year = current_date.year();
         ctx.citation = Some(Info {
@@ -55,7 +55,7 @@ impl Blueprint for Citation {
         Ok(())
     }
 
-    fn prompt(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
         if !Confirm::new()
             .with_prompt("Do you want to setup custom citation info?")
             .interact()?
@@ -110,7 +110,7 @@ impl Blueprint for Citation {
         Ok(())
     }
 
-    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         self.template.as_template()?.render(ctx, "CITATION.cff")
     }
 }

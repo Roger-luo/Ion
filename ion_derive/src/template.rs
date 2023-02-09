@@ -35,39 +35,39 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
                 Ok(template)
             }
 
-            pub fn render(&self, ctx: &mut Context) -> Result<()> {
+            pub fn render(&self, config: &Config, ctx: &mut Context) -> Result<()> {
                 let old_pwd = std::env::current_dir()?;
                 std::env::set_current_dir(&*ctx.project.path)?;
 
-                self.collect(ctx)?;
+                self.collect(config, ctx)?;
                 debug!("Context: {:#?}", ctx);
                 if ctx.prompt {
-                    self.prompt(ctx)?;
+                    self.prompt(config, ctx)?;
                 }
                 #render
-                self.post_render(ctx)?;
-                self.validate(ctx)?;
+                self.post_render(config, ctx)?;
+                self.validate(config, ctx)?;
 
                 std::env::set_current_dir(old_pwd)?;
                 Ok(())
             }
 
-            pub fn collect(&self, ctx: &mut Context) -> Result<()> {
+            pub fn collect(&self, config: &Config, ctx: &mut Context) -> Result<()> {
                 #collect
                 Ok(())
             }
 
-            pub fn prompt(&self, ctx: &mut Context) -> Result<()> {
+            pub fn prompt(&self, config: &Config, ctx: &mut Context) -> Result<()> {
                 #prompt
                 Ok(())
             }
 
-            pub fn post_render(&self, ctx: &Context) -> Result<()> {
+            pub fn post_render(&self, config: &Config, ctx: &Context) -> Result<()> {
                 #post_render
                 Ok(())
             }
 
-            pub fn validate(&self, ctx: &Context) -> Result<()> {
+            pub fn validate(&self, config: &Config, ctx: &Context) -> Result<()> {
                 #validate
                 Ok(())
             }

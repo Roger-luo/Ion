@@ -1,8 +1,8 @@
 use anyhow::format_err;
 use clap::parser::ArgMatches;
 use clap::Command;
+use ion::config::Config;
 use ion::errors::CliResult;
-use ion::utils::Auth;
 
 pub fn cli() -> Command {
     Command::new("auth")
@@ -12,13 +12,13 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    let auth = Auth::new(["repo", "read:org"]);
+    let mut config = Config::read()?;
     match matches.subcommand() {
         Some(("login", _)) => {
-            auth.get_token()?;
+            config.login()?;
         }
         Some(("logout", _)) => {
-            auth.keyring().delete_token()?;
+            config.logout()?;
         }
         _ => return Err(format_err!("invalid subcommand").into()),
     }

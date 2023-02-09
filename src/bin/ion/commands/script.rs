@@ -1,5 +1,6 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::script::{env_dir, Script};
 use std::path::Path;
@@ -31,7 +32,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         Some(("update", submatches)) => {
             let path = submatches.get_one::<String>("PATH").unwrap();
             remove_old_environment(&PathBuf::from(path))?;
-            Script::from_path(path, submatches.get_flag("verbose"))?;
+            Script::from_path(&Config::read()?, path, submatches.get_flag("verbose"))?;
         }
         Some(("rm", submatches)) => {
             let path = submatches.get_one::<String>("PATH").unwrap();

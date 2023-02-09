@@ -1,6 +1,7 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
 use ion::clone;
+use ion::config::Config;
 use ion::errors::CliResult;
 use std::path::PathBuf;
 
@@ -19,7 +20,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let registry_name = matches.get_one::<String>("registry").unwrap().to_owned();
 
     clone::Clone::new(registry_name)
-        .from_github(url_or_name)?
+        .from_github(&Config::read()?, url_or_name)?
         .dest(dest)?
         .run(matches.get_flag("force"))?;
     Ok(())

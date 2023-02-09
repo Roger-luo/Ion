@@ -1,6 +1,7 @@
 use crate::commands::pkg::package_spec_list;
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::utils::Julia;
 
@@ -14,6 +15,6 @@ pub fn cli() -> Command {
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
     format!("using Pkg; Pkg.add([{}])", package_spec_list(matches))
-        .julia_exec(matches.get_flag("global"))?;
+        .julia_exec(&Config::read()?, matches.get_flag("global"))?;
     Ok(())
 }

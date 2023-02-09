@@ -70,7 +70,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let mut ctx = Context::new(prompt, Julia::default(), Project::new(package, path));
     let name = matches.get_one::<String>("template").unwrap().to_owned();
     let template = Template::from_name(&name)?;
-    if let Err(e) = template.render(&mut ctx) {
+    if let Err(e) = template.render(&Config::read()?, &mut ctx) {
         return Err(e.into());
     }
     Ok(())

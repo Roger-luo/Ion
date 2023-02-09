@@ -19,7 +19,7 @@ pub struct GitHub {
 }
 
 impl Blueprint for GitHub {
-    fn collect(&self, t: &Template, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
         let arch = match self.ci {
             Some(ref ci) => ci.arch.clone(),
             None => Vec::<String>::new(),
@@ -39,15 +39,15 @@ impl Blueprint for GitHub {
         Ok(())
     }
 
-    fn render(&self, t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         if let Some(ref ci) = self.ci {
-            ci.render(t, ctx)?;
+            ci.render(t, config, ctx)?;
         }
         if let Some(ref tagbot) = self.tagbot {
-            tagbot.render(t, ctx)?;
+            tagbot.render(t, config, ctx)?;
         }
         if let Some(ref compat_helper) = self.compat_helper {
-            compat_helper.render(t, ctx)?;
+            compat_helper.render(t, config, ctx)?;
         }
         Ok(())
     }
@@ -122,20 +122,20 @@ impl Default for CompatHelper {
 }
 
 impl Blueprint for CI {
-    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         debug!("rendering CI.yml: {:#?}", ctx.github);
         self.template.as_template()?.render(ctx, "CI.yml")
     }
 }
 
 impl Blueprint for TagBot {
-    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         self.template.as_template()?.copy(ctx, "TagBot.yml")
     }
 }
 
 impl Blueprint for CompatHelper {
-    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         self.template.as_template()?.copy(ctx, "CompatHelper.yml")
     }
 }

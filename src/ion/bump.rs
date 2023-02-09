@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::utils::git;
 use crate::{
     report::ReleaseReport,
@@ -29,9 +30,9 @@ pub struct VersionBumpHandler {
 }
 
 impl VersionBumpHandler {
-    pub fn new(project: JuliaProjectFile, version_spec: VersionSpec) -> Self {
+    pub fn new(config: &Config, project: JuliaProjectFile, version_spec: VersionSpec) -> Self {
         Self {
-            bump: VersionBump::new(project, version_spec),
+            bump: VersionBump::new(config, project, version_spec),
             branch: None,
             commit: true,
             report: true,
@@ -116,6 +117,7 @@ impl VersionBumpHandler {
 }
 
 pub struct VersionBump {
+    config: Config,
     registry_name: Option<String>,
     project: JuliaProjectFile,
 
@@ -125,7 +127,7 @@ pub struct VersionBump {
 }
 
 impl VersionBump {
-    pub fn new(project: JuliaProjectFile, version_spec: VersionSpec) -> Self {
+    pub fn new(config: &Config, project: JuliaProjectFile, version_spec: VersionSpec) -> Self {
         let version = project
             .project
             .version
@@ -133,6 +135,7 @@ impl VersionBump {
             .expect("The project file does not contain a version");
         let version_to_release = Some(version_spec.update_version(&version));
         Self {
+            config: config.clone(),
             registry_name: None,
             project,
             latest_version: None,
@@ -163,7 +166,7 @@ impl VersionBump {
         self.registry_name = Some(registry.name.to_owned());
         self.latest_version = Some(
             registry
-                .package()
+                .package(&self.config)
                 .uuid(self.get_uuid()?)
                 .get_latest_version()?,
         );

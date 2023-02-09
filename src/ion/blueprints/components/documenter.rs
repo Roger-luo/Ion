@@ -43,7 +43,7 @@ impl Documenter {
 }
 
 impl Blueprint for Documenter {
-    fn collect(&self, _t: &Template, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
         for ignore in &self.ignore {
             if let Some(repo) = &mut ctx.repo {
                 repo.ignore.push(ignore.to_owned());
@@ -52,7 +52,7 @@ impl Blueprint for Documenter {
         Ok(())
     }
 
-    fn render(&self, _t: &Template, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         self.make_jl.as_template()?.render(ctx, "make.jl")?;
         self.index_md.as_template()?.render(ctx, "index.md")?;
         self.doc_project
@@ -63,7 +63,7 @@ impl Blueprint for Documenter {
             "using Pkg; Pkg.develop({})",
             PackageSpec::from_path(&ctx.project.path)
         )
-        .julia_exec_project_quiet("docs")?;
+        .julia_exec_project_quiet(config, "docs")?;
         Ok(())
     }
 }

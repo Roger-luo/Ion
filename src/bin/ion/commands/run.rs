@@ -1,5 +1,6 @@
 use anyhow::format_err;
 use clap::{arg, ArgMatches, Command, ValueHint};
+use ion::config::Config;
 use ion::{errors::CliResult, script::Script};
 
 pub fn cli() -> Command {
@@ -41,7 +42,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let path = args[0].clone();
     let args = &args[1..];
     let verbose = matches.get_flag("verbose");
-    let mut cmd = Script::from_path(path.as_str(), verbose)?.cmd();
+    let mut cmd = Script::from_path(&Config::read()?, path.as_str(), verbose)?.cmd();
 
     add_julia_flags(&mut cmd, matches);
 

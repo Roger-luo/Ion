@@ -1,5 +1,6 @@
+use crate::config::Config;
 use crate::spec::JuliaProjectFile;
-use crate::utils::{git, Auth};
+use crate::utils::git;
 use anyhow::{format_err, Result};
 use dialoguer::{Confirm, Editor};
 use octocrab::{models::commits::Comment, Octocrab};
@@ -85,8 +86,7 @@ impl JuliaRegistrator {
             git::pull(repo)?;
             git::push(repo)?;
 
-            let auth = Auth::new(vec!["repo", "read:org"]);
-            let token = auth.get_token()?;
+            let token = Config::read()?.github()?.token;
 
             let spinner = Spinner::new(Spinners::Dots, "Summon JuliaRegistrator...", Color::Blue);
             let result = Builder::new_current_thread()

@@ -7,6 +7,7 @@ pub mod info;
 pub mod template;
 pub mod utils;
 
+pub use crate::config::Config;
 pub use badge::{Badge, Badgeable};
 pub use blueprint::{Blueprint, RenderResult};
 pub use file::{AsTemplate, TemplateFile};
