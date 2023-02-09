@@ -7,5 +7,6 @@ pub mod remove;
 pub mod status;
 pub mod update;
 pub mod utils;
+pub mod why;
 
 pub use utils::package_spec_list;

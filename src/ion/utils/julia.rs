@@ -81,8 +81,18 @@ pub trait Julia {
         }
     }
 
-    fn julia_exec(&self) -> Result<()> {
-        self.julia_exec_project("@.")
+    fn julia_exec(&self, global: bool) -> Result<()> {
+        let mut cmd = self.as_julia_command();
+        if !global {
+            cmd.project("@.");
+        }
+        cmd.no_startup_file().color().compile("min");
+        let p = cmd.status()?;
+        if p.success() {
+            Ok(())
+        } else {
+            Err(format_err!("Julia command failed"))
+        }
     }
 
     fn julia_exec_quiet(&self) -> Result<()> {

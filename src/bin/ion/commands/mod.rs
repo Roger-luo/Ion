@@ -31,6 +31,7 @@ pub fn builtin() -> Vec<Command> {
         pkg::remove::cli(),
         pkg::status::cli(),
         pkg::update::cli(),
+        pkg::why::cli(),
         completions::cli(),
         template::cli(),
     ]
@@ -54,6 +55,7 @@ pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
         "remove" => pkg::remove::exec,
         "status" => pkg::status::exec,
         "update" => pkg::update::exec,
+        "why" => pkg::why::exec,
         "completions" => completions::exec,
         "template" => template::exec,
         _ => return None,

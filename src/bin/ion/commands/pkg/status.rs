@@ -10,6 +10,7 @@ pub fn cli() -> Command {
         .arg(arg!(--outdated "only show packages that are not on the latest version"))
         .arg(arg!(--"no-diff" "do not show diff of packages that are not on the latest version"))
         .arg(arg!(--manifest "show the status of the manifest file"))
+        .arg(arg!(-g --global "show the status of the global environment"))
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
@@ -23,6 +24,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     if matches.get_flag("manifest") {
         options.push("manifest=true".to_string());
     }
-    format!("using Pkg; Pkg.status(;{})", options.join(", ")).julia_exec()?;
+    format!("using Pkg; Pkg.status(;{})", options.join(", "))
+        .julia_exec(matches.get_flag("global"))?;
     Ok(())
 }

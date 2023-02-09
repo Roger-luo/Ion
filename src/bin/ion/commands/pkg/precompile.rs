@@ -8,6 +8,7 @@ pub fn cli() -> Command {
         .about("Precompile all packages in the current environment")
         .arg(arg!([PACKAGE] ... "The packages to precompile"))
         .arg(arg!(--strict "Throw errors if any packages fail to precompile"))
+        .arg(arg!(-g --global "Precompile the global environment"))
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
@@ -17,7 +18,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         "strict=false"
     };
 
-    if matches.contains_id("PACKAGE") {
+    let cmd = if matches.contains_id("PACKAGE") {
         let packages = matches
             .get_many::<String>("PACKAGE")
             .into_iter()
@@ -25,9 +26,11 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
             .map(|s| format!("\"{s}\""))
             .collect::<Vec<_>>()
             .join(", ");
-        format!("using Pkg; Pkg.precompile([{packages}]; {strict})").julia_exec()?;
+        format!("using Pkg; Pkg.precompile([{packages}]; {strict})")
     } else {
-        format!("using Pkg; Pkg.precompile(;{strict})").julia_exec()?;
-    }
+        format!("using Pkg; Pkg.precompile(;{strict})")
+    };
+
+    cmd.julia_exec(matches.get_flag("global"))?;
     Ok(())
 }

@@ -12,10 +12,12 @@ pub fn cli() -> Command {
         .arg(arg!(-v --verbose "show detailed output"))
         .arg(arg!(--all "garbage collect all packages which can not \
             be immediately reached from existing project"))
+        .arg(arg!(-g --global "develop the package in the global environment"))
         .arg_required_else_help(true)
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    format!("using Pkg; Pkg.develop([{}])", package_spec_list(matches)).julia_exec()?;
+    format!("using Pkg; Pkg.develop([{}])", package_spec_list(matches))
+        .julia_exec(matches.get_flag("global"))?;
     Ok(())
 }

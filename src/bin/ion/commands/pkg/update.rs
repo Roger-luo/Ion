@@ -9,14 +9,16 @@ pub fn cli() -> Command {
         .visible_alias("up")
         .about("Update the current environment")
         .arg(arg!([PACKAGE] ... "The package to update"))
+        .arg(arg!(-g --global "Update the global environment"))
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
-    if matches.args_present() {
-        format!("using Pkg; Pkg.update([{}])", package_spec_list(matches)).julia_exec()?;
+    let cmd = if matches.args_present() {
+        format!("using Pkg; Pkg.update([{}])", package_spec_list(matches))
     } else {
-        "using Pkg; Pkg.update()".julia_exec()?;
-    }
+        "using Pkg; Pkg.update()".into()
+    };
+    cmd.julia_exec(matches.get_flag("global"))?;
 
     Ok(())
 }
