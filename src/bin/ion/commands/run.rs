@@ -29,7 +29,7 @@ pub fn cli() -> Command {
         )
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let args: Vec<_> = match matches.get_many::<String>("PATH") {
         Some(paths) => paths.collect(),
         None => return run_julia_repl(matches),
@@ -42,7 +42,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
     let path = args[0].clone();
     let args = &args[1..];
     let verbose = matches.get_flag("verbose");
-    let mut cmd = Script::from_path(&Config::read()?, path.as_str(), verbose)?.cmd();
+    let mut cmd = Script::from_path(config, path.as_str(), verbose)?.cmd();
 
     add_julia_flags(&mut cmd, matches);
 

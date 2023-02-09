@@ -11,8 +11,7 @@ pub fn cli() -> Command {
         .about("manage authentication")
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
-    let mut config = Config::read()?;
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     match matches.subcommand() {
         Some(("login", _)) => {
             config.login()?;

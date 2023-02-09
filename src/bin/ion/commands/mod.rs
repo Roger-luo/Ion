@@ -1,5 +1,6 @@
 use clap::{ArgMatches, Command};
 use ion::errors::CliResult;
+use ion::config::Config;
 
 pub mod auth;
 pub mod bump;
@@ -37,7 +38,7 @@ pub fn builtin() -> Vec<Command> {
     ]
 }
 
-pub fn builtin_exec(cmd: &str) -> Option<fn(&ArgMatches) -> CliResult> {
+pub fn builtin_exec(cmd: &str) -> Option<fn(&mut Config, &ArgMatches) -> CliResult> {
     let f = match cmd {
         "auth" => auth::exec,
         "clone" => clone::exec,

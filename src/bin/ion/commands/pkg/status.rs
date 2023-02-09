@@ -14,7 +14,7 @@ pub fn cli() -> Command {
         .arg(arg!(-g --global "show the status of the global environment"))
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let mut options = Vec::<String>::new();
     if matches.get_flag("outdated") {
         options.push("outdated=true".to_string());
@@ -26,6 +26,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         options.push("manifest=true".to_string());
     }
     format!("using Pkg; Pkg.status(;{})", options.join(", "))
-        .julia_exec(&Config::read()?, matches.get_flag("global"))?;
+        .julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

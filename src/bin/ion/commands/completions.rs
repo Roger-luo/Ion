@@ -1,6 +1,7 @@
 use anyhow::format_err;
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_complete::{generate, Shell};
+use ion::config::Config;
 use ion::errors::CliResult;
 use std::io;
 
@@ -13,7 +14,7 @@ pub fn cli() -> Command {
         )
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(_config: &mut Config, matches: &ArgMatches) -> CliResult {
     if let Some(shell) = matches.get_one::<Shell>("SHELL").copied() {
         let mut cmd = crate::cli();
         let bin_name = cmd.get_name().to_string();

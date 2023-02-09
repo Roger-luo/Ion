@@ -36,7 +36,7 @@ impl Auth {
             return Ok(token);
         }
 
-        Ok(self.github().get_token()?)
+        self.github().get_token()
     }
 
     // TODO: read from config

@@ -27,12 +27,12 @@ pub fn cli() -> Command {
         )
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     match matches.subcommand() {
         Some(("update", submatches)) => {
             let path = submatches.get_one::<String>("PATH").unwrap();
             remove_old_environment(&PathBuf::from(path))?;
-            Script::from_path(&Config::read()?, path, submatches.get_flag("verbose"))?;
+            Script::from_path(config, path, submatches.get_flag("verbose"))?;
         }
         Some(("rm", submatches)) => {
             let path = submatches.get_one::<String>("PATH").unwrap();

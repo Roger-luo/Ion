@@ -56,7 +56,7 @@ impl JuliaRegistrator {
         })
     }
 
-    pub fn summon(&mut self, skip_note: bool) -> Result<()> {
+    pub fn summon(&mut self, config: &mut Config, skip_note: bool) -> Result<()> {
         let repo = &self.path_to_repo.clone();
         if git::isdirty(repo)? {
             return Err(format_err!("The repository is dirty"));
@@ -86,7 +86,7 @@ impl JuliaRegistrator {
             git::pull(repo)?;
             git::push(repo)?;
 
-            let token = Config::read()?.github()?.token;
+            let token = config.github()?.token;
 
             let spinner = Spinner::new(Spinners::Dots, "Summon JuliaRegistrator...", Color::Blue);
             let result = Builder::new_current_thread()

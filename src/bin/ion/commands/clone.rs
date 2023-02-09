@@ -14,14 +14,14 @@ pub fn cli() -> Command {
         .arg(arg!(force: -f --force "Force clone to destination"))
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let url_or_name = matches.get_one::<String>("url_or_name").unwrap().to_owned();
     let dest = matches.get_one::<PathBuf>("dest");
     let registry_name = matches.get_one::<String>("registry").unwrap().to_owned();
 
     clone::Clone::new(registry_name)
-        .from_github(&Config::read()?, url_or_name)?
+        .from_github(config, url_or_name)?
         .dest(dest)?
-        .run(matches.get_flag("force"))?;
+        .run(config, matches.get_flag("force"))?;
     Ok(())
 }

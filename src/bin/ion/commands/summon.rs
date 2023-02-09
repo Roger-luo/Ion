@@ -4,6 +4,7 @@ use ion::errors::CliResult;
 use ion::spec::JuliaProjectFile;
 use ion::utils::current_project;
 use std::path::PathBuf;
+use ion::config::Config;
 
 pub fn cli() -> Command {
     Command::new("summon")
@@ -14,7 +15,7 @@ pub fn cli() -> Command {
         .arg(arg!(--"skip-note" "Skip interactive release note editing"))
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let path = match matches.get_one::<String>("PATH") {
         Some(path) => PathBuf::from(path),
         None => match current_project(std::env::current_dir()?) {
@@ -31,6 +32,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         .summon()?
         .branch(branch)
         .prompt(!matches.get_flag("no-prompt"))
-        .summon(matches.get_flag("skip-note"))?;
+        .summon(config, matches.get_flag("skip-note"))?;
     Ok(())
 }

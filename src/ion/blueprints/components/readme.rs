@@ -24,11 +24,11 @@ impl Readme {
 }
 
 impl Blueprint for Readme {
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         self.template.as_template()?.render(ctx, "README.md")
     }
 
-    fn prompt(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         let input = Input::<String>::new()
             .with_prompt("description of the project")
             .allow_empty(true)

@@ -6,27 +6,27 @@ pub type RenderResult = Result<(), Error>;
 
 pub trait Blueprint {
     fn render(&self, t: &Template, config: &Config, ctx: &Context) -> RenderResult;
-    fn collect(&self, _t: &Template, config: &Config, _ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, _config: &Config, _ctx: &mut Context) -> RenderResult {
         Ok(())
     }
-    fn prompt(&self, _t: &Template, config: &Config, _ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, _config: &Config, _ctx: &mut Context) -> RenderResult {
         Ok(())
     }
     // propagate collected or propmted data to other meta
     // information fields
-    fn propagate(&self, _t: &Template, config: &Config, _ctx: &mut Context) -> RenderResult {
+    fn propagate(&self, _t: &Template, _config: &Config, _ctx: &mut Context) -> RenderResult {
         Ok(())
     }
-    fn post_render(&self, _t: &Template, config: &Config, _ctx: &Context) -> RenderResult {
+    fn post_render(&self, _t: &Template, _config: &Config, _ctx: &Context) -> RenderResult {
         Ok(())
     }
-    fn validate(&self, _t: &Template, config: &Config, _ctx: &Context) -> RenderResult {
+    fn validate(&self, _t: &Template, _config: &Config, _ctx: &Context) -> RenderResult {
         Ok(())
     }
 }
 
 impl Blueprint for String {
-    fn render(&self, _t: &Template, config: &Config, _ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, _ctx: &Context) -> RenderResult {
         Ok(())
     }
 }

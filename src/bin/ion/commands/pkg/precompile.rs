@@ -12,7 +12,7 @@ pub fn cli() -> Command {
         .arg(arg!(-g --global "Precompile the global environment"))
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let strict = if matches.get_flag("strict") {
         "strict=true"
     } else {
@@ -32,6 +32,6 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         format!("using Pkg; Pkg.precompile(;{strict})")
     };
 
-    cmd.julia_exec(&Config::read()?, matches.get_flag("global"))?;
+    cmd.julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

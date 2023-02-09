@@ -28,11 +28,11 @@ impl ProjectFile {
 }
 
 impl Blueprint for ProjectFile {
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         self.template.as_template()?.render(ctx, "Project.toml")
     }
 
-    fn prompt(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         let msg = if !ctx.project.authors.is_empty() {
             format!("authors (default: {})", ctx.project.authors[0].firstname)
         } else {
@@ -49,7 +49,7 @@ impl Blueprint for ProjectFile {
         Ok(())
     }
 
-    fn collect(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         ctx.project.version = Some(self.version.to_string());
         ctx.project.uuid = Some(Uuid::new_v4().to_string());
 

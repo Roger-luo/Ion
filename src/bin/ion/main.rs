@@ -1,5 +1,6 @@
 use clap::{crate_authors, crate_description, crate_version, ArgMatches, Command};
 use ion::errors::{CliError, CliResult};
+use ion::config::Config;
 
 pub mod commands;
 
@@ -38,6 +39,7 @@ fn main() {
 }
 
 pub fn exec(matches: &ArgMatches) -> CliResult {
+    let mut config = Config::read()?;
     let (cmd, subcommand_args) = match matches.subcommand() {
         Some((cmd, args)) => (cmd, args),
         _ => {
@@ -46,12 +48,12 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         }
     };
 
-    execute_subcommand(cmd, subcommand_args)
+    execute_subcommand(cmd, &mut config, subcommand_args)
 }
 
-fn execute_subcommand(cmd: &str, matches: &ArgMatches) -> CliResult {
+fn execute_subcommand(cmd: &str, config: &mut Config, matches: &ArgMatches) -> CliResult {
     if let Some(exec) = commands::builtin_exec(cmd) {
-        return exec(matches);
+        return exec(config, matches);
     }
     Err(CliError::new(
         anyhow::format_err!("unknown subcommand: {}", cmd),

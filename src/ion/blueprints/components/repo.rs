@@ -32,7 +32,7 @@ impl GitRepo {
 }
 
 impl Blueprint for GitRepo {
-    fn collect(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         let branch = match &self.branch {
             Some(b) => b.to_owned(),
             None => "main".to_string(),
@@ -64,7 +64,7 @@ impl Blueprint for GitRepo {
     // 3. git checkout -b <branch>
     // 4. git branch -D main
     // 5. git branch -m <branch>
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         self.ignore.as_template()?.render(ctx, ".gitignore")?;
         let repo = ctx.repo.as_ref().unwrap();
         let remote = &repo.remote;
@@ -97,7 +97,7 @@ impl Blueprint for GitRepo {
     }
 
     // 1. git add -A
-    fn post_render(&self, _t: &Template, config: &Config, _ctx: &Context) -> RenderResult {
+    fn post_render(&self, _t: &Template, _config: &Config, _ctx: &Context) -> RenderResult {
         debug!("git add -A");
         std::process::Command::new("git")
             .arg("add")

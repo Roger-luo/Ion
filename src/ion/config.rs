@@ -43,8 +43,15 @@ impl Config {
     }
 
     pub fn read() -> Result<Self> {
-        let content = std::fs::read_to_string(config_file()?)?;
-        let config = toml::from_str(&content)?;
+        let file = Self::file()?;
+        let config = if !file.exists() {
+            let config = Self::default();
+            config.write()?;
+            config
+        } else {
+            let content = std::fs::read_to_string(file)?;
+            toml::from_str(&content)?
+        };
         Ok(config)
     }
 
@@ -91,7 +98,7 @@ impl Config {
         });
 
         self.write()?;
-        println!("Logged in as {}", username);
+        println!("Logged in as {username}");
         Ok(())
     }
 
@@ -150,7 +157,7 @@ impl Config {
 impl Default for Template {
     fn default() -> Self {
         let registry = url::Url::parse(
-            "https://github.com/Roger-luo/ion-templates/releases/latest/download/".into(),
+            "https://github.com/Roger-luo/ion-templates/releases/latest/download/",
         )
         .unwrap();
         Self {

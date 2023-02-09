@@ -1,6 +1,7 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
 use ion::errors::CliResult;
+use ion::config::Config;
 
 pub fn cli() -> Command {
     Command::new("release")
@@ -16,8 +17,8 @@ pub fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
-    crate::commands::bump::exec(matches)?;
-    crate::commands::summon::exec(matches)?;
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
+    crate::commands::bump::exec(config, matches)?;
+    crate::commands::summon::exec(config, matches)?;
     Ok(())
 }

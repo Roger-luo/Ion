@@ -11,7 +11,7 @@ pub fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
-    "using Pkg; Pkg.gc()".julia_exec(&Config::read()?, matches.get_flag("global"))?;
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
+    "using Pkg; Pkg.gc()".julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

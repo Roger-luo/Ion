@@ -13,8 +13,8 @@ pub fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     format!("using Pkg; Pkg.add([{}])", package_spec_list(matches))
-        .julia_exec(&Config::read()?, matches.get_flag("global"))?;
+        .julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

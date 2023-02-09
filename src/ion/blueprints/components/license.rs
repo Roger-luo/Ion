@@ -19,7 +19,7 @@ pub struct License {
 impl Blueprint for License {
     // license is not specified in a template.toml file
     // so we need to prompt the user for a license
-    fn prompt(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn prompt(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         let name = Input::<String>::new()
             .with_prompt("license")
             .allow_empty(false)
@@ -38,7 +38,7 @@ impl Blueprint for License {
         Ok(())
     }
 
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         let root = match &self.template_dir {
             Some(dir) => dir.to_owned(),
             None => components_dir()?.join("licenses"),

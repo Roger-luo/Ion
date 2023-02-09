@@ -11,7 +11,7 @@ pub struct Coveralls {
 }
 
 impl Blueprint for Coveralls {
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         if let Some(ref template) = self.template {
             template.as_template()?.render(ctx, ".coveralls.yml")?;
         }

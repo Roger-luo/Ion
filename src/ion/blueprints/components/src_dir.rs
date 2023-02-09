@@ -17,7 +17,7 @@ impl SrcDir {
 }
 
 impl Blueprint for SrcDir {
-    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
         let module = ctx.project.name.to_owned();
         self.template
             .as_template()?

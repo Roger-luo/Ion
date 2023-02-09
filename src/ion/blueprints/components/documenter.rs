@@ -43,7 +43,7 @@ impl Documenter {
 }
 
 impl Blueprint for Documenter {
-    fn collect(&self, _t: &Template, config: &Config, ctx: &mut Context) -> RenderResult {
+    fn collect(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {
         for ignore in &self.ignore {
             if let Some(repo) = &mut ctx.repo {
                 repo.ignore.push(ignore.to_owned());

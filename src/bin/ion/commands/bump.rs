@@ -20,7 +20,7 @@ pub fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
-pub fn exec(matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let version_spec = match matches.get_one::<String>("VERSION") {
         Some(version) => VersionSpec::from_string(version)?,
         None => return Err(anyhow::format_err!("No version provided.").into()),
@@ -46,7 +46,7 @@ pub fn exec(matches: &ArgMatches) -> CliResult {
         path.display(),
         registry_name
     );
-    let config = Config::read()?;
+
     JuliaProjectFile::root_project(path)?
         .bump(&config, version_spec)
         .registry(Registry::read(&config, registry_name)?)?
