@@ -1,6 +1,6 @@
 use clap::{crate_authors, crate_description, crate_version, ArgMatches, Command};
-use ion::errors::{CliError, CliResult};
 use ion::config::Config;
+use ion::errors::{CliError, CliResult};
 
 pub mod commands;
 

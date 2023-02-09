@@ -99,7 +99,7 @@ impl RemoteProject {
         Ok(self)
     }
 
-    pub fn run(&self, config: &mut Config,  force: bool) -> Result<()> {
+    pub fn run(&self, config: &mut Config, force: bool) -> Result<()> {
         let github = &config.github()?;
         if force && self.dest.exists() {
             std::fs::remove_dir_all(&self.dest)?;

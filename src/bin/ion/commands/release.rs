@@ -1,7 +1,7 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
-use ion::errors::CliResult;
 use ion::config::Config;
+use ion::errors::CliResult;
 
 pub fn cli() -> Command {
     Command::new("release")

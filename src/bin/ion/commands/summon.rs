@@ -1,10 +1,10 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::spec::JuliaProjectFile;
 use ion::utils::current_project;
 use std::path::PathBuf;
-use ion::config::Config;
 
 pub fn cli() -> Command {
     Command::new("summon")

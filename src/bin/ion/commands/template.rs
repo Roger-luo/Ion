@@ -1,9 +1,9 @@
 use clap::parser::ArgMatches;
 use clap::Command;
 use ion::blueprints::list_templates;
+use ion::config::Config;
 use ion::errors::CliResult;
 use ion::template::RemoteTemplate;
-use ion::config::Config;
 
 pub fn cli() -> Command {
     Command::new("template")

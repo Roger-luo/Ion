@@ -1,6 +1,6 @@
 use clap::{ArgMatches, Command};
-use ion::errors::CliResult;
 use ion::config::Config;
+use ion::errors::CliResult;
 
 pub mod auth;
 pub mod bump;

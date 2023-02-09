@@ -156,10 +156,9 @@ impl Config {
 
 impl Default for Template {
     fn default() -> Self {
-        let registry = url::Url::parse(
-            "https://github.com/Roger-luo/ion-templates/releases/latest/download/",
-        )
-        .unwrap();
+        let registry =
+            url::Url::parse("https://github.com/Roger-luo/ion-templates/releases/latest/download/")
+                .unwrap();
         Self {
             default: "project".into(),
             registry,

@@ -48,8 +48,8 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     );
 
     JuliaProjectFile::root_project(path)?
-        .bump(&config, version_spec)
-        .registry(Registry::read(&config, registry_name)?)?
+        .bump(config, version_spec)
+        .registry(Registry::read(config, registry_name)?)?
         .branch(branch)
         .confirm(!matches.get_flag("no-prompt"))
         .report(!matches.get_flag("no-report"))
