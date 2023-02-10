@@ -23,29 +23,37 @@ pub struct Template {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Config {
-    #[serde(default)]
-    github: Option<GitHub>,
-    #[serde(default)]
-    julia: Julia,
-    #[serde(default)]
-    template: Template, // url to the template registry
     #[serde(default = "Config::default_env")]
     env: PathBuf, // env directory path
     #[serde(default = "Config::default_resources")]
     resources: PathBuf, // resources directory path
+    #[serde(default)]
+    julia: Julia,
+    #[serde(default)]
+    template: Template, // url to the template registry
+    #[serde(default)]
+    github: Option<GitHub>,
 }
 
 impl Config {
     pub fn write(&self) -> Result<()> {
-        let content = toml::to_string_pretty(self)?;
+        log::debug!("writing config file: {:#?}", self);
+        let content = toml::to_string_pretty(self).unwrap();
+        log::debug!("writing config file: {:#?}", content);
         std::fs::write(Self::file()?, content)?;
         Ok(())
     }
 
     pub fn read() -> Result<Self> {
         let file = Self::file()?;
+        log::debug!("config file: {}", file.display());
+        if !Self::dir()?.exists() {
+            std::fs::create_dir_all(Self::dir()?)?;
+        };
+
         let config = if !file.exists() {
             let config = Self::default();
+            log::debug!("creating config file: {:#?}", config);
             config.write()?;
             config
         } else {
@@ -156,12 +164,11 @@ impl Config {
 
 impl Default for Template {
     fn default() -> Self {
-        let registry =
-            url::Url::parse("https://github.com/Roger-luo/ion-templates/releases/latest/download/")
-                .unwrap();
+        let registry = "https://github.com/Roger-luo/ion-templates\
+        /releases/latest/download/ion-templates.tar.gz";
         Self {
             default: "project".into(),
-            registry,
+            registry: url::Url::parse(registry).unwrap(),
         }
     }
 }
@@ -169,7 +176,7 @@ impl Default for Template {
 impl Default for Julia {
     fn default() -> Self {
         Self {
-            exe: PathBuf::from("julia"),
+            exe: "julia".into(),
         }
     }
 }
