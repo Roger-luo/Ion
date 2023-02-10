@@ -15,8 +15,6 @@ pub struct Ion {
     cmd: Command,
 }
 
-
-
 impl Ion {
     pub fn new() -> Self {
         let program = cargo_bin("ion");
