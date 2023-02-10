@@ -1,6 +1,6 @@
 use anyhow::Result;
 use colorful::Colorful;
-#[cfg(any(macos, windows))]
+#[cfg(any(target_os = "macos", windows))]
 use copypasta::{ClipboardContext, ClipboardProvider};
 use reqwest::header::ACCEPT;
 use secrecy::Secret;
@@ -92,7 +92,6 @@ impl GithubHandler<'_> {
             .authenticate_as_device(&client_id, &self.auth.scope)
             .await?;
 
-        #[cfg(any(macos, windows))]
         Self::copy_clipboard(codes.user_code.to_owned())?;
 
         #[cfg(not(feature = "oauth"))]
@@ -125,7 +124,21 @@ impl GithubHandler<'_> {
         Self::get_token_loop(&crab, &client_id, &codes).await
     }
 
-    #[cfg(any(macos, windows))]
+    #[cfg(all(
+        unix,
+        not(any(
+            target_os = "macos",
+            target_os = "android",
+            target_os = "ios",
+            target_os = "emscripten"
+        ))
+    ))]
+    fn copy_clipboard(user_code: String) -> Result<()> {
+        println!("your one-time code: {}", user_code.to_owned().bold());
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "macos", windows))]
     fn copy_clipboard(user_code: String) -> Result<()> {
         if let Ok(mut ctx) = ClipboardContext::new() {
             if ctx.set_contents(user_code.to_owned()).is_err() {
