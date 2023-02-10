@@ -110,7 +110,9 @@ impl Blueprint for Citation {
         Ok(())
     }
 
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.render(ctx, "CITATION.cff")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template
+            .as_template(config)?
+            .render(ctx, "CITATION.cff")
     }
 }

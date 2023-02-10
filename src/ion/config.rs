@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde_derive::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::utils::{auth, config_file};
+use crate::utils::auth;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Julia {
@@ -38,7 +38,7 @@ pub struct Config {
 impl Config {
     pub fn write(&self) -> Result<()> {
         let content = toml::to_string_pretty(self)?;
-        std::fs::write(config_file()?, content)?;
+        std::fs::write(Self::file()?, content)?;
         Ok(())
     }
 
@@ -141,7 +141,7 @@ impl Config {
     }
 
     pub fn delete() -> Result<()> {
-        std::fs::remove_file(config_file()?)?;
+        std::fs::remove_file(Self::file()?)?;
         Ok(())
     }
 

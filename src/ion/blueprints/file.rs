@@ -1,5 +1,4 @@
-use super::Context;
-use crate::utils::{components_dir, resources_dir};
+use super::{Config, Context};
 use anyhow::{format_err, Result};
 use handlebars::Handlebars;
 use log::debug;
@@ -16,21 +15,21 @@ pub struct TemplateFile {
 }
 
 impl TemplateFile {
-    pub fn root(&self) -> Result<PathBuf> {
+    pub fn root(&self, config: &Config) -> Result<PathBuf> {
         if self.root.is_relative() {
-            Ok(resources_dir()?.join(&self.root))
+            Ok(config.resources().join(&self.root))
         } else {
             Ok(self.root.to_owned())
         }
     }
 
-    pub fn to_path_buf(&self) -> Result<PathBuf> {
-        Ok(self.root()?.join(&self.path).join(&self.file))
+    pub fn to_path_buf(&self, config: &Config) -> Result<PathBuf> {
+        Ok(self.root(config)?.join(&self.path).join(&self.file))
     }
 
-    pub fn read_source(&self) -> Result<String> {
+    pub fn read_source(&self, config: &Config) -> Result<String> {
         debug!("reading template:\n {:#?}", self);
-        let path: PathBuf = self.to_path_buf()?;
+        let path: PathBuf = self.to_path_buf(config)?;
         if !path.is_file() {
             return Err(format_err!("Template file not found: {}", path.display()));
         }
@@ -56,12 +55,12 @@ impl TemplateFile {
         Ok(())
     }
 
-    pub fn copy(&self, ctx: &Context, name: &str) -> Result<()> {
-        self.read_source()
+    pub fn copy(&self, config: &Config, ctx: &Context, name: &str) -> Result<()> {
+        self.read_source(config)
             .and_then(|source| self.write(&source, ctx, name))
     }
 
-    pub fn render(&self, ctx: &Context, name: &str) -> Result<()> {
+    pub fn render(&self, config: &Config, ctx: &Context, name: &str) -> Result<()> {
         if name.contains(path::MAIN_SEPARATOR) {
             return Err(format_err!(
                 "target file name cannot contain path separator: {}",
@@ -70,7 +69,7 @@ impl TemplateFile {
         }
         debug!("rendering template:\n {:?}", self);
         debug!("start rendering for name: {}", name);
-        let source = self.read_source()?;
+        let source = self.read_source(config)?;
         let mut handlebars = Handlebars::new();
 
         debug!("registering template: {}", name);
@@ -98,12 +97,27 @@ impl Display for TemplateFile {
     }
 }
 
+pub struct TemplateHandler<'de> {
+    pub config: &'de Config,
+    pub template: TemplateFile,
+}
+
+impl<'de> TemplateHandler<'de> {
+    pub fn render(&self, ctx: &Context, name: &str) -> Result<()> {
+        self.template.render(self.config, ctx, name)
+    }
+
+    pub fn copy(&self, ctx: &Context, name: &str) -> Result<()> {
+        self.template.copy(self.config, ctx, name)
+    }
+}
+
 pub trait AsTemplate {
-    fn as_template(&self) -> Result<TemplateFile>;
+    fn as_template<'de>(&self, config: &'de Config) -> Result<TemplateHandler<'de>>;
 }
 
 impl<T: Display> AsTemplate for T {
-    fn as_template(&self) -> Result<TemplateFile> {
+    fn as_template<'de>(&self, config: &'de Config) -> Result<TemplateHandler<'de>> {
         let path = self.to_string();
         let components = path.split(':').collect::<Vec<_>>();
         let (root, path) = if components.len() == 2 {
@@ -111,7 +125,7 @@ impl<T: Display> AsTemplate for T {
             let path = components[1].parse::<PathBuf>()?;
             (root, path)
         } else if components.len() == 1 {
-            let root = components_dir()?;
+            let root = config.components_dir();
             let path = components[0].parse::<PathBuf>()?;
             (root, path)
         } else {
@@ -135,10 +149,13 @@ impl<T: Display> AsTemplate for T {
             .parent()
             .ok_or_else(|| format_err!("the path terminates in a root or prefix"))?;
 
-        Ok(TemplateFile {
-            root,
-            path: path.to_path_buf(),
-            file,
+        Ok(TemplateHandler {
+            config,
+            template: TemplateFile {
+                root,
+                path: path.to_path_buf(),
+                file,
+            },
         })
     }
 }

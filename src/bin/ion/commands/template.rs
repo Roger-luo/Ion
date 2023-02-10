@@ -12,11 +12,11 @@ pub fn cli() -> Command {
         .subcommand(Command::new("update").about("update the templates from registry"))
 }
 
-pub fn exec(_config: &mut Config, matches: &ArgMatches) -> CliResult {
+pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     match matches.subcommand() {
-        Some(("list", _)) => list_templates()?,
+        Some(("list", _)) => list_templates(config)?,
         Some(("update", _)) => {
-            RemoteTemplate::default().download()?;
+            RemoteTemplate::new(&config).download()?;
         }
         _ => unreachable!(),
     }

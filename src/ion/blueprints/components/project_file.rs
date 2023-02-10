@@ -28,8 +28,10 @@ impl ProjectFile {
 }
 
 impl Blueprint for ProjectFile {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.render(ctx, "Project.toml")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template
+            .as_template(config)?
+            .render(ctx, "Project.toml")
     }
 
     fn prompt(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {

@@ -53,10 +53,10 @@ impl Blueprint for Documenter {
     }
 
     fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
-        self.make_jl.as_template()?.render(ctx, "make.jl")?;
-        self.index_md.as_template()?.render(ctx, "index.md")?;
+        self.make_jl.as_template(config)?.render(ctx, "make.jl")?;
+        self.index_md.as_template(config)?.render(ctx, "index.md")?;
         self.doc_project
-            .as_template()?
+            .as_template(config)?
             .render(ctx, "Project.toml")?;
 
         format!(

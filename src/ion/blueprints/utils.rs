@@ -1,6 +1,5 @@
 use crate::blueprints::*;
 use crate::spec::Author;
-use crate::utils::template_dir;
 use anyhow::{format_err, Error, Result};
 use dialoguer::{Confirm, Input};
 use std::process::Command;
@@ -83,8 +82,8 @@ fn promote_for_author_field(field: &str) -> Option<String> {
     }
 }
 
-pub fn list_templates() -> Result<()> {
-    let templates = template_dir()?.read_dir()?;
+pub fn list_templates(config: &Config) -> Result<()> {
+    let templates = config.template_dir().read_dir()?;
 
     for entry in templates {
         let entry = match entry {

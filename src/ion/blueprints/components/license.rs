@@ -1,5 +1,4 @@
 use crate::blueprints::*;
-use crate::utils::components_dir;
 use chrono::Datelike;
 use dialoguer::Input;
 use serde_derive::{Deserialize, Serialize};
@@ -38,10 +37,10 @@ impl Blueprint for License {
         Ok(())
     }
 
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         let root = match &self.template_dir {
             Some(dir) => dir.to_owned(),
-            None => components_dir()?.join("licenses"),
+            None => config.components_dir().join("licenses"),
         };
         let license = ctx.license.as_ref().unwrap().name.to_owned();
         TemplateFile {
@@ -49,6 +48,6 @@ impl Blueprint for License {
             path: PathBuf::from("."),
             file: license + ".hbs",
         }
-        .render(ctx, "LICENSE")
+        .render(config, ctx, "LICENSE")
     }
 }

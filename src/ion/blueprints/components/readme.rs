@@ -24,8 +24,8 @@ impl Readme {
 }
 
 impl Blueprint for Readme {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.render(ctx, "README.md")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template.as_template(config)?.render(ctx, "README.md")
     }
 
     fn prompt(&self, _t: &Template, _config: &Config, ctx: &mut Context) -> RenderResult {

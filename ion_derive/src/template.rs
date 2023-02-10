@@ -19,13 +19,13 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
     let gen = quote! {
         use log::debug;
         use anyhow::Result;
-        use crate::utils::template_dir;
+        use crate::config::Config;
 
         #context_expr
 
         impl #name {
-            pub fn from_name(name: &String) -> Result<Self> {
-                let mut template = template_dir()?;
+            pub fn from_name(config: &Config, name: &String) -> Result<Self> {
+                let mut template = config.template_dir();
                 template.push(name);
                 template.push("template.toml");
 

@@ -122,20 +122,22 @@ impl Default for CompatHelper {
 }
 
 impl Blueprint for CI {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         debug!("rendering CI.yml: {:#?}", ctx.github);
-        self.template.as_template()?.render(ctx, "CI.yml")
+        self.template.as_template(config)?.render(ctx, "CI.yml")
     }
 }
 
 impl Blueprint for TagBot {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.copy(ctx, "TagBot.yml")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template.as_template(config)?.copy(ctx, "TagBot.yml")
     }
 }
 
 impl Blueprint for CompatHelper {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.copy(ctx, "CompatHelper.yml")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template
+            .as_template(config)?
+            .copy(ctx, "CompatHelper.yml")
     }
 }

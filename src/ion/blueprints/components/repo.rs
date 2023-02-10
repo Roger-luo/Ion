@@ -64,8 +64,8 @@ impl Blueprint for GitRepo {
     // 3. git checkout -b <branch>
     // 4. git branch -D main
     // 5. git branch -m <branch>
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.ignore.as_template()?.render(ctx, ".gitignore")?;
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.ignore.as_template(config)?.render(ctx, ".gitignore")?;
         let repo = ctx.repo.as_ref().unwrap();
         let remote = &repo.remote;
         let branch = &repo.branch;

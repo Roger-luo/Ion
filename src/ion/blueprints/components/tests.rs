@@ -23,8 +23,12 @@ impl ProjectTest {
 }
 
 impl Blueprint for ProjectTest {
-    fn render(&self, _t: &Template, _config: &Config, ctx: &Context) -> RenderResult {
-        self.template.as_template()?.render(ctx, "runtests.jl")?;
-        self.project.as_template()?.render(ctx, "Project.toml")
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template
+            .as_template(config)?
+            .render(ctx, "runtests.jl")?;
+        self.project
+            .as_template(config)?
+            .render(ctx, "Project.toml")
     }
 }

@@ -5,7 +5,6 @@ use dialoguer::{Confirm, Input};
 use ion::blueprints::*;
 use ion::errors::CliResult;
 use ion::template::RemoteTemplate;
-use ion::utils::template_dir;
 use log::debug;
 use std::path::PathBuf;
 
@@ -23,17 +22,17 @@ pub fn cli() -> Command {
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     if matches.get_flag("list") {
-        list_templates()?;
+        list_templates(config)?;
         return Ok(());
     }
 
-    if !template_dir()?.exists() {
+    if !config.template_dir().exists() {
         if Confirm::new()
             .with_prompt("Template not found, download from registry?")
             .default(true)
             .interact()?
         {
-            RemoteTemplate::default().download()?;
+            RemoteTemplate::new(config).download()?;
         } else {
             return Ok(());
         }
@@ -69,7 +68,7 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
 
     let mut ctx = Context::new(prompt, Julia::default(), Project::new(package, path));
     let name = matches.get_one::<String>("template").unwrap().to_owned();
-    let template = Template::from_name(&name)?;
+    let template = Template::from_name(config, &name)?;
     if let Err(e) = template.render(config, &mut ctx) {
         return Err(e.into());
     }
