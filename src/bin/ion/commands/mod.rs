@@ -1,7 +1,3 @@
-use clap::{ArgMatches, Command};
-use ion::config::Config;
-use ion::errors::CliResult;
-
 pub mod auth;
 pub mod bump;
 pub mod clone;
@@ -13,6 +9,14 @@ pub mod run;
 pub mod script;
 pub mod summon;
 pub mod template;
+
+pub use pkg::PackageSpecList;
+pub use clap::parser::ArgMatches;
+pub use clap::{arg, Command, ValueHint};
+pub use ion::config::Config;
+pub use ion::errors::CliResult;
+pub use ion::utils::{assert_julia_version, Julia};
+
 
 pub fn builtin() -> Vec<Command> {
     vec![

@@ -1,9 +1,4 @@
-use crate::commands::pkg::package_spec_list;
-use clap::parser::ArgMatches;
-use clap::{arg, Command, ValueHint};
-use ion::config::Config;
-use ion::errors::CliResult;
-use ion::utils::{assert_julia_version, Julia};
+use crate::commands::*;
 
 pub fn cli() -> Command {
     Command::new("why")
@@ -19,7 +14,7 @@ pub fn cli() -> Command {
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     assert_julia_version(config, ">=1.9.0-beta")?;
-    format!("using Pkg; Pkg.why([{}])", package_spec_list(matches))
+    format!("using Pkg; Pkg.why({})", PackageSpecList::new(matches))
         .julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

@@ -1,9 +1,4 @@
-use crate::commands::pkg::package_spec_list;
-use clap::parser::ArgMatches;
-use clap::{arg, Command, ValueHint};
-use ion::config::Config;
-use ion::errors::CliResult;
-use ion::utils::Julia;
+use crate::commands::*;
 
 pub fn cli() -> Command {
     Command::new("develop")
@@ -18,7 +13,7 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
-    format!("using Pkg; Pkg.develop([{}])", package_spec_list(matches))
+    format!("using Pkg; Pkg.develop({})", PackageSpecList::new(matches))
         .julia_exec(config, matches.get_flag("global"))?;
     Ok(())
 }

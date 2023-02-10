@@ -1,12 +1,30 @@
+use std::fmt::Display;
+
 use clap::parser::ArgMatches;
 use ion::PackageSpec;
 
-pub fn package_spec_list(matches: &ArgMatches) -> String {
-    let packages = matches.get_many::<String>("PACKAGE").into_iter().flatten();
+pub struct PackageSpecList {
+    pub list: Vec<PackageSpec>,
+}
 
-    packages
-        .map(PackageSpec::new)
-        .map(|p| format!("{p}"))
-        .collect::<Vec<_>>()
-        .join(",")
+impl PackageSpecList {
+    pub fn new(matches: &ArgMatches) -> Self {
+        let packages = matches
+            .get_many::<String>("PACKAGE").into_iter().flatten();
+        Self {
+            list: packages
+                .map(PackageSpec::new)
+                .collect::<Vec<_>>(),
+        }
+    }
+}
+
+impl Display for PackageSpecList {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.list.len() == 0 {
+            write!(f, "")
+        } else {
+            write!(f, "[{}]", self.list.iter().map(|p| format!("{p}")).collect::<Vec<_>>().join(","))
+        }
+    }
 }

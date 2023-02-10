@@ -9,4 +9,4 @@ pub mod update;
 pub mod utils;
 pub mod why;
 
-pub use utils::package_spec_list;
+pub use utils::PackageSpecList;
