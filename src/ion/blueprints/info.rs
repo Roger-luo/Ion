@@ -18,7 +18,7 @@ pub struct Julia {
 
 impl Julia {
     pub fn new(config: &Config) -> Self {
-        let version = match julia_version(&config) {
+        let version = match julia_version(config) {
             Ok(version) => version,
             Err(_) => node_semver::Version::parse("1.6.0").unwrap(),
         };

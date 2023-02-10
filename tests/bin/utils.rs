@@ -15,6 +15,8 @@ pub struct Ion {
     cmd: Command,
 }
 
+
+
 impl Ion {
     pub fn new() -> Self {
         let program = cargo_bin("ion");
@@ -87,12 +89,18 @@ impl Ion {
     }
 }
 
+impl Default for Ion {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'c> OutputAssertExt for &'c mut Ion {
     fn assert(self) -> Assert {
         let output = match self.output() {
             Ok(output) => output,
             Err(err) => {
-                panic!("Failed to spawn {:?}: {}", self, err);
+                panic!("Failed to spawn {self:?}: {err}");
             }
         };
         Assert::new(output).append_context("command", format!("{:?}", self.cmd))

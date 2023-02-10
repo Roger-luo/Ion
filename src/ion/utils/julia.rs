@@ -138,7 +138,7 @@ mod test {
 pub fn assert_julia_version(config: &Config, version_spec: impl AsRef<str>) -> Result<()> {
     let range = node_semver::Range::parse(version_spec.as_ref()).expect("Invalid version spec");
     let version = julia_version(config)?;
-    range.satisfies(&version).then(|| ()).ok_or_else(|| {
+    range.satisfies(&version).then_some(()).ok_or_else(|| {
         format_err!(
             "Invalid Julia version: Julia version {version} does not satisfy version range {range}",
         )

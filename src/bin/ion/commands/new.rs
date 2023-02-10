@@ -66,7 +66,7 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     };
     mk_package_dir(&path, force)?;
 
-    let mut ctx = Context::new(prompt, Julia::new(&config), Project::new(package, path));
+    let mut ctx = Context::new(prompt, Julia::new(config), Project::new(package, path));
     let name = matches.get_one::<String>("template").unwrap().to_owned();
     let template = Template::from_name(config, &name)?;
     if let Err(e) = template.render(config, &mut ctx) {

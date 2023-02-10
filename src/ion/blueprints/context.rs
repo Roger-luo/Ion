@@ -142,7 +142,7 @@ impl Context {
         }
         std::fs::create_dir_all(&path).unwrap();
 
-        let version = julia_version(&config)?;
+        let version = julia_version(config)?;
         let compat = format!("{}.{}", version.major, version.minor);
         let julia = Julia {
             version: version.to_string(),
