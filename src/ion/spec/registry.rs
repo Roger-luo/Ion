@@ -212,7 +212,7 @@ pub fn registry_data(
         file = file.as_ref(),
         name = name.as_ref()
     )
-    .as_julia_command(config)
+    .as_julia_command(config)?
     .read_command()
 }
 

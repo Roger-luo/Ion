@@ -54,19 +54,19 @@ impl JuliaCommand {
 }
 
 pub trait Julia {
-    fn as_julia_command(&self, config: &Config) -> JuliaCommand;
+    fn as_julia_command(&self, config: &Config) -> Result<JuliaCommand>;
 
-    fn julia_exec_cmd(&self, config: &Config, project: impl AsRef<str>) -> JuliaCommand {
-        let mut cmd = self.as_julia_command(config);
+    fn julia_exec_cmd(&self, config: &Config, project: impl AsRef<str>) -> Result<JuliaCommand> {
+        let mut cmd = self.as_julia_command(config)?;
         cmd.project(project.as_ref())
             .no_startup_file()
             .color()
             .compile("min");
-        cmd
+        Ok(cmd)
     }
 
     fn julia_exec_project_quiet(&self, config: &Config, project: &str) -> Result<()> {
-        let p = self.julia_exec_cmd(config, project).output()?;
+        let p = self.julia_exec_cmd(config, project)?.output()?;
 
         if p.status.success() {
             Ok(())
@@ -76,7 +76,7 @@ pub trait Julia {
     }
 
     fn julia_exec_project(&self, config: &Config, project: &str) -> Result<()> {
-        let p = self.julia_exec_cmd(config, project).status()?;
+        let p = self.julia_exec_cmd(config, project)?.status()?;
 
         if p.success() {
             Ok(())
@@ -86,7 +86,7 @@ pub trait Julia {
     }
 
     fn julia_exec(&self, config: &Config, global: bool) -> Result<()> {
-        let mut cmd = self.as_julia_command(config);
+        let mut cmd = self.as_julia_command(config)?;
         if !global {
             cmd.project("@.");
         }
@@ -105,10 +105,19 @@ pub trait Julia {
 }
 
 impl<T: Display> Julia for T {
-    fn as_julia_command(&self, config: &Config) -> JuliaCommand {
+    fn as_julia_command(&self, config: &Config) -> Result<JuliaCommand> {
         let script = self.to_string();
-        let cmd = Command::new(config.julia().exe);
-        JuliaCommand { cmd, script }
+        let program = config.julia().exe;
+        if !program.exists() {
+            return Err(
+                format_err!(
+                    "Julia executable not found at `{}`. Please install Julia.",
+                    program.display()
+                )
+            );
+        }
+        let cmd = Command::new(program);
+        Ok(JuliaCommand { cmd, script })
     }
 }
 
@@ -120,12 +129,12 @@ mod test {
     #[test]
     fn test_julia_command() {
         let config = Config::default();
-        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config);
+        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config).unwrap();
         assert_eq!(cmd.cmd.get_program(), "julia");
         assert!(cmd.cmd.get_args().next().is_none());
         assert_eq!(cmd.script, "using Pkg; Pkg.add(\"Foo\")");
 
-        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config);
+        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config).unwrap();
         cmd.project("Foo").arg("Bar").arg("Baz");
         let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
         assert_eq!(args.len(), 3);
