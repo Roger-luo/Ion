@@ -10,6 +10,7 @@ pub fn cli() -> Command {
         .about("template management")
         .subcommand(Command::new("list").about("list all available templates"))
         .subcommand(Command::new("update").about("update the templates from registry"))
+        .arg_required_else_help(true)
 }
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
