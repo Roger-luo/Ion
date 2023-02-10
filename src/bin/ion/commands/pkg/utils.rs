@@ -18,7 +18,7 @@ impl PackageSpecList {
 
 impl Display for PackageSpecList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.list.len() == 0 {
+        if self.list.is_empty() {
             write!(f, "")
         } else {
             write!(

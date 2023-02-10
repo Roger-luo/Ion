@@ -134,7 +134,7 @@ impl GithubHandler<'_> {
         ))
     ))]
     fn copy_clipboard(user_code: String) -> Result<()> {
-        println!("your one-time code: {}", user_code.to_owned().bold());
+        println!("your one-time code: {}", user_code.bold());
         Ok(())
     }
 
