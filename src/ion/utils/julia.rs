@@ -109,12 +109,10 @@ impl<T: Display> Julia for T {
         let script = self.to_string();
         let program = config.julia().exe;
         if !program.exists() {
-            return Err(
-                format_err!(
-                    "Julia executable not found at `{}`. Please install Julia.",
-                    program.display()
-                )
-            );
+            return Err(format_err!(
+                "Julia executable not found at `{}`. Please install Julia.",
+                program.display()
+            ));
         }
         let cmd = Command::new(program);
         Ok(JuliaCommand { cmd, script })
@@ -129,12 +127,16 @@ mod test {
     #[test]
     fn test_julia_command() {
         let config = Config::default();
-        let cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config).unwrap();
+        let cmd = "using Pkg; Pkg.add(\"Foo\")"
+            .as_julia_command(&config)
+            .unwrap();
         assert_eq!(cmd.cmd.get_program(), "julia");
         assert!(cmd.cmd.get_args().next().is_none());
         assert_eq!(cmd.script, "using Pkg; Pkg.add(\"Foo\")");
 
-        let mut cmd = "using Pkg; Pkg.add(\"Foo\")".as_julia_command(&config).unwrap();
+        let mut cmd = "using Pkg; Pkg.add(\"Foo\")"
+            .as_julia_command(&config)
+            .unwrap();
         cmd.project("Foo").arg("Bar").arg("Baz");
         let args: Vec<&OsStr> = cmd.cmd.get_args().collect();
         assert_eq!(args.len(), 3);

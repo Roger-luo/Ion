@@ -9,12 +9,9 @@ pub struct PackageSpecList {
 
 impl PackageSpecList {
     pub fn new(matches: &ArgMatches) -> Self {
-        let packages = matches
-            .get_many::<String>("PACKAGE").into_iter().flatten();
+        let packages = matches.get_many::<String>("PACKAGE").into_iter().flatten();
         Self {
-            list: packages
-                .map(PackageSpec::new)
-                .collect::<Vec<_>>(),
+            list: packages.map(PackageSpec::new).collect::<Vec<_>>(),
         }
     }
 }
@@ -24,7 +21,15 @@ impl Display for PackageSpecList {
         if self.list.len() == 0 {
             write!(f, "")
         } else {
-            write!(f, "[{}]", self.list.iter().map(|p| format!("{p}")).collect::<Vec<_>>().join(","))
+            write!(
+                f,
+                "[{}]",
+                self.list
+                    .iter()
+                    .map(|p| format!("{p}"))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )
         }
     }
 }

@@ -10,13 +10,12 @@ pub mod script;
 pub mod summon;
 pub mod template;
 
-pub use pkg::PackageSpecList;
 pub use clap::parser::ArgMatches;
 pub use clap::{arg, Command, ValueHint};
 pub use ion::config::Config;
 pub use ion::errors::CliResult;
 pub use ion::utils::{assert_julia_version, Julia};
-
+pub use pkg::PackageSpecList;
 
 pub fn builtin() -> Vec<Command> {
     vec![
