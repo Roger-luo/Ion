@@ -1,6 +1,9 @@
+use crate::config::Config;
 use crate::JuliaProject;
+use anyhow::Result;
 use dirs::home_dir;
 use std::path::PathBuf;
+use std::process::Command;
 
 pub fn current_project(dir: PathBuf) -> Option<PathBuf> {
     let home = home_dir().unwrap();
@@ -45,4 +48,13 @@ pub fn current_root_project(dir: PathBuf) -> Option<(JuliaProject, PathBuf)> {
             }
         }
     }
+}
+
+pub fn julia_version(config: &Config) -> Result<node_semver::Version> {
+    let output = Command::new(config.julia().exe).arg("--version").output()?;
+
+    let version = String::from_utf8(output.stdout)?;
+    let version = version.trim();
+    let version = version.split_whitespace().last().unwrap();
+    Ok(node_semver::Version::parse(version)?)
 }

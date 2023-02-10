@@ -4,6 +4,8 @@ use std::process::{Command, Output};
 
 use crate::config::Config;
 
+use super::julia_version;
+
 pub struct JuliaCommand {
     cmd: Command,
     script: String,
@@ -131,4 +133,14 @@ mod test {
         assert_eq!(args[1], "Bar");
         assert_eq!(args[2], "Baz");
     }
+}
+
+pub fn assert_julia_version(config: &Config, version_spec: impl AsRef<str>) -> Result<()> {
+    let range = node_semver::Range::parse(version_spec.as_ref()).expect("Invalid version spec");
+    let version = julia_version(config)?;
+    range.satisfies(&version).then(|| ()).ok_or_else(|| {
+        format_err!(
+            "Invalid Julia version: Julia version {version} does not satisfy version range {range}",
+        )
+    })
 }

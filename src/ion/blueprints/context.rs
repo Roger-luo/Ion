@@ -1,5 +1,6 @@
 use super::badge::Badge;
 use crate::blueprints::*;
+use crate::utils::find::julia_version;
 use anyhow::Error;
 use clap::ArgMatches;
 use dialoguer::Input;
@@ -109,7 +110,7 @@ impl Context {
         self
     }
 
-    pub fn from_matches(matches: &ArgMatches) -> Result<Self, Error> {
+    pub fn from_matches(config: &Config, matches: &ArgMatches) -> Result<Self, Error> {
         let prompt = !matches.get_flag("no-interactive");
         let package = match matches.get_one::<String>("name") {
             Some(name) => name.to_owned(),
@@ -141,11 +142,10 @@ impl Context {
         }
         std::fs::create_dir_all(&path).unwrap();
 
-        let julia_version_str = julia_version()?[14..].to_string();
-        let version = node_semver::Version::parse(&julia_version_str)?;
+        let version = julia_version(&config)?;
         let compat = format!("{}.{}", version.major, version.minor);
         let julia = Julia {
-            version: julia_version_str,
+            version: version.to_string(),
             compat,
         };
 

@@ -3,7 +3,7 @@ use clap::parser::ArgMatches;
 use clap::{arg, Command, ValueHint};
 use ion::config::Config;
 use ion::errors::CliResult;
-use ion::utils::Julia;
+use ion::utils::{assert_julia_version, Julia};
 
 pub fn cli() -> Command {
     Command::new("why")
@@ -18,6 +18,7 @@ pub fn cli() -> Command {
 }
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
+    assert_julia_version(config, ">=1.9.0-beta")?;
     format!("using Pkg; Pkg.why([{}])", package_spec_list(matches))
         .julia_exec(config, matches.get_flag("global"))?;
     Ok(())

@@ -2,7 +2,6 @@ use crate::blueprints::*;
 use crate::spec::Author;
 use anyhow::{format_err, Error, Result};
 use dialoguer::{Confirm, Input};
-use std::process::Command;
 
 pub fn git_get_user() -> Result<(String, String)> {
     let user = if let Some(name) = git_config_get("user.name") {
@@ -111,19 +110,6 @@ pub fn list_templates(config: &Config) -> Result<()> {
         }
     }
     Ok(())
-}
-
-pub fn julia_version() -> Result<String> {
-    let output = Command::new("julia").arg("--version").output();
-
-    match output {
-        Err(e) => Err(Error::new(e)),
-        Ok(output) => {
-            let version = String::from_utf8(output.stdout)?;
-            let version = version.trim();
-            Ok(version.to_string())
-        }
-    }
 }
 
 pub fn git_config_get(key: &str) -> Option<String> {
