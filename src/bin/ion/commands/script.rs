@@ -25,6 +25,7 @@ pub fn cli() -> Command {
                 .about("start a REPL from the script environment")
                 .arg(arg!(<PATH> "The path of the script").value_hint(ValueHint::FilePath)),
         )
+        .arg_required_else_help(true)
 }
 
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {

@@ -1,49 +1,19 @@
 use anyhow::Result;
-use assert_cmd::{cargo::cargo_bin, Command};
-use rexpect::spawn;
+use super::*;
 use std::{
-    env,
-    fs::{create_dir_all, remove_dir_all},
+    fs::remove_dir_all,
     path::PathBuf,
 };
 
-fn setup() {
-    let root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let scratch = PathBuf::from(root)
-        .join("tests")
-        .join("packages")
-        .join("scratch");
-    create_dir_all(scratch.clone()).unwrap();
-    env::set_current_dir(scratch).unwrap();
-}
-
-#[test]
-fn test_cli_example() {
-    setup();
-    Command::cargo_bin("ion")
-        .unwrap()
-        .arg("help")
-        .assert()
-        .success();
-}
-
-#[test]
-fn test_clone() -> Result<()> {
-    setup();
-    let ion = cargo_bin("ion");
-    let program = format!("{} clone -f Example", ion.display());
-    let mut p = spawn(program.as_str(), Some(30_000))?;
-    p.send_line("n")?;
-    p.exp_eof()?;
-    Ok(())
-}
-
 #[test]
 fn test_new_package() -> Result<()> {
-    setup();
-    let ion = cargo_bin("ion");
-    let program = format!("{} new TestNew -f --template=package", ion.display());
-    let mut p = spawn(program.as_str(), Some(30_000))?;
+    let mut p = Ion::new()
+        .arg("new")
+        .arg("TestNew")
+        .arg("-f")
+        .arg("--template=package")
+        .spawn(Some(30_000))?;
+
     p.send_line("")?; // download
     p.send_line("")?; // authors
     p.send_line("")?; // description
