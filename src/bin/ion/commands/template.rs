@@ -16,7 +16,7 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     match matches.subcommand() {
         Some(("list", _)) => list_templates(config)?,
         Some(("update", _)) => {
-            RemoteTemplate::new(&config).download()?;
+            RemoteTemplate::new(config).download()?;
         }
         _ => unreachable!(),
     }

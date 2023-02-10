@@ -14,7 +14,7 @@ impl<'a> RemoteTemplate<'a> {
     pub fn new(config: &'a Config) -> RemoteTemplate {
         RemoteTemplate {
             config,
-            url: config.template().registry.clone(),
+            url: config.template().registry,
         }
     }
 
@@ -22,7 +22,7 @@ impl<'a> RemoteTemplate<'a> {
         let tmp_dir = tempfile::Builder::new().prefix("ion-templates").tempdir()?;
         let fname = tmp_dir.path().join("ion-templates.tar.gz");
         let dest = File::create(&fname)?;
-        Download::from_url(&self.url.as_str())
+        Download::from_url(self.url.as_str())
             .show_progress(true)
             .download_to(dest)?;
 
