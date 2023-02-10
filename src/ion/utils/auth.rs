@@ -1,5 +1,6 @@
 use anyhow::Result;
 use colorful::Colorful;
+#[cfg(any(macos, windows))]
 use copypasta::{ClipboardContext, ClipboardProvider};
 use reqwest::header::ACCEPT;
 use secrecy::Secret;
@@ -86,27 +87,13 @@ impl GithubHandler<'_> {
             .base_url("https://github.com")?
             .add_header(ACCEPT, "application/json".to_string())
             .build()?;
+        log::debug!("authenticating as device...");
         let codes = crab
             .authenticate_as_device(&client_id, &self.auth.scope)
             .await?;
 
-        if let Ok(mut ctx) = ClipboardContext::new() {
-            if ctx.set_contents(codes.user_code.to_owned()).is_err() {
-                println!(
-                    "Failed to copy your one-time code to \
-                clipboard, please copy it manually: {}",
-                    codes.user_code.to_owned().bold()
-                );
-            } else {
-                println!(
-                    "your one-time code has been copied to \
-                clipboard: {}",
-                    codes.user_code.to_owned().bold()
-                );
-            }
-        } else {
-            println!("your one-time code: {}", codes.user_code.to_owned().bold());
-        }
+        #[cfg(any(macos, windows))]
+        Self::copy_clipboard(codes.user_code.to_owned())?;
 
         #[cfg(not(feature = "oauth"))]
         let verification_uri = codes.verification_uri;
@@ -136,6 +123,28 @@ impl GithubHandler<'_> {
 
         #[cfg(feature = "oauth")]
         Self::get_token_loop(&crab, &client_id, &codes).await
+    }
+
+    #[cfg(any(macos, windows))]
+    fn copy_clipboard(user_code: String) -> Result<()> {
+        if let Ok(mut ctx) = ClipboardContext::new() {
+            if ctx.set_contents(user_code.to_owned()).is_err() {
+                println!(
+                    "Failed to copy your one-time code to \
+                clipboard, please copy it manually: {}",
+                    user_code.to_owned().bold()
+                );
+            } else {
+                println!(
+                    "your one-time code has been copied to \
+                clipboard: {}",
+                    user_code.to_owned().bold()
+                );
+            }
+        } else {
+            println!("your one-time code: {}", user_code.to_owned().bold());
+        }
+        Ok(())
     }
 
     #[cfg(feature = "oauth")]
