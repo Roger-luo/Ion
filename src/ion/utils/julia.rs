@@ -45,11 +45,17 @@ impl JuliaCommand {
     }
 
     pub fn output(&mut self) -> Result<Output, std::io::Error> {
-        self.cmd.arg(format!("-e {}", self.script)).output()
+        match self.cmd.arg(format!("-e {}", self.script)).output() {
+            Ok(p) => Ok(p),
+            Err(e) => Err(julia_not_found(e)),
+        }
     }
 
     pub fn status(&mut self) -> Result<std::process::ExitStatus, std::io::Error> {
-        self.cmd.arg(format!("-e {}", self.script)).status()
+        match self.cmd.arg(format!("-e {}", self.script)).status() {
+            Ok(p) => Ok(p),
+            Err(e) => Err(julia_not_found(e)),
+        }
     }
 }
 
@@ -143,4 +149,15 @@ pub fn assert_julia_version(config: &Config, version_spec: impl AsRef<str>) -> R
             "Invalid Julia version: Julia version {version} does not satisfy version range {range}",
         )
     })
+}
+
+fn julia_not_found(e: std::io::Error) -> std::io::Error {
+    if let std::io::ErrorKind::NotFound = e.kind() {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Julia not found. Please install Julia"),
+        )
+    } else {
+        e
+    }
 }
