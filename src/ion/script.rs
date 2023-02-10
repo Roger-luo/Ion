@@ -224,7 +224,7 @@ fn create_env(
         .join(", ");
 
     log::debug!("script: {}", script);
-    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(config, &project)?;
+    let mut cmd = format!("using Pkg; Pkg.add([{script}])",).julia_exec_cmd(config, &project);
     log::debug!("cmd: {:?}", cmd);
 
     let p = if verbose {
