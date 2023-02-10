@@ -3,6 +3,10 @@ use anyhow::Result;
 
 #[test]
 fn test_new_package() -> Result<()> {
+    if !scratch_dir().exists() {
+        std::fs::create_dir_all(scratch_dir())?;
+    }
+
     let mut p = Ion::new()
         .arg("new")
         .arg("TestNew")
