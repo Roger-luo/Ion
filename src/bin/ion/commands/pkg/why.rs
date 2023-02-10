@@ -7,7 +7,8 @@ use ion::utils::Julia;
 
 pub fn cli() -> Command {
     Command::new("why")
-        .about(
+        .about("show why a package is installed")
+        .long_about(
             "Show the reason why packages are in the manifest, printed as a path through \
             the dependency graph starting at the direct dependencies.",
         )

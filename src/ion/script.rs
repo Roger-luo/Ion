@@ -108,15 +108,19 @@ pub type ScriptDeps = BTreeMap<String, DepdencyInfo>;
 
 pub struct Script {
     pub config: Config,
-    pub path: String,
+    pub path: PathBuf,
     pub deps: Option<ScriptDeps>,
     pub env: Option<String>,
 }
 
 impl Script {
-    pub fn from_path(config: &Config, path: impl AsRef<str>, verbose: bool) -> Result<Self> {
-        log::debug!("loading script: {}", path.as_ref());
+    pub fn from_path(config: &Config, path: impl AsRef<Path>, verbose: bool) -> Result<Self> {
+        log::debug!("loading script: {:?}", path.as_ref());
         let path = path.as_ref();
+        if !path.exists() {
+            return Err(format_err!("script does not exist: {:?}", path));
+        }
+
         let script = std::fs::read_to_string(path)?;
         log::debug!("script: {}", script);
         let deps = from_script(&script)?;
@@ -172,8 +176,8 @@ fn from_script(script: impl AsRef<str>) -> Result<Option<ScriptDeps>> {
     }
 }
 
-pub fn env_dir(path: impl AsRef<str>) -> Result<PathBuf> {
-    let sha = crc32fast::hash(path.as_ref().as_bytes());
+pub fn env_dir(path: impl AsRef<Path>) -> Result<PathBuf> {
+    let sha = crc32fast::hash(path.as_ref().to_str().expect("invliad path").as_bytes());
     let env = std::env::current_exe()?;
     let env = env
         .parent()
@@ -185,11 +189,11 @@ pub fn env_dir(path: impl AsRef<str>) -> Result<PathBuf> {
 
 fn create_env(
     config: &Config,
-    path: impl AsRef<str>,
+    path: impl AsRef<Path>,
     deps: &ScriptDeps,
     verbose: bool,
 ) -> Result<String> {
-    log::debug!("creating env for: {}", path.as_ref());
+    log::debug!("creating env for: {:?}", path.as_ref());
 
     let env = env_dir(path.as_ref())?;
     let project = env.to_str().expect("invalid path").to_string();
@@ -246,19 +250,21 @@ fn check_deps(env: &Path, deps: &ScriptDeps) -> Result<bool> {
     let manifest = Manifest::from_file(env.join("Manifest.toml"))?;
 
     for (name, info) in deps {
-        if project.deps.contains_key(name) {
-            if let DepdencyInfo::Version {
-                uuid: Some(pkg_uuid),
-                ..
-            } = info
-            {
-                let deps_uuid = project.deps.get(name).unwrap();
-                if deps_uuid != pkg_uuid {
-                    return Ok(false);
+        if let Some(ref project_deps) = project.deps {
+            if project_deps.contains_key(name) {
+                if let DepdencyInfo::Version {
+                    uuid: Some(pkg_uuid),
+                    ..
+                } = info
+                {
+                    let deps_uuid = project_deps.get(name).unwrap();
+                    if deps_uuid != pkg_uuid {
+                        return Ok(false);
+                    }
                 }
+            } else {
+                return Ok(false);
             }
-        } else {
-            return Ok(false);
         }
 
         if !manifest.contains(name, info)? {
@@ -299,19 +305,23 @@ trait Contains {
 
 impl Contains for JuliaProject {
     fn contains(&self, name: impl AsRef<str>, info: &DepdencyInfo) -> Result<bool> {
-        if !self.deps.contains_key(name.as_ref()) {
-            return Ok(false);
-        }
-        match info {
-            DepdencyInfo::Version { uuid, .. } => {
-                if let Some(pkg_uuid) = uuid {
-                    let deps_uuid = self.deps.get(name.as_ref()).unwrap();
-                    Ok(deps_uuid != pkg_uuid)
-                } else {
-                    Ok(true)
-                }
+        if let Some(ref deps) = self.deps {
+            if !deps.contains_key(name.as_ref()) {
+                return Ok(false);
             }
-            _ => Ok(true),
+            match info {
+                DepdencyInfo::Version { uuid, .. } => {
+                    if let Some(pkg_uuid) = uuid {
+                        let deps_uuid = deps.get(name.as_ref()).unwrap();
+                        Ok(deps_uuid != pkg_uuid)
+                    } else {
+                        Ok(true)
+                    }
+                }
+                _ => Ok(true),
+            }
+        } else {
+            Ok(false)
         }
     }
 }

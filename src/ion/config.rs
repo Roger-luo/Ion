@@ -51,6 +51,8 @@ impl Config {
             std::fs::create_dir_all(Self::dir()?)?;
         };
 
+        log::debug!("config file: {}", file.exists());
+
         let config = if !file.exists() {
             let config = Self::default();
             log::debug!("creating config file: {:#?}", config);
@@ -123,7 +125,7 @@ impl Config {
         Ok(self)
     }
 
-    #[cfg(debug_assertions)]
+    #[cfg(not(feature = "config-dir"))]
     pub fn dir() -> Result<PathBuf> {
         let exe = std::env::current_exe()?;
         let bin = exe
@@ -132,7 +134,7 @@ impl Config {
         Ok(bin.join("config"))
     }
 
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "config-dir")]
     pub fn dir() -> Result<PathBuf> {
         match dirs::config_dir() {
             Some(root) => Ok(root.join("ion")),

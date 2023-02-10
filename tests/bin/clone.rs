@@ -1,5 +1,5 @@
-use anyhow::Result;
 use super::*;
+use anyhow::Result;
 
 #[test]
 fn test_clone() -> Result<()> {
@@ -7,11 +7,11 @@ fn test_clone() -> Result<()> {
         .arg("clone")
         .arg("Example")
         .arg("-f")
-        .env("GITHUB_TOKEN", std::env::var("GITHUB_TOKEN")?)
         .scratch()
         .spawn(Some(30_000))?;
 
     p.send_line("n")?;
+    p.send_line("n")?;
     p.exp_eof()?;
-    Ok(())
+    p.success()
 }

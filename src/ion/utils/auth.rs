@@ -1,12 +1,18 @@
 use anyhow::Result;
 use colorful::Colorful;
 use copypasta::{ClipboardContext, ClipboardProvider};
-use either::Either;
 use reqwest::header::ACCEPT;
-use secrecy::{ExposeSecret, Secret};
-use spinoff::{Color, Spinner, Spinners};
-use std::time::Duration;
+use secrecy::Secret;
 use tokio::runtime::Builder;
+
+#[cfg(feature = "oauth")]
+use {
+    either::Either,
+    octocrab::{auth::DeviceCodes, Octocrab},
+    secrecy::ExposeSecret,
+    spinoff::{Color, Spinner, Spinners},
+    std::time::Duration,
+};
 
 pub struct Auth {
     scope: Vec<String>,
@@ -102,30 +108,48 @@ impl GithubHandler<'_> {
             println!("your one-time code: {}", codes.user_code.to_owned().bold());
         }
 
+        #[cfg(not(feature = "oauth"))]
+        let verification_uri = codes.verification_uri;
+        #[cfg(feature = "oauth")]
+        let verification_uri = codes.verification_uri.to_owned();
+
         if dialoguer::Confirm::new()
             .with_prompt("open authentication page in browser?")
             .default(true)
             .interact()?
         {
-            if open::that(&codes.verification_uri).is_err() {
+            if open::that(&verification_uri).is_err() {
                 println!(
                     "Failed to open this page in your browser: {}",
-                    codes.verification_uri.to_owned().underlined()
+                    verification_uri.underlined()
                 );
             }
         } else {
             println!(
                 "Then open this page in your browser: {}",
-                codes.verification_uri.to_owned().underlined()
+                verification_uri.underlined()
             );
         }
 
+        #[cfg(not(feature = "oauth"))]
+        return Ok(std::env::var("GITHUB_TOKEN")?);
+
+        #[cfg(feature = "oauth")]
+        Self::get_token_loop(&crab, &client_id, &codes).await
+    }
+
+    #[cfg(feature = "oauth")]
+    async fn get_token_loop(
+        crab: &Octocrab,
+        client_id: &Secret<String>,
+        codes: &DeviceCodes,
+    ) -> Result<String> {
         let spinner = Spinner::new(Spinners::Dots, "waiting github...", Color::Blue);
         let mut interval = Duration::from_secs(codes.interval);
         let mut clock = tokio::time::interval(interval);
         let auth = loop {
             clock.tick().await;
-            match codes.poll_once(&crab, &client_id).await? {
+            match codes.poll_once(crab, client_id).await? {
                 Either::Left(auth) => break auth,
                 Either::Right(cont) => match cont {
                     octocrab::auth::Continue::SlowDown => {

@@ -1,13 +1,14 @@
 use anyhow::Result;
 use assert_cmd::assert::Assert;
-use assert_cmd::prelude::OutputAssertExt;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
 use assert_cmd::cargo::cargo_bin;
-use std::process::{Command, Output};
-use std::io;
+use assert_cmd::prelude::OutputAssertExt;
+use rexpect::process::wait::WaitStatus;
 use rexpect::session::PtySession;
-use std::{env, fs::{create_dir_all}};
+use std::env;
+use std::ffi::OsStr;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 
 #[derive(Debug)]
 pub struct Ion {
@@ -53,6 +54,10 @@ impl Ion {
                 command.env(key, val);
             }
         }
+
+        if let Some(cwd) = self.cmd.get_current_dir() {
+            command.current_dir(cwd);
+        }
         Ok(rexpect::session::spawn_command(command, timeout_ms)?)
     }
 
@@ -68,6 +73,11 @@ impl Ion {
 
     pub fn scratch_dir<P: AsRef<Path>>(&mut self, dir: P) -> &mut Self {
         self.current_dir(scratch_dir().join(dir));
+        self
+    }
+
+    pub fn packages(&mut self) -> &mut Self {
+        self.current_dir(packages_dir());
         self
     }
 
@@ -89,6 +99,19 @@ impl<'c> OutputAssertExt for &'c mut Ion {
     }
 }
 
+pub trait AssertSuccess {
+    fn success(&mut self) -> Result<()>;
+}
+
+impl AssertSuccess for PtySession {
+    fn success(&mut self) -> Result<()> {
+        if let WaitStatus::Exited(_, 0) = self.process.wait()? {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("Process exited with non-zero status"))
+        }
+    }
+}
 
 pub fn packages_dir() -> PathBuf {
     let root = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -97,10 +120,4 @@ pub fn packages_dir() -> PathBuf {
 
 pub fn scratch_dir() -> PathBuf {
     packages_dir().join("scratch")
-}
-
-pub fn setup() {
-    let scratch = scratch_dir();
-    create_dir_all(scratch.clone()).unwrap();
-    env::set_current_dir(scratch).unwrap();
 }

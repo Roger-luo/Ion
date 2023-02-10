@@ -1,5 +1,5 @@
 build target="aarch64-apple-darwin":
-    cargo build --bin ion --release --target {{target}}
+    cargo build --bin ion --release -F bin --target {{target}}
 
 tarball target="aarch64-apple-darwin":
     #!/usr/bin/env bash
@@ -24,14 +24,14 @@ release tag:
     gh release create v{{tag}} -t v{{tag}} --generate-notes
 
 [macos]
-install prefix="$HOME/.ion":
-    cargo build --bin ion --release
+install prefix="$HOME/.local":
+    cargo build --bin ion --release -F bin
     mkdir -p {{prefix}}/bin
     cp target/release/ion {{prefix}}/bin
 
 [linux]
-install prefix="$HOME/.ion":
+install prefix="$HOME/.local":
     #!/usr/bin/env bash
-    cargo build --bin ion --release
+    cargo build --bin ion --release -F bin
     mkdir -p {{prefix}}/bin
     cp target/release/ion {{prefix}}/bin/ion

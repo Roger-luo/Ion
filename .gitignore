@@ -3,3 +3,5 @@ Cargo.lock
 /*.rs
 !/build.rs
 /tests/packages/scratch
+.vscode
+Manifest.toml
