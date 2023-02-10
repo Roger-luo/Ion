@@ -43,7 +43,7 @@ colorful = "0.2.2"
 tokio = "1.24.2"
 either = "1.8.0"
 secrecy = "0.8.0"
-reqwest = "0.11.14"
+reqwest = { version = "0.11.14", features = ["native-tls-vendored"] }
 copypasta = "0.8.1"
 spinoff = "0.6.0"
 clap_complete = "4.1.1"
@@ -52,7 +52,6 @@ tempfile = "3.3.0"
 flate2 = "1.0.25"
 tar = "0.4.38"
 self_update = "0.34.0"
-native-tls = { version = "0.2.11", features = ["vendored"] }
 
 [build-dependencies]
 copy_to_output = "2.0.0"
