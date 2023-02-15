@@ -14,11 +14,11 @@ pub struct ProjectTest {
 
 impl ProjectTest {
     pub fn default_template() -> String {
-        "tests/runtests.jl.hbs".into()
+        "test/runtests.jl.hbs".into()
     }
 
     pub fn default_project() -> String {
-        "tests/Project.toml.hbs".into()
+        "test/Project.toml.hbs".into()
     }
 }
 
