@@ -333,7 +333,9 @@ impl Contains for Manifest {
         }
 
         Ok(match info {
-            DepdencyInfo::Short(range) => self.contains_version(name, &VersionRange::parse(range)?, &None),
+            DepdencyInfo::Short(range) => {
+                self.contains_version(name, &VersionRange::parse(range)?, &None)
+            }
             DepdencyInfo::Version { version, uuid } => {
                 self.contains_version(name, &VersionRange::parse(version)?, uuid)
             }
