@@ -26,7 +26,7 @@ jobs:
         with:
           version: '1'
           arch: x64
-      - uses: actions/cache@v1
+      - uses: actions/cache@v3
         env:
           cache-name: cache-artifacts
         with:
