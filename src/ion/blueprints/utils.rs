@@ -115,6 +115,8 @@ pub fn list_templates(config: &Config) -> Result<()> {
 pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
     let templates = config.template_dir().read_dir()?;
 
+    let mut template_found: bool = false;
+
     for entry in templates {
         let entry = match entry {
             Ok(e) => e,
@@ -134,9 +136,19 @@ pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
                 }
             };
             if template.name == template_name {
+                template_found = true;
                 println!("{}", source);
             }
         }
+    }
+
+    // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
+    if !template_found {
+        println!(
+            "The {} template was not found.\nInstalled templates are:",
+            template_name
+        );
+        ask_inspect_template(config)?
     }
     Ok(())
 }

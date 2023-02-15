@@ -19,4 +19,11 @@ fn test_template() {
         .arg("package")
         .assert()
         .success();
+
+    Ion::new()
+        .arg("template")
+        .arg("inspect")
+        .arg("nonce")
+        .assert()
+        .success();
 }
