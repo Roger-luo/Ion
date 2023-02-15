@@ -6,6 +6,12 @@ publish = false
 authors = ["Roger Luo <rogerluo.rl18@gmail.com>"]
 description = "a CLI toolbox for Julia developer"
 
+[workspace]
+members = [
+    "ion_derive",
+    "julia-semver",
+]
+
 [package.metadata.bundle]
 identifier = "dev.rogerluo.ion"
 resources = ["resources/*"]
@@ -38,6 +44,7 @@ toml = "0.5.10"
 url = "2.2.2"
 uuid = { version = "1.2.2", features = ["v4"] }
 ion_derive = { version = "0.1.0", path = "ion_derive" }
+julia-semver = { version = "0.1.0", path = "julia-semver" }
 octocrab = { version = "0.18.1", git = "https://github.com/Roger-luo/octocrab.git" }
 colorful = "0.2.2"
 tokio = "1.24.2"

@@ -7,11 +7,11 @@ use syn::{self, DeriveInput};
 pub fn emit_blueprint(ast: &DeriveInput) -> TokenStream {
     let t = &Ident::new("t", Span::call_site());
     let name = &ast.ident;
-    let render = emit_field_calls(&ast, t, "render");
-    let collect = emit_field_calls(&ast, t, "collect");
-    let prompt = emit_field_calls(&ast, t, "prompt");
-    let post_render = emit_field_calls(&ast, t, "post_render");
-    let validate = emit_field_calls(&ast, t, "validate");
+    let render = emit_field_calls(ast, t, "render");
+    let collect = emit_field_calls(ast, t, "collect");
+    let prompt = emit_field_calls(ast, t, "prompt");
+    let post_render = emit_field_calls(ast, t, "post_render");
+    let validate = emit_field_calls(ast, t, "validate");
 
     let gen = quote! {
         use super::Blueprint;
