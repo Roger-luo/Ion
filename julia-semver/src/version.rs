@@ -164,8 +164,8 @@ impl Display for Version {
                     write!(f, ".")?;
                 }
                 match pre {
-                    Pre::Numeric(n) => write!(f, "{}", n)?,
-                    Pre::AlphaNumeric(s) => write!(f, "{}", s)?,
+                    Pre::Numeric(n) => write!(f, "{n}")?,
+                    Pre::AlphaNumeric(s) => write!(f, "{s}")?,
                 }
             }
         }
@@ -176,8 +176,8 @@ impl Display for Version {
                     write!(f, ".")?;
                 }
                 match build {
-                    Build::Numeric(n) => write!(f, "{}", n)?,
-                    Build::AlphaNumeric(s) => write!(f, "{}", s)?,
+                    Build::Numeric(n) => write!(f, "{n}")?,
+                    Build::AlphaNumeric(s) => write!(f, "{s}")?,
                 }
             }
         }

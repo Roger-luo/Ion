@@ -8,11 +8,11 @@ use syn::{self, DeriveInput};
 pub fn emit_template(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let t = &Ident::new("self", Span::call_site());
-    let render = emit_field_calls(&ast, t, "render");
-    let collect = emit_field_calls(&ast, t, "collect");
-    let prompt = emit_field_calls(&ast, t, "prompt");
-    let post_render = emit_field_calls(&ast, t, "post_render");
-    let validate = emit_field_calls(&ast, t, "validate");
+    let render = emit_field_calls(ast, t, "render");
+    let collect = emit_field_calls(ast, t, "collect");
+    let prompt = emit_field_calls(ast, t, "prompt");
+    let post_render = emit_field_calls(ast, t, "post_render");
+    let validate = emit_field_calls(ast, t, "validate");
 
     let context_expr = emit_context();
 

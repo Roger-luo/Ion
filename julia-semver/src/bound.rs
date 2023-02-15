@@ -40,13 +40,12 @@ impl VersionBound {
     }
 
     pub fn parse(s: impl AsRef<str>) -> Result<Self> {
-        let mut s = s.as_ref().trim();
-
+        let s = s.as_ref().trim();
         if s == "*" {
             return Ok(VersionBound::new((0, 0, 0), 0));
         }
 
-        s = if s.starts_with("v") { &s[1..] } else { s };
+        let s = s.strip_prefix('v').unwrap_or(s);
 
         let mut parts = s.splitn(3, '.');
         match parts.next() {
@@ -132,10 +131,10 @@ impl PartialOrd<Version> for VersionBound {
 impl Display for VersionBound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.n {
-            0 => return write!(f, "*"),
-            1 => return write!(f, "{}.x.x", self.major),
-            2 => return write!(f, "{}.{}.x", self.major, self.minor),
-            3 => return write!(f, "{}.{}.{}", self.major, self.minor, self.patch),
+            0 => write!(f, "*"),
+            1 => write!(f, "{}.x.x", self.major),
+            2 => write!(f, "{}.{}.x", self.major, self.minor),
+            3 => write!(f, "{}.{}.{}", self.major, self.minor, self.patch),
             _ => unreachable!(),
         }
     }

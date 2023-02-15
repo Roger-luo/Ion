@@ -56,7 +56,7 @@ impl VersionRange {
     fn parse_semver(s: &str, cap: regex::Captures) -> Result<Self> {
         let (typ, v) = VersionRange::unpack_spec_four(s, cap)?;
 
-        if typ == "" || typ == "^" {
+        if typ.is_empty() || typ == "^" {
             if v.major != 0 {
                 Ok(VersionRange::new(v, VersionBound::new((v.major, 0, 0), 1)))
             } else if v.minor != 0 {
@@ -64,15 +64,13 @@ impl VersionRange {
                     v,
                     VersionBound::new((v.major, v.minor, 0), 2),
                 ))
+            } else if v.n < 3 {
+                Ok(VersionRange::new(v, VersionBound::new((0, 0, 0), v.n)))
             } else {
-                if v.n < 3 {
-                    Ok(VersionRange::new(v, VersionBound::new((0, 0, 0), v.n)))
-                } else {
-                    Ok(VersionRange::new(
-                        v,
-                        VersionBound::new((0, 0, v.patch), v.n),
-                    ))
-                }
+                Ok(VersionRange::new(
+                    v,
+                    VersionBound::new((0, 0, v.patch), v.n),
+                ))
             }
         } else if typ == "~" {
             if v.n == 3 || v.n == 2 {
@@ -120,7 +118,7 @@ impl VersionRange {
     fn parse_hyphen(s: &str, cap: regex::Captures) -> Result<Self> {
         let err = || anyhow!("Invliad version range: {}", s);
 
-        if !(cap.len() == 7) {
+        if cap.len() != 7 {
             return Err(err());
         }
 
@@ -164,7 +162,7 @@ impl VersionRange {
     }
 
     fn unpack_spec_four(s: &str, cap: regex::Captures) -> Result<(String, VersionBound)> {
-        if !(cap.len() == 5) {
+        if cap.len() != 5 {
             anyhow::bail!("Invalid version range: {}", s);
         }
 
@@ -215,9 +213,9 @@ impl VersionRange {
 impl Display for VersionRange {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match (self.lower.n, self.upper.n) {
-            (0, 0) => return write!(f, "*"),
-            (0, _) => return write!(f, "0 - {}", self.upper),
-            (_, 0) => return write!(f, "{} - *", self.lower),
+            (0, 0) => write!(f, "*"),
+            (0, _) => write!(f, "0 - {}", self.upper),
+            (_, 0) => write!(f, "{} - *", self.lower),
             _ => write!(f, "{} - {}", self.lower, self.upper),
         }
     }

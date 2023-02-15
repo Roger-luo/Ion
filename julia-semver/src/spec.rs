@@ -26,7 +26,7 @@ impl VersionSpec {
         let s = s.as_ref().trim();
         let ranges = s
             .split(',')
-            .map(|s| VersionRange::parse(s))
+            .map(VersionRange::parse)
             .collect::<Result<Vec<_>>>()?;
         Ok(VersionSpec::new(ranges))
     }
@@ -45,7 +45,7 @@ impl Display for VersionSpec {
             } else {
                 write!(f, ",")?;
             }
-            write!(f, "{}", r)?;
+            write!(f, "{r}")?;
         }
         Ok(())
     }
