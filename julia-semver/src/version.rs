@@ -1,9 +1,9 @@
-use std::fmt::Display;
 use anyhow::{format_err, Result};
 use serde::{
     de::{Deserialize, Visitor},
     ser::{Serialize, Serializer},
 };
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Pre {
@@ -188,7 +188,8 @@ impl Display for Version {
 impl<'de> Deserialize<'de> for Version {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
-        D: serde::Deserializer<'de> {
+        D: serde::Deserializer<'de>,
+    {
         struct VersionVisitor;
 
         impl<'de> Visitor<'de> for VersionVisitor {
@@ -212,8 +213,9 @@ impl<'de> Deserialize<'de> for Version {
 
 impl Serialize for Version {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: Serializer {
+    where
+        S: Serializer,
+    {
         serializer.collect_str(self)
     }
 }

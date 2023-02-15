@@ -225,9 +225,9 @@ impl Display for VersionRange {
 
 impl<'de> Deserialize<'de> for VersionRange {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de> {
-        
+    where
+        D: serde::Deserializer<'de>,
+    {
         struct VersionRangeVisitor;
 
         impl<'de> Visitor<'de> for VersionRangeVisitor {
@@ -238,8 +238,9 @@ impl<'de> Deserialize<'de> for VersionRange {
             }
 
             fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
-                where
-                    E: serde::de::Error {
+            where
+                E: serde::de::Error,
+            {
                 VersionRange::parse(s).map_err(E::custom)
             }
         }
@@ -250,8 +251,9 @@ impl<'de> Deserialize<'de> for VersionRange {
 
 impl Serialize for VersionRange {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-        where
-            S: Serializer {
+    where
+        S: Serializer,
+    {
         serializer.collect_str(self)
     }
 }

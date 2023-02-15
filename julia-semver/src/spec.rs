@@ -1,19 +1,10 @@
-pub mod bound;
-pub mod range;
-pub mod version;
-
-use std::fmt::Display;
-
-pub use bound::VersionBound;
-pub use range::VersionRange;
-pub use version::Version;
-
+use super::*;
 use anyhow::Result;
 use serde::{
     de::{Deserialize, Visitor},
     ser::{Serialize, Serializer},
 };
-
+use std::fmt::Display;
 
 #[macro_export]
 macro_rules! version {

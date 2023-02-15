@@ -96,7 +96,7 @@ impl PartialOrd<Version> for VersionBound {
         } else if self.n == 2 {
             self.major <= other.major && self.minor <= other.minor
         } else if self.n == 3 {
-            self.major <= other.major  && self.minor <= other.minor && self.patch <= other.patch
+            self.major <= other.major && self.minor <= other.minor && self.patch <= other.patch
         } else {
             false
         }
