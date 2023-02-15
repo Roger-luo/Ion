@@ -1,6 +1,9 @@
 use std::fmt::Display;
-
 use anyhow::{format_err, Result};
+use serde::{
+    de::{Deserialize, Visitor},
+    ser::{Serialize, Serializer},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Pre {
@@ -179,6 +182,39 @@ impl Display for Version {
             }
         }
         Ok(())
+    }
+}
+
+impl<'de> Deserialize<'de> for Version {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de> {
+        struct VersionVisitor;
+
+        impl<'de> Visitor<'de> for VersionVisitor {
+            type Value = Version;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a version string")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                Version::parse(value).map_err(|e| E::custom(e.to_string()))
+            }
+        }
+
+        deserializer.deserialize_str(VersionVisitor)
+    }
+}
+
+impl Serialize for Version {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+        where
+            S: Serializer {
+        serializer.collect_str(self)
     }
 }
 

@@ -92,11 +92,11 @@ impl PartialOrd<Version> for VersionBound {
         if self.n == 0 {
             true
         } else if self.n == 1 {
-            other.major <= self.major
+            self.major <= other.major
         } else if self.n == 2 {
-            other.major <= self.major && other.minor <= self.minor
+            self.major <= other.major && self.minor <= other.minor
         } else if self.n == 3 {
-            other.major <= self.major && other.minor <= self.minor && other.patch <= self.patch
+            self.major <= other.major  && self.minor <= other.minor && self.patch <= other.patch
         } else {
             false
         }
@@ -106,11 +106,11 @@ impl PartialOrd<Version> for VersionBound {
         if self.n == 0 {
             true
         } else if self.n == 1 {
-            other.major >= self.major
+            self.major >= other.major
         } else if self.n == 2 {
-            other.major >= self.major && other.minor >= self.minor
+            self.major >= other.major && self.minor >= other.minor
         } else if self.n == 3 {
-            other.major >= self.major && other.minor >= self.minor && other.patch >= self.patch
+            self.major >= other.major && self.minor >= other.minor && self.patch >= other.patch
         } else {
             false
         }
@@ -131,6 +131,12 @@ impl PartialOrd<Version> for VersionBound {
 
 impl Display for VersionBound {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+        match self.n {
+            0 => return write!(f, "*"),
+            1 => return write!(f, "{}.x.x", self.major),
+            2 => return write!(f, "{}.{}.x", self.major, self.minor),
+            3 => return write!(f, "{}.{}.{}", self.major, self.minor, self.patch),
+            _ => unreachable!(),
+        }
     }
 }

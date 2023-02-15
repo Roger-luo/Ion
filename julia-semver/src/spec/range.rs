@@ -5,7 +5,12 @@ use super::VersionBound;
 use anyhow::anyhow;
 use anyhow::Result;
 use regex::Regex;
+use serde::{
+    de::{Deserialize, Visitor},
+    ser::{Serialize, Serializer},
+};
 
+#[derive(Debug, Clone, Copy)]
 pub struct VersionRange {
     lower: VersionBound,
     upper: VersionBound,
@@ -90,7 +95,11 @@ impl VersionRange {
             let nil = VersionBound::nil();
             let upper = if v.patch == 0 {
                 if v.minor == 0 {
-                    VersionBound::new((v.major - 1, 0, 0), 1)
+                    if v.major > 0 {
+                        VersionBound::new((v.major - 1, 0, 0), 1)
+                    } else {
+                        anyhow::bail!("Invalid version range: {}", s);
+                    }
                 } else {
                     VersionBound::new((v.major, v.minor - 1, 0), 2)
                 }
@@ -159,7 +168,7 @@ impl VersionRange {
             anyhow::bail!("Invalid version range: {}", s);
         }
 
-        let n_significant = cap.iter().filter(|c| c.is_some()).count() - 1;
+        let n_significant = cap.iter().filter(|c| c.is_some()).count() - 2;
         let typ = cap
             .get(1)
             .ok_or_else(|| anyhow!("Invalid version range: {}", s))?
@@ -208,24 +217,161 @@ impl Display for VersionRange {
         match (self.lower.n, self.upper.n) {
             (0, 0) => return write!(f, "*"),
             (0, _) => return write!(f, "0 - {}", self.upper),
-            (_, 0) => return write!(f, "{} - 0", self.lower),
+            (_, 0) => return write!(f, "{} - *", self.lower),
             _ => write!(f, "{} - {}", self.lower, self.upper),
         }
     }
 }
 
+impl<'de> Deserialize<'de> for VersionRange {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de> {
+        
+        struct VersionRangeVisitor;
+
+        impl<'de> Visitor<'de> for VersionRangeVisitor {
+            type Value = VersionRange;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a version range")
+            }
+
+            fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
+                where
+                    E: serde::de::Error {
+                VersionRange::parse(s).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(VersionRangeVisitor)
+    }
+}
+
+impl Serialize for VersionRange {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+        where
+            S: Serializer {
+        serializer.collect_str(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::version;
+
     use super::*;
     use anyhow::Result;
 
     #[test]
-    fn test_parse() -> Result<()> {
+    fn test_semver() -> Result<()> {
+        let bound = VersionRange::parse("0.1.0")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 0.1.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse("0.1")?;
+        assert_eq!(bound.to_string(), "0.1.x - 0.1.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse("0")?;
+        assert_eq!(bound.to_string(), "0.x.x - 0.x.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse("1.1.0")?;
+        assert_eq!(bound.to_string(), "1.1.0 - 1.x.x");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse("1.1")?;
+        assert_eq!(bound.to_string(), "1.1.x - 1.x.x");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse("1")?;
+        assert_eq!(bound.to_string(), "1.x.x - 1.x.x");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse("^0.1.0")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 0.1.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse("^0.1")?;
+        assert_eq!(bound.to_string(), "0.1.x - 0.1.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse("^0")?;
+        assert_eq!(bound.to_string(), "0.x.x - 0.x.x");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_inequality() -> Result<()> {
+        let bound = VersionRange::parse(">=0.1.0")?;
+        assert_eq!(bound.to_string(), "0.1.0 - *");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse(">=0.1")?;
+        assert_eq!(bound.to_string(), "0.1.x - *");
+        assert!(bound.contains(&version!("0.1.0")?));
+
+        let bound = VersionRange::parse(">=0")?;
+        assert_eq!(bound.to_string(), "0.x.x - *");
+        assert!(bound.contains(&version!("0.1.0")?));
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse(">=1.1.0")?;
+        assert_eq!(bound.to_string(), "1.1.0 - *");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse(">=1.1")?;
+        assert_eq!(bound.to_string(), "1.1.x - *");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse(">=1")?;
+        assert_eq!(bound.to_string(), "1.x.x - *");
+        assert!(bound.contains(&version!("1.1.0")?));
+
+        let bound = VersionRange::parse("<0.1.0")?;
+        assert_eq!(bound.to_string(), "0.0.0 - 0.0.x");
+        assert!(bound.contains(&version!("0.0.0")?));
+
+        let bound = VersionRange::parse("<0.1")?;
+        assert_eq!(bound.to_string(), "0.0.0 - 0.0.x");
+        assert!(bound.contains(&version!("0.0.0")?));
+
+        let err = VersionRange::parse("<0").unwrap_err();
+        assert_eq!(err.to_string(), "Invalid version range: <0");
+
+        let bound = VersionRange::parse("<1.1.0")?;
+        assert_eq!(bound.to_string(), "0.0.0 - 1.0.x");
+        assert!(bound.contains(&version!("0.0.0")?));
+
+        let bound = VersionRange::parse("<1.1")?;
+        assert_eq!(bound.to_string(), "0.0.0 - 1.0.x");
+        assert!(bound.contains(&version!("0.0.0")?));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hyphen() -> Result<()> {
         let bound = VersionRange::parse("0.1.0 - 0.2.0")?;
         assert_eq!(bound.to_string(), "0.1.0 - 0.2.0");
 
-        let bound = VersionRange::parse("^0.1.0")?;
-        assert_eq!(bound.to_string(), "^0.1.0");
+        let bound = VersionRange::parse("0.1.0 - 0.2")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 0.2.x");
+
+        let bound = VersionRange::parse("0.1.0 - 0")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 0.x.x");
+
+        let bound = VersionRange::parse("0.1.0 - 1")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 1.x.x");
+
+        let bound = VersionRange::parse("0.1.0 - 1.2.3")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 1.2.3");
+
+        let bound = VersionRange::parse("0.1.0 - 1.2")?;
+        assert_eq!(bound.to_string(), "0.1.0 - 1.2.x");
         Ok(())
     }
 }

@@ -11,3 +11,4 @@ description = "a clone of Julia's SemVer implementation in Rust"
 [dependencies]
 anyhow = "1.0.69"
 regex = "1.7.1"
+serde = "1.0.152"
