@@ -56,5 +56,5 @@ pub fn julia_version(config: &Config) -> Result<julia_semver::Version> {
     let version = String::from_utf8(output.stdout)?;
     let version = version.trim();
     let version = version.split_whitespace().last().unwrap();
-    Ok(julia_semver::Version::parse(version)?)
+    julia_semver::Version::parse(version)
 }
