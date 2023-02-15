@@ -1,7 +1,7 @@
 use crate::blueprints::*;
 use crate::spec::Author;
 use anyhow::{format_err, Error, Result};
-use dialoguer::{Confirm, Input};
+use dialoguer::{theme::ColorfulTheme, Confirm, Input, Select};
 
 pub fn git_get_user() -> Result<(String, String)> {
     let user = if let Some(name) = git_config_get("user.name") {
@@ -108,6 +108,98 @@ pub fn list_templates(config: &Config) -> Result<()> {
                 template.name, template.description
             );
         }
+    }
+    Ok(())
+}
+
+pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
+    let templates = config.template_dir().read_dir()?;
+
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+            if template.name == template_name {
+                println!("{}", source);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn inspect_all_templates(config: &Config) -> Result<()> {
+    let templates = config.template_dir().read_dir()?;
+
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            println!("\n{}\n**********", source);
+        }
+    }
+    Ok(())
+}
+
+pub fn ask_inspect_template(config: &Config) -> Result<()> {
+    // Get selection options from installed templates
+    let mut selection_options = vec![];
+
+    let templates = config.template_dir().read_dir()?;
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+
+            selection_options.push(template.name);
+        }
+    }
+
+    // Ask for template to print to console
+    let template_name = Select::with_theme(&ColorfulTheme::default())
+        .items(&selection_options)
+        .default(1)
+        .interact_opt()
+        .unwrap();
+
+    match template_name {
+        Some(index) => inspect_template(config, selection_options[index].to_owned())?,
+        _ => unreachable!(),
     }
     Ok(())
 }

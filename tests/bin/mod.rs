@@ -3,6 +3,7 @@ pub mod clone;
 pub mod new;
 pub mod pkg;
 pub mod script;
+pub mod template;
 
 pub mod utils;
 pub use utils::*;
