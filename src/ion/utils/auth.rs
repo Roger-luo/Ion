@@ -145,17 +145,17 @@ impl GithubHandler<'_> {
                 println!(
                     "Failed to copy your one-time code to \
                 clipboard, please copy it manually: {}",
-                    user_code.to_owned().bold()
+                    user_code.bold()
                 );
             } else {
                 println!(
                     "your one-time code has been copied to \
                 clipboard: {}",
-                    user_code.to_owned().bold()
+                    user_code.bold()
                 );
             }
         } else {
-            println!("your one-time code: {}", user_code.to_owned().bold());
+            println!("your one-time code: {}", user_code.bold());
         }
         Ok(())
     }
