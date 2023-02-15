@@ -206,13 +206,12 @@ pub fn ask_inspect_template(config: &Config) -> Result<()> {
     let template_name = Select::with_theme(&ColorfulTheme::default())
         .items(&selection_options)
         .default(1)
-        .interact_opt()
-        .unwrap();
+        .interact_opt()?;
 
-    match template_name {
-        Some(index) => inspect_template(config, selection_options[index].to_owned())?,
-        _ => unreachable!(),
-    }
+    if let Some(template_name) = template_name {
+        inspect_template(config, selection_options[template_name].to_owned())?
+    };
+
     Ok(())
 }
 
