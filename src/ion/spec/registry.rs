@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::utils::{Julia, ReadCommand};
 use anyhow::{format_err, Result};
-use node_semver::Version;
+use julia_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;

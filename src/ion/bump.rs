@@ -9,7 +9,7 @@ use anyhow::{format_err, Result};
 use colorful::core::color_string::CString;
 use colorful::Colorful;
 use dialoguer::Confirm;
-use node_semver::Version;
+use julia_semver::Version;
 
 pub enum VersionBumpValidation {
     NotRegistered,

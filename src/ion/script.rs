@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::utils::normalize_path;
 use crate::{utils::Julia, JuliaProject, Manifest, PackageSpec};
 use anyhow::{format_err, Result};
-use node_semver::Range;
+use julia_semver::VersionRange;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 use std::process::Command;
@@ -279,7 +279,7 @@ trait Contains {
     fn contains_version(
         &self,
         _name: impl AsRef<str>,
-        _range: &Range,
+        _range: &VersionRange,
         _uuid: &Option<String>,
     ) -> bool {
         false
@@ -333,9 +333,9 @@ impl Contains for Manifest {
         }
 
         Ok(match info {
-            DepdencyInfo::Short(range) => self.contains_version(name, &Range::parse(range)?, &None),
+            DepdencyInfo::Short(range) => self.contains_version(name, &VersionRange::parse(range)?, &None),
             DepdencyInfo::Version { version, uuid } => {
-                self.contains_version(name, &Range::parse(version)?, uuid)
+                self.contains_version(name, &VersionRange::parse(version)?, uuid)
             }
             DepdencyInfo::LocalPackage { path, subdir } => self.contains_local(name, path, subdir),
             DepdencyInfo::RemotePackage { url, rev, subdir } => {
@@ -347,14 +347,14 @@ impl Contains for Manifest {
     fn contains_version(
         &self,
         name: impl AsRef<str>,
-        range: &Range,
+        range: &VersionRange,
         uuid: &Option<String>,
     ) -> bool {
         let info = self.deps.get(name.as_ref()).unwrap();
 
         for pkg in info {
             if let Some(version) = &pkg.version {
-                if !range.satisfies(version) {
+                if !range.contains(version) {
                     continue;
                 }
                 if let Some(uuid) = uuid {
