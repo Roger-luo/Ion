@@ -29,7 +29,7 @@ fn test_new_package() -> Result<()> {
     assert!(project_dir.join(".gitignore").is_file());
     assert!(project_dir.join("src").join("TestNew.jl").is_file());
 
-    let test_dir = project_dir.join("tests");
+    let test_dir = project_dir.join("test");
     assert!(test_dir.join("runtests.jl").is_file());
     assert!(test_dir.join("Project.toml").is_file());
 
