@@ -25,5 +25,5 @@ pub fn emit_field_calls(
             }
         }
     }
-    gen.into()
+    gen
 }

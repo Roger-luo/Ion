@@ -8,22 +8,19 @@ pub fn emit_context() -> TokenStream {
 
     let mut info = quote! {};
     let mut info_defaults = quote! {};
-    for entry in d.read_dir().expect("read_dir failed") {
-        if let Ok(entry) = entry {
-            if entry.path().extension().unwrap().eq("rs") && !entry.file_name().eq("mod.rs") {
-                let mod_name = entry.file_name().into_string().unwrap()
-                    [0..entry.file_name().len() - 3]
-                    .to_string();
-                let mod_ident = Ident::new(&mod_name, Span::call_site());
-                info = quote! {
-                    #info
-                    pub #mod_ident: Option<super::components::#mod_ident::Info>,
-                };
-                info_defaults = quote! {
-                    #info_defaults
-                    #mod_ident: None,
-                };
-            }
+    for entry in d.read_dir().expect("read_dir failed").flatten() {
+        if entry.path().extension().unwrap().eq("rs") && !entry.file_name().eq("mod.rs") {
+            let mod_name = entry.file_name().into_string().unwrap()[0..entry.file_name().len() - 3]
+                .to_string();
+            let mod_ident = Ident::new(&mod_name, Span::call_site());
+            info = quote! {
+                #info
+                pub #mod_ident: Option<super::components::#mod_ident::Info>,
+            };
+            info_defaults = quote! {
+                #info_defaults
+                #mod_ident: None,
+            };
         }
     }
 
