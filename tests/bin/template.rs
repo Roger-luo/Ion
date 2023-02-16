@@ -42,5 +42,10 @@ fn test_template() -> Result<()> {
 
     ps.exp_string("Installed templates are:")?;
 
+    // Send <ENTER> keycode to pty
+    ps.send_control('j')?;
+    ps.exp_string("name")?;
+    ps.exp_eof()?;
+
     Ok(())
 }
