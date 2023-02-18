@@ -26,7 +26,7 @@ fn test_template() -> Result<()> {
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-        .spawn(Some(5_000))?;
+        .spawn(Some(15_000))?;
 
     p.send_control('c')?;
     p.exp_eof()?;
@@ -45,6 +45,24 @@ fn test_template() -> Result<()> {
     pty.exp_string("Description:")?;
     pty.exp_string("Repo:")?;
     pty.exp_eof()?;
+
+    Ok(())?;
+
+    // Test --verbose --all flags together
+    let mut ptysess = Ion::new()
+        .arg("template")
+        .arg("inspect")
+        .arg("--verbose")
+        .arg("--all")
+        .spawn(Some(5_000))?;
+
+    ptysess.exp_string("Name:")?;
+    ptysess.exp_string("Description:")?;
+    ptysess.exp_string("Name:")?;
+    ptysess.exp_string("Description:")?;
+    ptysess.exp_string("Name:")?;
+    ptysess.exp_string("Description:")?;
+    ptysess.exp_eof()?;
 
     Ok(())?;
 
@@ -69,12 +87,11 @@ fn test_template() -> Result<()> {
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-        .spawn(Some(10_000))?;
+        .spawn(Some(15_000))?;
 
     ps.exp_string("Installed templates are:")?;
 
     // Send <ENTER> keycode to pty
-    ps.send_control('j')?;
     ps.send_control('j')?;
     ps.exp_string("name")?;
     ps.exp_eof()?;

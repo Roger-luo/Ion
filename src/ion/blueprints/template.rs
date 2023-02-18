@@ -72,7 +72,7 @@ impl fmt::Display for Template {
         if let Some(citation) = &self.citation {
             write!(format_buffer, "Citation:\n{}\n", citation)?;
         } else {
-            write!(format_buffer, "Citation\nNone\n\n")?;
+            write!(format_buffer, "Citation:\nNone\n\n")?;
         }
 
         if let Some(documenter) = &self.documenter {

@@ -112,11 +112,7 @@ pub fn list_templates(config: &Config) -> Result<()> {
     Ok(())
 }
 
-pub fn inspect_template_optional_verbose(
-    config: &Config,
-    template_name: String,
-    verbose_flag: bool,
-) -> Result<()> {
+pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bool) -> Result<()> {
     let templates = config.template_dir().read_dir()?;
 
     let mut template_found: bool = false;
@@ -158,12 +154,12 @@ pub fn inspect_template_optional_verbose(
             "The {} template was not found.\nInstalled templates are:",
             template_name
         );
-        ask_inspect_template_optional_verbose(config, verbose_flag)?
+        ask_inspect_template(config, verbose_flag)?
     }
     Ok(())
 }
 
-pub fn ask_inspect_template_optional_verbose(config: &Config, verbose_flag: bool) -> Result<()> {
+pub fn ask_inspect_template(config: &Config, verbose_flag: bool) -> Result<()> {
     // Get selection options from installed templates
     let mut selection_options = vec![];
 
@@ -198,7 +194,7 @@ pub fn ask_inspect_template_optional_verbose(config: &Config, verbose_flag: bool
         .interact_opt()?;
 
     if let Some(template_name) = template_name {
-        inspect_template_optional_verbose(
+        inspect_template(
             config,
             selection_options[template_name].to_owned(),
             verbose_flag,
@@ -208,7 +204,7 @@ pub fn ask_inspect_template_optional_verbose(config: &Config, verbose_flag: bool
     Ok(())
 }
 
-pub fn inspect_all_templates(config: &Config) -> Result<()> {
+pub fn inspect_all_templates(config: &Config, verbose_flag: bool) -> Result<()> {
     let templates = config.template_dir().read_dir()?;
 
     for entry in templates {
@@ -223,7 +219,18 @@ pub fn inspect_all_templates(config: &Config) -> Result<()> {
         if path.is_dir() {
             let source = std::fs::read_to_string(path.join("template.toml"))?;
 
-            println!("\n{}\n**********", source);
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+
+            if verbose_flag {
+                println!("\n{}\n**********", template);
+            } else {
+                println!("\n{}\n**********", source);
+            }
         }
     }
     Ok(())

@@ -1,8 +1,7 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command};
 use ion::blueprints::{
-    ask_inspect_template_optional_verbose, inspect_all_templates,
-    inspect_template_optional_verbose, list_templates,
+    ask_inspect_template, inspect_all_templates, inspect_template, list_templates,
 };
 use ion::config::Config;
 use ion::errors::CliResult;
@@ -36,13 +35,13 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
             // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
             match matches.get_one::<String>("TEMPLATE") {
                 Some(template) => {
-                    inspect_template_optional_verbose(config, template.to_owned(), verbose_flag)?;
+                    inspect_template(config, template.to_owned(), verbose_flag)?;
                 }
                 None => {
                     if all_flag {
-                        inspect_all_templates(config)?;
+                        inspect_all_templates(config, verbose_flag)?;
                     } else {
-                        ask_inspect_template_optional_verbose(config, verbose_flag)?;
+                        ask_inspect_template(config, verbose_flag)?;
                     }
                 }
             };
