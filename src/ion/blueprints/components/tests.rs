@@ -1,5 +1,6 @@
 use crate::blueprints::*;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -30,5 +31,16 @@ impl Blueprint for ProjectTest {
         self.project
             .as_template(config)?
             .render(ctx, "Project.toml")
+    }
+}
+
+impl fmt::Display for ProjectTest {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "Template: {}\nProject: {}\n",
+            self.template, self.project
+        )?;
+        Ok(())
     }
 }

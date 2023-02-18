@@ -2,6 +2,7 @@ use crate::blueprints::*;
 use chrono::Datelike;
 use dialoguer::Input;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]
@@ -49,5 +50,20 @@ impl Blueprint for License {
             file: license + ".hbs",
         }
         .render(config, ctx, "LICENSE")
+    }
+}
+
+impl fmt::Display for License {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(license_template_dir) = &self.template_dir {
+            write!(
+                format_buffer,
+                "License template dir: {:#?}\n",
+                license_template_dir
+            )?;
+        } else {
+            write!(format_buffer, "License template dir: None\n")?;
+        }
+        Ok(())
     }
 }

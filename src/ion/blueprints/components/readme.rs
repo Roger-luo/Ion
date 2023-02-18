@@ -1,6 +1,7 @@
 use crate::blueprints::*;
 use dialoguer::Input;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -49,5 +50,16 @@ pub struct Badge {
 impl Badge {
     pub fn render(&self) -> String {
         format!("[![{}]({})]({})", self.hover, self.image, self.link)
+    }
+}
+
+impl fmt::Display for Readme {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "Template: {}\nInline Badge: {}\n",
+            self.template, self.inline_badge
+        )?;
+        Ok(())
     }
 }

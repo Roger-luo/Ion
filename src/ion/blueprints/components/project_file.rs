@@ -4,6 +4,7 @@ use dialoguer::Confirm;
 use log::debug;
 use node_semver::Version;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Clone)]
@@ -71,6 +72,17 @@ impl Blueprint for ProjectFile {
                 orcid: None,
             }];
         }
+        Ok(())
+    }
+}
+
+impl fmt::Display for ProjectFile {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "Template: {}\nVersion: {}\n",
+            self.template, self.version
+        )?;
         Ok(())
     }
 }

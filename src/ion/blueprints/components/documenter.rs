@@ -1,8 +1,8 @@
 use crate::blueprints::*;
 use crate::utils::*;
 use crate::PackageSpec;
-use anyhow::Ok;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -75,5 +75,16 @@ impl Badgeable for Documenter {
             image: "https://img.shields.io/badge/docs-stable-blue.svg".to_string(),
             link: "https://JuliaDocs.github.io/Documenter.jl/stable".to_string(),
         }
+    }
+}
+
+impl fmt::Display for Documenter {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "Make.jl template: {}\nIndex.md template: {}\nDoc project template: {}\nIgnore files: {:#?}\n",
+            self.make_jl, self.index_md, self.doc_project, self.ignore
+        )?;
+        Ok(())
     }
 }

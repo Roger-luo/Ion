@@ -215,6 +215,90 @@ pub fn ask_inspect_template(config: &Config) -> Result<()> {
     Ok(())
 }
 
+pub fn inspect_template_verbose(config: &Config, template_name: String) -> Result<()> {
+    let templates = config.template_dir().read_dir()?;
+
+    let mut template_found: bool = false;
+
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+            if template.name == template_name {
+                template_found = true;
+                println!("{}", template);
+            }
+        }
+    }
+
+    // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
+    if !template_found {
+        println!(
+            "The {} template was not found.\nInstalled templates are:",
+            template_name
+        );
+        ask_inspect_template_verbose(config)?
+    }
+    Ok(())
+}
+
+pub fn ask_inspect_template_verbose(config: &Config) -> Result<()> {
+    // Get selection options from installed templates
+    let mut selection_options = vec![];
+
+    let templates = config.template_dir().read_dir()?;
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+
+            selection_options.push(template.name);
+        }
+    }
+
+    // Message
+    println!("Which template would you like to inspect?");
+    // Ask for template to print to console
+    let template_name = Select::with_theme(&ColorfulTheme::default())
+        .items(&selection_options)
+        .default(1)
+        .interact_opt()?;
+
+    if let Some(template_name) = template_name {
+        inspect_template_verbose(config, selection_options[template_name].to_owned())?
+    };
+
+    Ok(())
+}
+
 pub fn git_config_get(key: &str) -> Option<String> {
     let output = std::process::Command::new("git")
         .arg("config")

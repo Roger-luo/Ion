@@ -3,6 +3,7 @@ use crate::{blueprints::*, config::Config};
 use chrono::Datelike;
 use dialoguer::{Confirm, Input};
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
@@ -114,5 +115,16 @@ impl Blueprint for Citation {
         self.template
             .as_template(config)?
             .render(ctx, "CITATION.cff")
+    }
+}
+
+impl fmt::Display for Citation {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "Template: {}\nReadme: {}\n",
+            self.template, self.readme
+        )?;
+        Ok(())
     }
 }

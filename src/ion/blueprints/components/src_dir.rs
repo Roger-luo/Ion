@@ -1,5 +1,6 @@
 use crate::blueprints::*;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -22,5 +23,12 @@ impl Blueprint for SrcDir {
         self.template
             .as_template(config)?
             .render(ctx, format!("{module}.jl").as_str())
+    }
+}
+
+impl fmt::Display for SrcDir {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(format_buffer, "Source Dir: {}\n", self.template)?;
+        Ok(())
     }
 }

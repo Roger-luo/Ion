@@ -1,5 +1,6 @@
 use crate::blueprints::*;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
@@ -16,6 +17,17 @@ impl Blueprint for Coveralls {
             template
                 .as_template(config)?
                 .render(ctx, ".coveralls.yml")?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for Coveralls {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(template) = &self.template {
+            write!(format_buffer, "Coveralls template: {}\n", template)?;
+        } else {
+            write!(format_buffer, "Coveralls template: None\n")?;
         }
         Ok(())
     }

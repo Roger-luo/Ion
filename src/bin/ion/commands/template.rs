@@ -1,7 +1,8 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command};
 use ion::blueprints::{
-    ask_inspect_template, inspect_all_templates, inspect_template, list_templates,
+    ask_inspect_template, ask_inspect_template_verbose, inspect_all_templates, inspect_template,
+    inspect_template_verbose, list_templates,
 };
 use ion::config::Config;
 use ion::errors::CliResult;
@@ -16,7 +17,8 @@ pub fn cli() -> Command {
             Command::new("inspect")
                 .about("inspect the contents of a template")
                 .arg(arg!([TEMPLATE] "Selects which template to print out"))
-                .arg(arg!(--"all" "Inspect all installed templates")),
+                .arg(arg!(--"all" "Inspect all installed templates"))
+                .arg(arg!(verbose: -v --verbose "Inspect details of the template output")),
         )
         .arg_required_else_help(true)
 }
@@ -28,14 +30,24 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
             RemoteTemplate::new(config).download()?;
         }
         Some(("inspect", matches)) => {
-            // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
+            // Iff a template name is provided, inspect template; otherwise, check for --verbose & --all flags; if no --verbose or --all, ask user to select template from list
 
             match matches.get_one::<String>("TEMPLATE") {
-                Some(template) => inspect_template(config, template.to_owned())?,
+                Some(template) => {
+                    let verbose_flag = matches.get_flag("verbose");
+                    if verbose_flag {
+                        inspect_template_verbose(config, template.to_owned())?;
+                    } else {
+                        inspect_template(config, template.to_owned())?;
+                    }
+                }
                 None => {
                     let all_flag = matches.get_flag("all");
+                    let verbose_flag = matches.get_flag("verbose");
                     if all_flag {
                         inspect_all_templates(config)?;
+                    } else if verbose_flag {
+                        ask_inspect_template_verbose(config)?;
                     } else {
                         ask_inspect_template(config)?;
                     }

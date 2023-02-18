@@ -1,6 +1,7 @@
 use crate::blueprints::*;
 use log::debug;
 use serde_derive::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
@@ -139,5 +140,51 @@ impl Blueprint for CompatHelper {
         self.template
             .as_template(config)?
             .copy(ctx, "CompatHelper.yml")
+    }
+}
+
+impl fmt::Display for GitHub {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(ci) = &self.ci {
+            write!(format_buffer, "CI:\n{}\n", ci)?;
+        } else {
+            write!(format_buffer, "CI:\nNone\n")?;
+        }
+        if let Some(tagbot) = &self.tagbot {
+            write!(format_buffer, "Tagbot:\n{}\n", tagbot)?;
+        } else {
+            write!(format_buffer, "Tagbot:\nNone\n")?;
+        }
+        if let Some(compat_helper) = &self.compat_helper {
+            write!(format_buffer, "Compat Helper:\n{}\n", compat_helper)?;
+        } else {
+            write!(format_buffer, "Compat Helper:\nNone\n")?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for CI {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            format_buffer,
+            "CI template: {}\nArchitecture: {:#?}\nOS: {:#?}\n",
+            self.template, self.arch, self.os
+        )?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for TagBot {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(format_buffer, "Tagbot template: {}\n", self.template)?;
+        Ok(())
+    }
+}
+
+impl fmt::Display for CompatHelper {
+    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
+        write!(format_buffer, "Compat helper template: {}\n", self.template)?;
+        Ok(())
     }
 }
