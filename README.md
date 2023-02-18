@@ -39,7 +39,7 @@ If you want to have shell auto-completion, after downloading ion, run ion comple
 
 In the future, if this is adopted by more people, maybe we can have juliaup ship this or have an ionup for a friendlier installation process.
 
-### The forwarded Pkg commands
+#### The forwarded Pkg commands
 
 Ion forwards Julia's Pkg commands in the terminal, e.g
 
@@ -139,7 +139,7 @@ Have you tried to let dev command use your own directory instead of .julia/dev ?
 
 Have you cloned a Julia package, ready to contribute to it, but realize you need to fork it and change remote origin to remote upstream and add your own fork?
 
-Now ion clone handles all above with just one line! if you try `ion clone Example` it will look for the registered URL and try to clone it, and because you don’t seem to have access to this repo, we will ask if you want to fork it and if you say yes, we will do it for you. No opening browser is needed!
+Now ion clone handles all above with just one line! if you try `ion clone Example` it will look for the registered URL and try to clone it, and because you don't seem to have access to this repo, we will ask if you want to fork it and if you say yes, we will do it for you. No opening browser is needed!
 
 #### Create a new package with pre-defined templates
 
@@ -184,7 +184,7 @@ os = ["ubuntu-latest", "macos-latest", "windows-latest"]
 [github.compat_helper]
 ```
 
-Most importantly you can save your own custom configuration and share it with people! Maybe your company's internal packages need a custom README template and LICENSE? Create your own template.toml with corresponding components and share it with your colleagues instead of asking them to do it interactively! Check examples in our template registry here!
+Most importantly you can save your own custom configuration and share it with people! Maybe your company's internal packages need a custom README template and LICENSE? Create your own template.toml with corresponding components and share it with your colleagues instead of asking them to do it interactively! Check examples in our [template registry here](https://github.com/Roger-luo/ion-templates)!
 
 #### What's next?
 
@@ -192,7 +192,7 @@ I'm hoping to have self-update support like juliaup in the future, but I haven't
 
 Last, please feel free to open issues on bug reports, feature requests, or contributing PRs!
 
-## Command Quick Reference:
+### Command Quick Reference:
 
 NB: sub-commands are indicated with bullet points and options are indicated with bullet points plus short or long flags (ie. -f or --flag).
 Arguments are listed in square brackets, such as [URL]. A positional arg which is capable of handling multiple arguments is listed with ellipses following the name (eg. [EXAMPLE...]).
@@ -224,7 +224,7 @@ Optional arguments are listed with a `?` before the name; generally speaking, if
 
 ---
 
-### Command List
+#### Command List
   ion
 - auth
   - login
