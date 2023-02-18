@@ -112,7 +112,9 @@ pub fn list_templates(config: &Config) -> Result<()> {
     Ok(())
 }
 
+
 pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bool) -> Result<()> {
+
     let templates = config.template_dir().read_dir()?;
 
     let mut template_found: bool = false;
@@ -164,6 +166,7 @@ pub fn ask_inspect_template(config: &Config, verbose_flag: bool) -> Result<()> {
     let mut selection_options = vec![];
 
     let templates = config.template_dir().read_dir()?;
+
     for entry in templates {
         let entry = match entry {
             Ok(e) => e,
@@ -233,6 +236,7 @@ pub fn inspect_all_templates(config: &Config, verbose_flag: bool) -> Result<()> 
             }
         }
     }
+
     Ok(())
 }
 
