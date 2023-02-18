@@ -1,8 +1,8 @@
 use clap::parser::ArgMatches;
 use clap::{arg, Command};
 use ion::blueprints::{
-    ask_inspect_template, ask_inspect_template_verbose, inspect_all_templates, inspect_template,
-    inspect_template_verbose, list_templates,
+    ask_inspect_template_optional_verbose, inspect_all_templates,
+    inspect_template_optional_verbose, list_templates,
 };
 use ion::config::Config;
 use ion::errors::CliResult;
@@ -30,26 +30,19 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
             RemoteTemplate::new(config).download()?;
         }
         Some(("inspect", matches)) => {
-            // Iff a template name is provided, inspect template; otherwise, check for --verbose & --all flags; if no --verbose or --all, ask user to select template from list
+            let all_flag = matches.get_flag("all");
+            let verbose_flag = matches.get_flag("verbose");
 
+            // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
             match matches.get_one::<String>("TEMPLATE") {
                 Some(template) => {
-                    let verbose_flag = matches.get_flag("verbose");
-                    if verbose_flag {
-                        inspect_template_verbose(config, template.to_owned())?;
-                    } else {
-                        inspect_template(config, template.to_owned())?;
-                    }
+                    inspect_template_optional_verbose(config, template.to_owned(), verbose_flag)?;
                 }
                 None => {
-                    let all_flag = matches.get_flag("all");
-                    let verbose_flag = matches.get_flag("verbose");
                     if all_flag {
                         inspect_all_templates(config)?;
-                    } else if verbose_flag {
-                        ask_inspect_template_verbose(config)?;
                     } else {
-                        ask_inspect_template(config)?;
+                        ask_inspect_template_optional_verbose(config, verbose_flag)?;
                     }
                 }
             };

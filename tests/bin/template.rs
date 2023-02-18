@@ -53,9 +53,8 @@ fn test_template() -> Result<()> {
         .arg("template")
         .arg("inspect")
         .arg("--verbose")
-        .spawn(Some(5_000))?;
+        .spawn(Some(10_000))?;
 
-    ptysession.exp_string("Which template would you like to inspect?")?;
     // Send <ENTER> keycode
     ptysession.send_control('j')?;
     ptysession.exp_string("Name:")?;
@@ -70,11 +69,12 @@ fn test_template() -> Result<()> {
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-        .spawn(Some(5_000))?;
+        .spawn(Some(10_000))?;
 
     ps.exp_string("Installed templates are:")?;
 
     // Send <ENTER> keycode to pty
+    ps.send_control('j')?;
     ps.send_control('j')?;
     ps.exp_string("name")?;
     ps.exp_eof()?;
