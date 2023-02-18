@@ -112,9 +112,7 @@ pub fn list_templates(config: &Config) -> Result<()> {
     Ok(())
 }
 
-
 pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bool) -> Result<()> {
-
     let templates = config.template_dir().read_dir()?;
 
     let mut template_found: bool = false;
@@ -152,9 +150,7 @@ pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bo
 
     // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
     if !template_found {
-        println!(
-            "The {template_name} template was not found.\nInstalled templates are:"
-        );
+        println!("The {template_name} template was not found.\nInstalled templates are:");
         ask_inspect_template(config, verbose_flag)?
     }
     Ok(())

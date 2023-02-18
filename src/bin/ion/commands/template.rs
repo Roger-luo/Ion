@@ -18,7 +18,6 @@ pub fn cli() -> Command {
                 .arg(arg!([TEMPLATE] "Selects which template to print out"))
                 .arg(arg!(--"all" "Inspect all installed templates"))
                 .arg(arg!(verbose: -v --verbose "Inspect details of the template output")),
-
         )
         .arg_required_else_help(true)
 }
@@ -43,7 +42,6 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
                         inspect_all_templates(config, verbose_flag)?;
                     } else {
                         ask_inspect_template(config, verbose_flag)?;
-
                     }
                 }
             };

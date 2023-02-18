@@ -26,7 +26,6 @@ fn test_template() -> Result<()> {
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-
         .spawn(Some(15_000))?;
 
     p.exp_string("template was not found")?;
@@ -83,7 +82,7 @@ fn test_template() -> Result<()> {
     ptysession.exp_eof()?;
 
     Ok(())?;
-    
+
     // Test nonce input
     let mut ps = Ion::new()
         .arg("template")
