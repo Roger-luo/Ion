@@ -28,6 +28,7 @@ fn test_template() -> Result<()> {
         .arg("nonce")
         .spawn(Some(15_000))?;
 
+    p.exp_string("template was not found")?;
     p.send_control('c')?;
     p.exp_eof()?;
 
