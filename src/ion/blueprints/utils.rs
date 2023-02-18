@@ -141,10 +141,10 @@ pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bo
                 // If there's no verbose flag (default), print the source, otherwise, display the full template details (verbose true)
                 if verbose_flag {
                     template_found = true;
-                    println!("{}", template);
+                    println!("{template}");
                 } else {
                     template_found = true;
-                    println!("{}", source);
+                    println!("{source}");
                 }
             }
         }
@@ -153,8 +153,7 @@ pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bo
     // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
     if !template_found {
         println!(
-            "The {} template was not found.\nInstalled templates are:",
-            template_name
+            "The {template_name} template was not found.\nInstalled templates are:"
         );
         ask_inspect_template(config, verbose_flag)?
     }
@@ -230,9 +229,9 @@ pub fn inspect_all_templates(config: &Config, verbose_flag: bool) -> Result<()> 
             };
 
             if verbose_flag {
-                println!("\n{}\n**********", template);
+                println!("\n{template}\n**********");
             } else {
-                println!("\n{}\n**********", source);
+                println!("\n{source}\n**********");
             }
         }
     }

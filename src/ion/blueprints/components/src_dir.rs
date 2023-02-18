@@ -28,7 +28,7 @@ impl Blueprint for SrcDir {
 
 impl fmt::Display for SrcDir {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "Source Dir: {}\n", self.template)?;
+        writeln!(format_buffer, "Source Dir: {}", self.template)?;
         Ok(())
     }
 }

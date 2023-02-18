@@ -25,9 +25,9 @@ impl Blueprint for Coveralls {
 impl fmt::Display for Coveralls {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
         if let Some(template) = &self.template {
-            write!(format_buffer, "Coveralls template: {}\n", template)?;
+            writeln!(format_buffer, "Coveralls template: {template}")?;
         } else {
-            write!(format_buffer, "Coveralls template: None\n")?;
+            writeln!(format_buffer, "Coveralls template: None")?;
         }
         Ok(())
     }
