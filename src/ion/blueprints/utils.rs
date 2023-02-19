@@ -144,9 +144,7 @@ pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
 
     // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
     if !template_found {
-        println!(
-            "The {template_name} template was not found.\nInstalled templates are:"
-        );
+        println!("The {template_name} template was not found.\nInstalled templates are:");
         ask_inspect_template(config)?
     }
     Ok(())
