@@ -41,30 +41,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Setup latest stable Julia
-        uses: julia-actions/setup-julia@v1
-        with:
-          version: '1'
-          arch: x64
-      - name: Cache Julia artifacts
-        uses: actions/cache@v1
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
-      - name: Build Julia packages
-        uses: julia-actions/julia-buildpkg@v1
-      - name: Setup fake git user
-        run: |
-          git config --global user.name abc
-          git config --global user.email abc@abc.com
-
+      - name: Setup Julia
+        uses: ./.github/actions/setup-julia
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -91,7 +69,8 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
+      - name: Setup Julia
+        uses: ./.github/actions/setup-julia
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -112,7 +91,6 @@ jobs:
         with:
           command: xtask
           args: coverage
-          
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
