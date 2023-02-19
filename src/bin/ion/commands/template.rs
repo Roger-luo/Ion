@@ -22,10 +22,12 @@ pub fn cli() -> Command {
 }
 
 fn download_templates(config: &mut Config) -> CliResult {
-    if !config.resources().exists() && dialoguer::Confirm::new()
-        .with_prompt("No templates found. Would you like to download them now?")
-        .default(true)
-        .interact()? {
+    if !config.resources().exists()
+        && dialoguer::Confirm::new()
+            .with_prompt("No templates found. Would you like to download them now?")
+            .default(true)
+            .interact()?
+    {
         RemoteTemplate::new(config).download()?;
     }
     Ok(())
@@ -36,7 +38,7 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
         Some(("list", _)) => {
             download_templates(config)?;
             list_templates(config)?
-        },
+        }
         Some(("update", _)) => {
             RemoteTemplate::new(config).download()?;
         }
