@@ -22,6 +22,7 @@ runs:
     - name: Build Julia packages
       uses: julia-actions/julia-buildpkg@v1
     - name: Setup fake git user
+      shell: bash
       run: |
         git config --global user.name abc
         git config --global user.email abc@abc.com
