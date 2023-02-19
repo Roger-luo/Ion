@@ -194,11 +194,12 @@ pub fn registry_data(
     file: impl AsRef<str>,
     name: impl AsRef<str>,
 ) -> Result<String> {
+    let registry = name.as_ref();
     let content = format!(
         r#"
     using Pkg
     for reg in Pkg.Registry.reachable_registries()
-        if reg.name == "{name}"
+        if reg.name == "{registry}"
             data = if isnothing(reg.in_memory_registry)
                 read(joinpath(reg.path, "{file}"), String)
             else
@@ -210,17 +211,21 @@ pub fn registry_data(
     end
     "#,
         file = file.as_ref(),
-        name = name.as_ref()
     )
     .as_julia_command(config)
     .read_command()?;
 
     if content.is_empty() {
-        anyhow::bail!(
-            "Registry {} or file {} not found",
-            name.as_ref(),
-            file.as_ref()
-        );
+        if name.as_ref() == "General" {
+            anyhow::bail!(
+                "Registry General not found, try `ion update` to install default registry"
+            );
+        } else {
+            anyhow::bail!(
+                "Registry {registry} not found, try \
+            `ion registry add {registry}` to add this registry"
+            );
+        }
     }
     Ok(content)
 }

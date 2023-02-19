@@ -1,0 +1,29 @@
+name: Setup Julia environment
+description: Setup Julia environment and fake git user
+
+runs:
+  using: composite
+  steps:
+    - name: Setup latest stable Julia
+      uses: julia-actions/setup-julia@v1
+      with:
+        version: '1'
+        arch: x64
+    - name: Cache Julia artifacts
+      uses: actions/cache@v1
+      env:
+        cache-name: cache-artifacts
+      with:
+        path: ~/.julia/artifacts
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-test-${{ env.cache-name }}-
+          ${{ runner.os }}-test-
+          ${{ runner.os }}-
+    - name: Build Julia packages
+      uses: julia-actions/julia-buildpkg@v1
+    - name: Setup fake git user
+      shell: bash
+      run: |
+        git config --global user.name abc
+        git config --global user.email abc@abc.com
