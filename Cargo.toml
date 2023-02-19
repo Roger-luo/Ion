@@ -10,6 +10,7 @@ description = "a CLI toolbox for Julia developer"
 members = [
     "ion_derive",
     "julia-semver",
+    "xtask",
 ]
 
 [package.metadata.bundle]
