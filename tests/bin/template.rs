@@ -32,6 +32,7 @@ fn test_ctrl_c() -> Result<()> {
         .arg("nonce")
         .spawn(Some(5_000))?;
 
+    p.send_control('j')?; // skip download if there is
     p.read_line()?; // The nonce template was not found.
     p.read_line()?; // Installed templates are:
     p.read_line()?; // research
@@ -45,18 +46,19 @@ fn test_ctrl_c() -> Result<()> {
 
 #[test]
 fn test_nonce() -> Result<()> {
-    let mut ps = Ion::new()
+    let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("nonce")
         .spawn(Some(5_000))?;
 
-    ps.exp_string("Installed templates are:")?;
+    p.send_control('j')?; // skip download if there is
+    p.exp_string("Installed templates are:")?;
 
     // Send <ENTER> keycode to pty
-    ps.send_control('j')?;
-    ps.exp_string("name")?;
-    ps.exp_eof()?;
+    p.send_control('j')?;
+    p.exp_string("name")?;
+    p.exp_eof()?;
 
     Ok(())
 }
