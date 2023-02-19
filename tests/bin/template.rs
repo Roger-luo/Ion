@@ -3,9 +3,8 @@ use anyhow::{Ok, Result};
 
 #[test]
 fn test_template() -> Result<()> {
-    Ion::new().arg("template").arg("list").assert().success();
-
     Ion::new().arg("template").arg("update").assert().success();
+    Ion::new().arg("template").arg("list").assert().success();
 
     Ion::new()
         .arg("template")
