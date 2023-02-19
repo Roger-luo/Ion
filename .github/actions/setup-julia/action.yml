@@ -2,6 +2,7 @@ name: Setup Julia environment
 description: Setup Julia environment and fake git user
 
 runs:
+  using: composite
   steps:
     - name: Setup latest stable Julia
       uses: julia-actions/setup-julia@v1
