@@ -194,7 +194,7 @@ pub fn registry_data(
     file: impl AsRef<str>,
     name: impl AsRef<str>,
 ) -> Result<String> {
-    format!(
+    let content = format!(
         r#"
     using Pkg
     for reg in Pkg.Registry.reachable_registries()
@@ -213,7 +213,16 @@ pub fn registry_data(
         name = name.as_ref()
     )
     .as_julia_command(config)
-    .read_command()
+    .read_command()?;
+
+    if content.is_empty() {
+        anyhow::bail!(
+            "Registry {} or file {} not found",
+            name.as_ref(),
+            file.as_ref()
+        );
+    }
+    Ok(content)
 }
 
 #[cfg(test)]
