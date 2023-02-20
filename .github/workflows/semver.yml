@@ -1,4 +1,4 @@
-name: Build
+name: Julia Semver
 on:
   pull_request:
   push:
@@ -11,6 +11,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pre_job:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@master
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'never'
+          skip_after_successful_duplicate: 'true'
+          paths: '["**/julia-semver"]'
+          do_not_skip: '["workflow_dispatch", "schedule"]'
+
   check:
     name: Check
     runs-on: ubuntu-latest
@@ -30,6 +46,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
+          args: --package julia-semver
 
   test:
     name: Test Suite
@@ -41,8 +58,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-      - name: Setup Julia
-        uses: ./.github/actions/setup-julia
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -51,11 +66,11 @@ jobs:
           override: true
 
       - uses: Swatinem/rust-cache@v1
-
-      - name: Run cargo test
+      - name: Run cargo test -p julia-semver
         uses: actions-rs/cargo@v1
         with:
           command: test
+          args: --package julia-semver
 
   coverage:
     name: Coverage
@@ -88,7 +103,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: xtask
-          args: coverage
+          args: coverage --package julia-semver
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
