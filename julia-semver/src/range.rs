@@ -206,7 +206,7 @@ impl VersionRange {
     }
 
     pub fn contains(&self, version: &Version) -> bool {
-        self.lower <= *version && self.upper >= *version
+        self.lower.less_sim(version) && self.upper.greater_sim(version)
     }
 }
 
@@ -266,39 +266,39 @@ mod tests {
     #[test]
     fn test_semver() -> Result<()> {
         let bound = VersionRange::parse("0.1.0")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 0.1.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 0.1");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse("0.1")?;
-        assert_eq!(bound.to_string(), "0.1.x - 0.1.x");
+        assert_eq!(bound.to_string(), "0.1 - 0.1");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse("0")?;
-        assert_eq!(bound.to_string(), "0.x.x - 0.x.x");
+        assert_eq!(bound.to_string(), "0 - 0");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse("1.1.0")?;
-        assert_eq!(bound.to_string(), "1.1.0 - 1.x.x");
+        assert_eq!(bound.to_string(), "1.1.0 - 1");
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse("1.1")?;
-        assert_eq!(bound.to_string(), "1.1.x - 1.x.x");
+        assert_eq!(bound.to_string(), "1.1 - 1");
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse("1")?;
-        assert_eq!(bound.to_string(), "1.x.x - 1.x.x");
+        assert_eq!(bound.to_string(), "1 - 1");
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse("^0.1.0")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 0.1.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 0.1");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse("^0.1")?;
-        assert_eq!(bound.to_string(), "0.1.x - 0.1.x");
+        assert_eq!(bound.to_string(), "0.1 - 0.1");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse("^0")?;
-        assert_eq!(bound.to_string(), "0.x.x - 0.x.x");
+        assert_eq!(bound.to_string(), "0 - 0");
         assert!(bound.contains(&version!("0.1.0")?));
 
         Ok(())
@@ -311,11 +311,11 @@ mod tests {
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse(">=0.1")?;
-        assert_eq!(bound.to_string(), "0.1.x - *");
+        assert_eq!(bound.to_string(), "0.1 - *");
         assert!(bound.contains(&version!("0.1.0")?));
 
         let bound = VersionRange::parse(">=0")?;
-        assert_eq!(bound.to_string(), "0.x.x - *");
+        assert_eq!(bound.to_string(), "0 - *");
         assert!(bound.contains(&version!("0.1.0")?));
         assert!(bound.contains(&version!("1.1.0")?));
 
@@ -324,30 +324,30 @@ mod tests {
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse(">=1.1")?;
-        assert_eq!(bound.to_string(), "1.1.x - *");
+        assert_eq!(bound.to_string(), "1.1 - *");
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse(">=1")?;
-        assert_eq!(bound.to_string(), "1.x.x - *");
+        assert_eq!(bound.to_string(), "1 - *");
         assert!(bound.contains(&version!("1.1.0")?));
 
         let bound = VersionRange::parse("<0.1.0")?;
-        assert_eq!(bound.to_string(), "0.0.0 - 0.0.x");
+        assert_eq!(bound.to_string(), "0.0.0 - 0.0");
         assert!(bound.contains(&version!("0.0.0")?));
 
         let bound = VersionRange::parse("<0.1")?;
-        assert_eq!(bound.to_string(), "0.0.0 - 0.0.x");
+        assert_eq!(bound.to_string(), "0.0.0 - 0.0");
         assert!(bound.contains(&version!("0.0.0")?));
 
         let err = VersionRange::parse("<0").unwrap_err();
         assert_eq!(err.to_string(), "Invalid version range: <0");
 
         let bound = VersionRange::parse("<1.1.0")?;
-        assert_eq!(bound.to_string(), "0.0.0 - 1.0.x");
+        assert_eq!(bound.to_string(), "0.0.0 - 1.0");
         assert!(bound.contains(&version!("0.0.0")?));
 
         let bound = VersionRange::parse("<1.1")?;
-        assert_eq!(bound.to_string(), "0.0.0 - 1.0.x");
+        assert_eq!(bound.to_string(), "0.0.0 - 1.0");
         assert!(bound.contains(&version!("0.0.0")?));
 
         Ok(())
@@ -359,19 +359,19 @@ mod tests {
         assert_eq!(bound.to_string(), "0.1.0 - 0.2.0");
 
         let bound = VersionRange::parse("0.1.0 - 0.2")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 0.2.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 0.2");
 
         let bound = VersionRange::parse("0.1.0 - 0")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 0.x.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 0");
 
         let bound = VersionRange::parse("0.1.0 - 1")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 1.x.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 1");
 
         let bound = VersionRange::parse("0.1.0 - 1.2.3")?;
         assert_eq!(bound.to_string(), "0.1.0 - 1.2.3");
 
         let bound = VersionRange::parse("0.1.0 - 1.2")?;
-        assert_eq!(bound.to_string(), "0.1.0 - 1.2.x");
+        assert_eq!(bound.to_string(), "0.1.0 - 1.2");
         Ok(())
     }
 }

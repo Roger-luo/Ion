@@ -11,7 +11,7 @@ use {
     either::Either,
     octocrab::{auth::DeviceCodes, Octocrab},
     secrecy::ExposeSecret,
-    spinoff::{Color, Spinner, Spinners},
+    spinoff::{spinners, Color, Spinner},
     std::time::Duration,
 };
 
@@ -166,7 +166,7 @@ impl GithubHandler<'_> {
         client_id: &Secret<String>,
         codes: &DeviceCodes,
     ) -> Result<String> {
-        let spinner = Spinner::new(Spinners::Dots, "waiting github...", Color::Blue);
+        let spinner = Spinner::new(spinners::Dots, "waiting github...", Color::Blue);
         let mut interval = Duration::from_secs(codes.interval);
         let mut clock = tokio::time::interval(interval);
         let auth = loop {
