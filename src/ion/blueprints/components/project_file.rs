@@ -1,8 +1,8 @@
 use crate::blueprints::*;
 use crate::spec::Author;
 use dialoguer::Confirm;
-use log::debug;
 use julia_semver::Version;
+use log::debug;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
