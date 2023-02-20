@@ -3,9 +3,8 @@ use anyhow::{Ok, Result};
 
 #[test]
 fn test_template() -> Result<()> {
-    Ion::new().arg("template").arg("list").assert().success();
-
     Ion::new().arg("template").arg("update").assert().success();
+    Ion::new().arg("template").arg("list").assert().success();
 
     Ion::new()
         .arg("template")
@@ -21,81 +20,104 @@ fn test_template() -> Result<()> {
         .assert()
         .success();
 
+    Ok(())
+}
+
+#[test]
+fn test_ctrl_c() -> Result<()> {
     // Test escape from input / Ctrl+C behaviour with `ion template inspect` (cf. ask_inspect_input fn)
     let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-        .spawn(Some(15_000))?;
+        .spawn(Some(5_000))?;
 
-    p.exp_string("template was not found")?;
+    p.send_control('j')?; // skip download if there is
+    p.read_line()?; // The nonce template was not found.
+    p.read_line()?; // Installed templates are:
+    p.read_line()?; // research
+    p.read_line()?; // project
+    p.read_line()?; // package
     p.send_control('c')?;
     p.exp_eof()?;
 
-    Ok(())?;
+    Ok(())
+}
 
+#[test]
+fn test_verbose - > Result<()> {
     // Test --verbose flag
-    let mut pty = Ion::new()
+    let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("--verbose")
         .arg("package")
         .spawn(Some(5_000))?;
 
-    pty.exp_string("Name:")?;
-    pty.exp_string("Description:")?;
-    pty.exp_string("Repo:")?;
-    pty.exp_eof()?;
+    p.exp_string("Name:")?;
+    p.exp_string("Description:")?;
+    p.exp_string("Repo:")?;
+    p.exp_eof()?;
 
-    Ok(())?;
+    Ok(())
+}
 
+#[test]
+fn test_verbose_all -> Result<()> {
     // Test --verbose --all flags together
-    let mut ptysess = Ion::new()
+    let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("--verbose")
         .arg("--all")
         .spawn(Some(5_000))?;
 
-    ptysess.exp_string("Name:")?;
-    ptysess.exp_string("Description:")?;
-    ptysess.exp_string("Name:")?;
-    ptysess.exp_string("Description:")?;
-    ptysess.exp_string("Name:")?;
-    ptysess.exp_string("Description:")?;
-    ptysess.exp_eof()?;
+    p.exp_string("Name:")?;
+    p.exp_string("Description:")?;
+    p.exp_string("Name:")?;
+    p.exp_string("Description:")?;
+    p.exp_string("Name:")?;
+    p.exp_string("Description:")?;
+    p.exp_eof()?;
 
-    Ok(())?;
+    Ok(())
+}
 
+#[test]
+fn test_verbose_user_input -> Result<()> {
     // Test --verbose flag, ask for user selection
-    let mut ptysession = Ion::new()
+    let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("--verbose")
         .spawn(Some(10_000))?;
 
     // Send <ENTER> keycode
-    ptysession.send_control('j')?;
-    ptysession.exp_string("Name:")?;
-    ptysession.exp_string("Description:")?;
-    ptysession.exp_string("Repo:")?;
-    ptysession.exp_eof()?;
+    p.send_control('j')?;
+    p.exp_string("Name:")?;
+    p.exp_string("Description:")?;
+    p.exp_string("Repo:")?;
+    p.exp_eof()?;
 
-    Ok(())?;
+    Ok(())
+}
 
-    // Test nonce input
-    let mut ps = Ion::new()
+#[test]
+fn test_nonce() -> Result<()> {
+    let mut p = Ion::new()
+
         .arg("template")
         .arg("inspect")
         .arg("nonce")
         .spawn(Some(15_000))?;
 
-    ps.exp_string("Installed templates are:")?;
+    p.send_control('j')?; // skip download if there is
+    p.exp_string("Installed templates are:")?;
 
     // Send <ENTER> keycode to pty
-    ps.send_control('j')?;
-    ps.exp_string("name")?;
-    ps.exp_eof()?;
+    p.send_control('j')?;
+    p.exp_string("name")?;
+    p.exp_eof()?;
 
     Ok(())
 }
