@@ -6,3 +6,4 @@ Cargo.lock
 .vscode
 Manifest.toml
 *.profraw
+lcov.info
