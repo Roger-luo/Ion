@@ -1,82 +1,127 @@
-on: [push, pull_request]
-
-name: Continuous integration
+name: Build
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+  - cron: '00 01 * * *'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Run cargo check
+        uses: actions-rs/cargo@v1
         with:
           command: check
 
   test:
     name: Test Suite
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
-        with:
-          version: '1'
-          arch: x64
-      - uses: actions/cache@v1
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
-      - uses: julia-actions/julia-buildpkg@v1
-      - run: git config --global user.name abc
-      - run: git config --global user.email abc@abc.com
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup Julia
+        uses: ./.github/actions/setup-julia
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.rust }}
           override: true
-      - uses: actions-rs/cargo@v1
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --no-default-features --workspace
 
-  fmt:
-    name: Rustfmt
+  coverage:
+    name: Coverage
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        rust: [stable]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Setup Julia
+        uses: ./.github/actions/setup-julia
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Download grcov
+        run: |
+          mkdir -p "${HOME}/.local/bin"
+          curl -sL https://github.com/mozilla/grcov/releases/download/v0.8.10/grcov-x86_64-unknown-linux-gnu.tar.bz2 | tar jxf - -C "${HOME}/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Run xtask coverage
+        uses: actions-rs/cargo@v1
+        with:
+          command: xtask
+          args: coverage
+
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage/*.lcov
+
+  lints:
+    name: Lints
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout sources
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --all -- --check
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: -- -D warnings
