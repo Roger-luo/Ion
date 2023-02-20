@@ -55,7 +55,7 @@ jobs:
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
-          command: test
+          command: test --workspace
 
   coverage:
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
