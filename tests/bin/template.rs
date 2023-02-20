@@ -45,7 +45,7 @@ fn test_ctrl_c() -> Result<()> {
 }
 
 #[test]
-fn test_verbose - > Result<()> {
+fn test_verbose() -> Result<()> {
     // Test --verbose flag
     let mut p = Ion::new()
         .arg("template")
@@ -63,7 +63,7 @@ fn test_verbose - > Result<()> {
 }
 
 #[test]
-fn test_verbose_all -> Result<()> {
+fn test_verbose_all() -> Result<()> {
     // Test --verbose --all flags together
     let mut p = Ion::new()
         .arg("template")
@@ -84,7 +84,7 @@ fn test_verbose_all -> Result<()> {
 }
 
 #[test]
-fn test_verbose_user_input -> Result<()> {
+fn test_verbose_user_input() -> Result<()> {
     // Test --verbose flag, ask for user selection
     let mut p = Ion::new()
         .arg("template")
@@ -105,7 +105,6 @@ fn test_verbose_user_input -> Result<()> {
 #[test]
 fn test_nonce() -> Result<()> {
     let mut p = Ion::new()
-
         .arg("template")
         .arg("inspect")
         .arg("nonce")
