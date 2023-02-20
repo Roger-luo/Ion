@@ -137,17 +137,14 @@ pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
             };
             if template.name == template_name {
                 template_found = true;
-                println!("{}", source);
+                println!("{source}");
             }
         }
     }
 
     // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
     if !template_found {
-        println!(
-            "The {} template was not found.\nInstalled templates are:",
-            template_name
-        );
+        println!("The {template_name} template was not found.\nInstalled templates are:");
         ask_inspect_template(config)?
     }
     Ok(())
@@ -168,7 +165,7 @@ pub fn inspect_all_templates(config: &Config) -> Result<()> {
         if path.is_dir() {
             let source = std::fs::read_to_string(path.join("template.toml"))?;
 
-            println!("\n{}\n**********", source);
+            println!("\n{source}\n**********");
         }
     }
     Ok(())

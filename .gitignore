@@ -5,3 +5,4 @@ Cargo.lock
 /tests/packages/scratch
 .vscode
 Manifest.toml
+*.profraw

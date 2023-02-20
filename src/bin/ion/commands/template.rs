@@ -21,13 +21,29 @@ pub fn cli() -> Command {
         .arg_required_else_help(true)
 }
 
+fn download_templates(config: &mut Config) -> CliResult {
+    if !config.resources().exists()
+        && dialoguer::Confirm::new()
+            .with_prompt("No templates found. Would you like to download them now?")
+            .default(true)
+            .interact()?
+    {
+        RemoteTemplate::new(config).download()?;
+    }
+    Ok(())
+}
+
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     match matches.subcommand() {
-        Some(("list", _)) => list_templates(config)?,
+        Some(("list", _)) => {
+            download_templates(config)?;
+            list_templates(config)?
+        }
         Some(("update", _)) => {
             RemoteTemplate::new(config).download()?;
         }
         Some(("inspect", matches)) => {
+            download_templates(config)?;
             // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
 
             match matches.get_one::<String>("TEMPLATE") {
