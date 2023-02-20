@@ -13,6 +13,7 @@ macro_rules! version {
     };
 }
 
+#[derive(Debug, Clone)]
 pub struct VersionSpec {
     ranges: Vec<VersionRange>,
 }
@@ -32,7 +33,7 @@ impl VersionSpec {
     }
 
     pub fn contains(&self, version: &Version) -> bool {
-        self.ranges.iter().all(|r| r.contains(version))
+        self.ranges.iter().any(|r| r.contains(version))
     }
 }
 
@@ -43,7 +44,7 @@ impl Display for VersionSpec {
             if first {
                 first = false;
             } else {
-                write!(f, ",")?;
+                write!(f, ", ")?;
             }
             write!(f, "{r}")?;
         }
@@ -83,5 +84,20 @@ impl Serialize for VersionSpec {
         S: Serializer,
     {
         serializer.collect_str(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_spec() {
+        let spec = VersionSpec::parse("1.0.0, 1.1.0").unwrap();
+        assert!(spec.contains(&Version::parse("1.0.0").unwrap()));
+        assert!(spec.contains(&Version::parse("1.1.0").unwrap()));
+        assert!(spec.contains(&Version::parse("1.2.0").unwrap()));
+
+        assert_eq!(spec.to_string(), "1.0.0 - 1, 1.1.0 - 1");
     }
 }
