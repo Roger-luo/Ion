@@ -64,6 +64,8 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
+      - name: Setup Julia
+        uses: ./.github/actions/setup-julia
       - name: Install Rust
         run: rustup update stable
       - name: Install cargo-llvm-cov
