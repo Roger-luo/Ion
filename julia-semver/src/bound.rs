@@ -116,13 +116,34 @@ mod tests {
 
     #[test]
     fn test_parse() {
-        assert_eq!(VersionBound::parse("1.2.3").unwrap(), VersionBound::new((1, 2, 3), 3));
-        assert_eq!(VersionBound::parse("1.2").unwrap(), VersionBound::new((1, 2, 0), 2));
-        assert_eq!(VersionBound::parse("1").unwrap(), VersionBound::new((1, 0, 0), 1));
-        assert_eq!(VersionBound::parse("*").unwrap(), VersionBound::new((0, 0, 0), 0));
-        assert_eq!(VersionBound::parse("v1.2.3").unwrap(), VersionBound::new((1, 2, 3), 3));
-        assert_eq!(VersionBound::parse("v1.2").unwrap(), VersionBound::new((1, 2, 0), 2));
-        assert_eq!(VersionBound::parse("v1").unwrap(), VersionBound::new((1, 0, 0), 1));
+        assert_eq!(
+            VersionBound::parse("1.2.3").unwrap(),
+            VersionBound::new((1, 2, 3), 3)
+        );
+        assert_eq!(
+            VersionBound::parse("1.2").unwrap(),
+            VersionBound::new((1, 2, 0), 2)
+        );
+        assert_eq!(
+            VersionBound::parse("1").unwrap(),
+            VersionBound::new((1, 0, 0), 1)
+        );
+        assert_eq!(
+            VersionBound::parse("*").unwrap(),
+            VersionBound::new((0, 0, 0), 0)
+        );
+        assert_eq!(
+            VersionBound::parse("v1.2.3").unwrap(),
+            VersionBound::new((1, 2, 3), 3)
+        );
+        assert_eq!(
+            VersionBound::parse("v1.2").unwrap(),
+            VersionBound::new((1, 2, 0), 2)
+        );
+        assert_eq!(
+            VersionBound::parse("v1").unwrap(),
+            VersionBound::new((1, 0, 0), 1)
+        );
     }
 
     #[test]
@@ -156,7 +177,7 @@ mod tests {
         assert!(b2.greater_sim(&v2));
         assert!(b3.greater_sim(&v2));
         assert!(b4.greater_sim(&v2));
-        
+
         assert!(b1.greater_sim(&v1));
         assert!(b2.greater_sim(&v1));
         assert!(b3.greater_sim(&v1));
