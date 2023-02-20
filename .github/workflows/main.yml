@@ -57,6 +57,12 @@ jobs:
         with:
           command: test
 
+      - name: Run cargo test -p julia-semver
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --package julia-semver
+
   coverage:
     name: Coverage
     strategy:
