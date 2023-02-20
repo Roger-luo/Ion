@@ -1,4 +1,4 @@
-use node_semver::Range;
+use julia_semver::VersionRange;
 use serde_derive::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -29,7 +29,7 @@ impl PackageSpec {
             assert!(parts.len() == 2, "Invalid package name: {expr}");
             let version_str = expr.split('@').last().unwrap();
             assert!(
-                Range::parse(version_str).is_ok(),
+                VersionRange::parse(version_str).is_ok(),
                 "Invalid version: {version_str}"
             );
             version = Some(version_str.to_string());

@@ -4,7 +4,7 @@ use crate::summon::JuliaRegistrator;
 use crate::utils::current_root_project;
 use crate::VersionSpec;
 use anyhow::{format_err, Result};
-use node_semver::Version;
+use julia_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -101,7 +101,7 @@ impl JuliaProjectFile {
 mod tests {
     use super::*;
     use anyhow::Error;
-    use node_semver::Version;
+    use julia_semver::Version;
 
     #[test]
     fn test_update_version() -> Result<(), Error> {

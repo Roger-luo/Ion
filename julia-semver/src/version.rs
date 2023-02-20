@@ -19,11 +19,11 @@ pub enum Build {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Version {
-    pub(crate) major: u64,
-    pub(crate) minor: u64,
-    pub(crate) patch: u64,
-    pre: Vec<Pre>,
-    build: Vec<Build>,
+    pub major: u64,
+    pub minor: u64,
+    pub patch: u64,
+    pub pre: Vec<Pre>,
+    pub build: Vec<Build>,
 }
 
 impl Version {

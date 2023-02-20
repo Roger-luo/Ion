@@ -1,5 +1,5 @@
 use anyhow::Error;
-use node_semver::Version;
+use julia_semver::Version;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum VersionSpec {
@@ -48,7 +48,7 @@ impl BumpVersion for Version {
             major: self.major + 1,
             minor: 0,
             patch: 0,
-            pre_release: Vec::new(),
+            pre: Vec::new(),
             build: Vec::new(),
         }
     }
@@ -58,7 +58,7 @@ impl BumpVersion for Version {
             major: self.major,
             minor: self.minor + 1,
             patch: 0,
-            pre_release: Vec::new(),
+            pre: Vec::new(),
             build: Vec::new(),
         }
     }
@@ -68,7 +68,7 @@ impl BumpVersion for Version {
             major: self.major,
             minor: self.minor,
             patch: self.patch + 1,
-            pre_release: Vec::new(),
+            pre: Vec::new(),
             build: Vec::new(),
         }
     }

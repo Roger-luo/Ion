@@ -1,7 +1,7 @@
 use colorful::core::color_string::CString;
 use colorful::Colorful;
 use core::fmt::{Display, Formatter};
-use node_semver::Version;
+use julia_semver::Version;
 
 #[derive(Debug)]
 pub struct ReleaseReport {

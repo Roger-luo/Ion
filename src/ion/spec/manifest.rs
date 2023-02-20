@@ -1,5 +1,5 @@
 use anyhow::Result;
-use node_semver::Version;
+use julia_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
