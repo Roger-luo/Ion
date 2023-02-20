@@ -55,7 +55,8 @@ jobs:
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
-          command: test --workspace
+          command: test
+          args: --workspace
 
   coverage:
     runs-on: ubuntu-latest
