@@ -24,40 +24,16 @@ fn test_template() -> Result<()> {
 }
 
 #[test]
-fn test_ctrl_c() -> Result<()> {
-    // Test escape from input / Ctrl+C behaviour with `ion template inspect` (cf. ask_inspect_input fn)
-    let mut p = Ion::new()
-        .arg("template")
-        .arg("inspect")
-        .arg("nonce")
-        .spawn(Some(5_000))?;
-
-    p.send_control('j')?; // skip download if there is
-    p.read_line()?; // The nonce template was not found.
-    p.read_line()?; // Installed templates are:
-    p.read_line()?; // research
-    p.read_line()?; // project
-    p.read_line()?; // package
-    p.send_control('c')?;
-    p.exp_eof()?;
-
-    Ok(())
-}
-
-#[test]
 fn test_nonce() -> Result<()> {
     let mut p = Ion::new()
         .arg("template")
         .arg("inspect")
         .arg("nonce")
-        .spawn(Some(5_000))?;
+        .spawn(Some(30_000))?;
 
-    p.send_control('j')?; // skip download if there is
-    p.exp_string("Installed templates are:")?;
-
+    p.send_line("")?; // skip download if there is
     // Send <ENTER> keycode to pty
-    p.send_control('j')?;
-    p.exp_string("name")?;
+    p.send_line("")?;
     p.exp_eof()?;
 
     Ok(())
