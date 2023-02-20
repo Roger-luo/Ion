@@ -34,6 +34,7 @@ jobs:
       # Note that `actions-rs/grcov` Action can install `grcov` too,
       # but can't use faster installation methods yet.
       # As a temporary experiment `actions-rs/install` Action plugged in here.
+
       # Consider **NOT** to copy that into your workflow,
       # but use `actions-rs/grcov` only
       # - name: Pre-installing grcov
