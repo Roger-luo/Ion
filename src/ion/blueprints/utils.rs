@@ -144,7 +144,6 @@ pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bo
                     template_found = true;
                     println!("{source}");
                 }
-
             }
         }
     }
@@ -154,7 +153,6 @@ pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bo
         println!("The {template_name} template was not found.\nInstalled templates are:");
 
         ask_inspect_template(config, verbose_flag)?
-
     }
     Ok(())
 }
@@ -185,7 +183,6 @@ pub fn ask_inspect_template(config: &Config, verbose_flag: bool) -> Result<()> {
             };
 
             selection_options.push(template.name);
-
         }
     }
 
