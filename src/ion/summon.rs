@@ -4,7 +4,7 @@ use crate::utils::git;
 use anyhow::{format_err, Result};
 use dialoguer::{Confirm, Editor};
 use octocrab::{models::commits::Comment, Octocrab};
-use spinoff::{Color, Spinner, Spinners};
+use spinoff::{Color, Spinner, spinners};
 use std::path::PathBuf;
 use tokio::runtime::Builder;
 
@@ -88,7 +88,7 @@ impl JuliaRegistrator {
 
             let token = config.github()?.token;
 
-            let spinner = Spinner::new(Spinners::Dots, "Summon JuliaRegistrator...", Color::Blue);
+            let spinner = Spinner::new(spinners::Dots, "Summon JuliaRegistrator...", Color::Blue);
             let result = Builder::new_current_thread()
                 .enable_all()
                 .build()
