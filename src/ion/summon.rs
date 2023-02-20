@@ -4,7 +4,7 @@ use crate::utils::git;
 use anyhow::{format_err, Result};
 use dialoguer::{Confirm, Editor};
 use octocrab::{models::commits::Comment, Octocrab};
-use spinoff::{Color, Spinner, spinners};
+use spinoff::{spinners, Color, Spinner};
 use std::path::PathBuf;
 use tokio::runtime::Builder;
 

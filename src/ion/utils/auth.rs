@@ -11,7 +11,7 @@ use {
     either::Either,
     octocrab::{auth::DeviceCodes, Octocrab},
     secrecy::ExposeSecret,
-    spinoff::{Color, Spinner, spinners},
+    spinoff::{spinners, Color, Spinner},
     std::time::Duration,
 };
 
