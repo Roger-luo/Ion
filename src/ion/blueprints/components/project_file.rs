@@ -2,7 +2,7 @@ use crate::blueprints::*;
 use crate::spec::Author;
 use dialoguer::Confirm;
 use log::debug;
-use node_semver::Version;
+use julia_semver::Version;
 use serde_derive::{Deserialize, Serialize};
 use uuid::Uuid;
 
