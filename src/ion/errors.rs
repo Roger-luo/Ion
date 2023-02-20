@@ -54,12 +54,6 @@ impl From<std::io::Error> for CliError {
     }
 }
 
-impl From<node_semver::SemverError> for CliError {
-    fn from(err: node_semver::SemverError) -> CliError {
-        CliError::new(err.into(), 1)
-    }
-}
-
 impl From<url::ParseError> for CliError {
     fn from(err: url::ParseError) -> CliError {
         CliError::new(err.into(), 1)
@@ -121,14 +115,6 @@ mod tests {
         let err = CliError::from(std::io::Error::new(std::io::ErrorKind::Other, "test"));
         assert_eq!(err.exit_code, 1);
         assert_eq!(err.error.unwrap().to_string(), "test");
-    }
-
-    #[test]
-    fn test_cli_error_from_semver() {
-        let err = node_semver::Version::parse("abc").unwrap_err();
-        let err = CliError::from(err);
-        assert_eq!(err.exit_code, 1);
-        assert_eq!(err.error.unwrap().to_string(), "Failed to parse version.");
     }
 
     #[test]

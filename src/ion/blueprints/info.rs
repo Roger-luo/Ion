@@ -20,7 +20,7 @@ impl Julia {
     pub fn new(config: &Config) -> Self {
         let version = match julia_version(config) {
             Ok(version) => version,
-            Err(_) => node_semver::Version::parse("1.6.0").unwrap(),
+            Err(_) => julia_semver::Version::parse("1.6.0").unwrap(),
         };
 
         let compat = format!("{}.{}", version.major, version.minor);
