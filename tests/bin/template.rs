@@ -32,7 +32,7 @@ fn test_nonce() -> Result<()> {
         .spawn(Some(30_000))?;
 
     p.send_line("")?; // skip download if there is
-    // Send <ENTER> keycode to pty
+                      // Send <ENTER> keycode to pty
     p.send_line("")?;
     p.exp_eof()?;
 
