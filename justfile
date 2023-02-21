@@ -5,7 +5,7 @@ tarball target="aarch64-apple-darwin":
     #!/usr/bin/env bash
     DIST="target/{{target}}/dist"
     VERSION="$(cargo xtask version)"
-    NAME="ion-${VERSION}-{{target}}"
+    NAME="ion-v${VERSION}-{{target}}"
     mkdir -p $DIST
     mkdir -p $DIST/bin
     cp target/{{target}}/release/ion $DIST/bin/ion
