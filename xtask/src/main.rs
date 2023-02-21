@@ -1,16 +1,18 @@
 use clap::Command;
 
-mod bump;
+mod release;
+mod version;
 
 fn main() -> Result<(), anyhow::Error> {
     let app = Command::new("xtask")
         .about("A task runner for the xtask crate")
-        .subcommand(bump::cli())
+        .subcommands(vec![release::cli(), version::cli()])
         .arg_required_else_help(true);
     let matches = app.get_matches();
 
     match matches.subcommand() {
-        Some(("bump", submatches)) => bump::exec(submatches),
+        Some(("release", submatches)) => release::exec(submatches),
+        Some(("version", submatches)) => version::exec(submatches),
         _ => Ok(()),
     }
 }
