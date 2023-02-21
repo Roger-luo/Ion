@@ -16,7 +16,7 @@ delete-release tag:
     git push --delete origin v{{tag}}
 
 release tag:
-    cargo bump {{tag}}
+    cargo xtask bump {{tag}}
     git add Cargo.toml
     git diff --quiet Cargo.toml && git diff --staged --quiet || git commit -m "Bump version to {{tag}}"
     git pull origin main
