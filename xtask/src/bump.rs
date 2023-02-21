@@ -1,7 +1,7 @@
-use cargo_metadata::MetadataCommand;
-use toml_edit::{Document, value};
-use clap::{arg, ArgMatches, Command};
 use anyhow::Result;
+use cargo_metadata::MetadataCommand;
+use clap::{arg, ArgMatches, Command};
+use toml_edit::{value, Document};
 
 pub fn cli() -> Command {
     Command::new("bump")
@@ -45,18 +45,18 @@ impl VersionModifier for semver::Version {
                 v.minor = 0;
                 v.patch = 0;
                 v
-            },
+            }
             Modifier::Minor => {
                 let mut v = self.clone();
                 v.minor += 1;
                 v.patch = 0;
                 v
-            },
+            }
             Modifier::Patch => {
                 let mut v = self.clone();
                 v.patch += 1;
                 v
-            },
+            }
             Modifier::Custom(v) => v,
         }
     }
@@ -69,7 +69,9 @@ pub fn exec(matches: &ArgMatches) -> Result<()> {
     let manifest = root_package.manifest_path.to_owned();
     let source = std::fs::read_to_string(manifest.to_owned())?;
     let mut doc = source.parse::<Document>()?;
-    let modifier_str = matches.get_one::<String>("VERSION").expect("VERSION is required");
+    let modifier_str = matches
+        .get_one::<String>("VERSION")
+        .expect("VERSION is required");
     let modifier = Modifier::parse(modifier_str)?;
 
     if let Some(version_str) = doc["package"]["version"].as_str() {
