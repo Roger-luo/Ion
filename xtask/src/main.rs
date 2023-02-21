@@ -6,9 +6,7 @@ mod version;
 fn main() -> Result<(), anyhow::Error> {
     let app = Command::new("xtask")
         .about("A task runner for the xtask crate")
-        .subcommands(vec![
-            bump::cli(), version::cli(),
-        ])
+        .subcommands(vec![bump::cli(), version::cli()])
         .arg_required_else_help(true);
     let matches = app.get_matches();
 
