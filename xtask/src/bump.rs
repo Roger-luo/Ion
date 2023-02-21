@@ -5,7 +5,7 @@ use toml_edit::{value, Document};
 
 pub fn cli() -> Command {
     Command::new("bump")
-        .about("release the version of the current crate")
+        .about("bump the version of the current crate")
         .arg(arg!(<VERSION> "The version to bump to"))
 }
 
@@ -81,34 +81,5 @@ pub fn exec(matches: &ArgMatches) -> Result<()> {
     let new_version = version.bump(modifier.clone());
     doc["package"]["version"] = value(new_version.to_string());
     std::fs::write(manifest, doc.to_string())?;
-
-    let tag = new_version.to_string();
-    std::process::Command::new("git")
-        .arg("add")
-        .arg("Cargo.toml")
-        .status()?;
-    std::process::Command::new("git")
-        .arg("commit")
-        .arg("-m")
-        .arg(format!("\"Bump version to {tag}\""))
-        .status()?;
-    std::process::Command::new("git")
-        .arg("pull")
-        .arg("origin")
-        .arg("main")
-        .status()?;
-    std::process::Command::new("git")
-        .arg("push")
-        .arg("origin")
-        .arg("main")
-        .status()?;
-    std::process::Command::new("gh")
-        .arg("release")
-        .arg("create")
-        .arg(format!("v{tag}"))
-        .arg("-t")
-        .arg(format!("v{tag}"))
-        .arg("--generate-notes")
-        .status()?;
     Ok(())
 }
