@@ -3,6 +3,7 @@ use crate::{
     utils::{normalize_path, Julia},
 };
 use anyhow::Result;
+use indicatif::{ParallelProgressIterator, ProgressStyle};
 use rayon::prelude::*;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
@@ -146,9 +147,14 @@ impl JuliaTest {
     pub fn run(&self, config: &Config, args: &Vec<String>) -> Result<TestReport> {
         match self {
             Self::Test { name, entry } => {
+                let entry = entry.canonicalize()?;
+                let parent_dir = entry
+                    .parent()
+                    .ok_or_else(|| anyhow::anyhow!("invalid test path: {}", entry.display()))?;
                 let mut cmd = format!(
-                    "using TestEnv; TestEnv.activate(); include(\"{entry}\")",
-                    entry = entry.display()
+                    "using TestEnv; TestEnv.activate(); cd(\"{parent_dir}\") do; include(\"{entry}\"); end",
+                    entry = entry.display(),
+                    parent_dir = parent_dir.display(),
                 )
                 .as_julia_command(config);
                 log::debug!("running test: {:?}", cmd);
@@ -165,19 +171,19 @@ impl JuliaTest {
             }
             Self::Group { name, tests } => {
                 let mut results = Vec::with_capacity(tests.len());
+                let mut template_str = name.to_owned();
+                template_str.push_str(" [{elapsed_precise}] {wide_bar} {pos:>7}/{len:7} {msg}");
+                let style = ProgressStyle::default_bar().template(&template_str)?;
                 tests
                     .into_par_iter()
-                    .map(|test| {
-                        println!("running test: {}", test.name());
-                        test.run(config, args)
-                    })
+                    .progress_with_style(style)
+                    .map(|test| test.run(config, args))
                     .collect_into_vec(&mut results);
 
                 let mut reports = Vec::with_capacity(results.len());
                 for report in results {
                     reports.push(report?);
                 }
-
                 Ok(TestReport::Group {
                     name: name.to_string(),
                     reports,

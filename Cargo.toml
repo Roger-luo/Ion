@@ -60,7 +60,7 @@ flate2 = "1.0.25"
 tar = "0.4.38"
 self_update = "0.35.0"
 rayon = "1.6.1"
-linya = "0.3.0"
+indicatif = { version = "0.17.3", features = ["rayon"] }
 
 [build-dependencies]
 copy_to_output = "2.0.0"

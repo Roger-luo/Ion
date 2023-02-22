@@ -1,6 +1,7 @@
 use anyhow::{format_err, Result};
 use julia_semver::VersionRange;
 use std::fmt::{Debug, Display};
+use std::path::Path;
 use std::process::{Command, Output};
 
 use crate::config::Config;
@@ -27,6 +28,11 @@ impl JuliaCommand {
 
     pub fn project(&mut self, project: &str) -> &mut Self {
         self.cmd.arg(format!("--project={project}"));
+        self
+    }
+
+    pub fn current_dir(&mut self, dir: impl AsRef<Path>) -> &mut Self {
+        self.cmd.current_dir(dir);
         self
     }
 
