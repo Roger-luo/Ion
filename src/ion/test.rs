@@ -3,6 +3,7 @@ use crate::{
     utils::{normalize_path, Julia},
 };
 use anyhow::Result;
+use tokio::runtime::Builder;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::process::Output;
@@ -150,10 +151,25 @@ impl JuliaTest {
                 })
             }
             Self::Group { name, tests } => {
-                let mut reports: Vec<TestReport> = Vec::new();
+                let runtime = Builder::new_multi_thread()
+                    .worker_threads(2)
+                    .build()?;
+
+                let mut handles = Vec::with_capacity(tests.len());
                 for test in tests {
-                    reports.push(test.run(config, args)?);
+                    let config = config.clone();
+                    let args = args.clone();
+                    let test = test.clone();
+                    handles.push(runtime.spawn(async move {
+                        test.run(&config, &args)
+                    }));
                 }
+
+                let mut reports = Vec::with_capacity(tests.len());
+                for handle in handles {
+                    reports.push(runtime.block_on(handle)??);
+                }
+
                 Ok(TestReport::Group {
                     name: name.to_string(),
                     reports,
