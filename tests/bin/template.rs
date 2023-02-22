@@ -54,9 +54,7 @@ fn test_verbose() -> Result<()> {
         .arg("package")
         .spawn(Some(5_000))?;
 
-    p.exp_string("Name:")?;
-    p.exp_string("Description:")?;
-    p.exp_string("Repo:")?;
+    p.exp_string("template")?;
     p.exp_eof()?;
 
     Ok(())
@@ -72,12 +70,9 @@ fn test_verbose_all() -> Result<()> {
         .arg("--all")
         .spawn(Some(5_000))?;
 
-    p.exp_string("Name:")?;
-    p.exp_string("Description:")?;
-    p.exp_string("Name:")?;
-    p.exp_string("Description:")?;
-    p.exp_string("Name:")?;
-    p.exp_string("Description:")?;
+    p.exp_string("template")?;
+    p.exp_string("template")?;
+    p.exp_string("template")?;
     p.exp_eof()?;
 
     Ok(())
@@ -94,9 +89,7 @@ fn test_verbose_user_input() -> Result<()> {
 
     // Send <ENTER> keycode
     p.send_control('j')?;
-    p.exp_string("Name:")?;
-    p.exp_string("Description:")?;
-    p.exp_string("Repo:")?;
+    p.exp_string("template")?;
     p.exp_eof()?;
 
     Ok(())

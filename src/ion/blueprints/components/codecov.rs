@@ -23,9 +23,7 @@ impl Blueprint for Codecov {
 impl fmt::Display for Codecov {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
         if let Some(template) = &self.template {
-            writeln!(format_buffer, "CodeCov template: {template}")?;
-        } else {
-            writeln!(format_buffer, "CodeCov template: None")?;
+            writeln!(format_buffer, "{:#?}", template)?;
         }
         Ok(())
     }

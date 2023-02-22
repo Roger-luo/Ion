@@ -56,12 +56,7 @@ impl Blueprint for License {
 impl fmt::Display for License {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
         if let Some(license_template_dir) = &self.template_dir {
-            writeln!(
-                format_buffer,
-                "License template dir: {license_template_dir:#?}"
-            )?;
-        } else {
-            writeln!(format_buffer, "License template dir: None")?;
+            writeln!(format_buffer, "{license_template_dir:#?}")?;
         }
         Ok(())
     }

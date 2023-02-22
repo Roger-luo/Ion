@@ -55,11 +55,9 @@ impl Badge {
 
 impl fmt::Display for Readme {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            format_buffer,
-            "Template: {}\nInline Badge: {}\n",
-            self.template, self.inline_badge
-        )?;
+        write!(format_buffer, "{:#?}", self.template)?;
+        write!(format_buffer, "{:#?}", self.inline_badge)?;
+
         Ok(())
     }
 }

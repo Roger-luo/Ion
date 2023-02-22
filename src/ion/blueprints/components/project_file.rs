@@ -78,11 +78,9 @@ impl Blueprint for ProjectFile {
 
 impl fmt::Display for ProjectFile {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            format_buffer,
-            "Template: {}\nVersion: {}\n",
-            self.template, self.version
-        )?;
+        write!(format_buffer, "{:#?}", self.template)?;
+        write!(format_buffer, "{:#?}", self.version)?;
+
         Ok(())
     }
 }

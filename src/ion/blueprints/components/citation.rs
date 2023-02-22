@@ -120,11 +120,9 @@ impl Blueprint for Citation {
 
 impl fmt::Display for Citation {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            format_buffer,
-            "Template: {}\nReadme: {}\n",
-            self.template, self.readme
-        )?;
+        write!(format_buffer, "{:#?}", self.template)?;
+        write!(format_buffer, "{:#?}", self.readme)?;
+
         Ok(())
     }
 }

@@ -36,11 +36,9 @@ impl Blueprint for ProjectTest {
 
 impl fmt::Display for ProjectTest {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            format_buffer,
-            "Template: {}\nProject: {}\n",
-            self.template, self.project
-        )?;
+        write!(format_buffer, "{:#?}", self.template)?;
+        write!(format_buffer, "{:#?}", self.project)?;
+
         Ok(())
     }
 }

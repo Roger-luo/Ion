@@ -146,19 +146,13 @@ impl Blueprint for CompatHelper {
 impl fmt::Display for GitHub {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
         if let Some(ci) = &self.ci {
-            write!(format_buffer, "CI:\n{ci}\n")?;
-        } else {
-            write!(format_buffer, "CI:\nNone\n")?;
+            write!(format_buffer, "{:#?}", ci)?;
         }
         if let Some(tagbot) = &self.tagbot {
-            write!(format_buffer, "Tagbot:\n{tagbot}\n")?;
-        } else {
-            write!(format_buffer, "Tagbot:\nNone\n")?;
+            write!(format_buffer, "{:#?}", tagbot)?;
         }
         if let Some(compat_helper) = &self.compat_helper {
-            write!(format_buffer, "Compat Helper:\n{compat_helper}\n")?;
-        } else {
-            write!(format_buffer, "Compat Helper:\nNone\n")?;
+            write!(format_buffer, "{:#?}", compat_helper)?;
         }
         Ok(())
     }
@@ -166,25 +160,23 @@ impl fmt::Display for GitHub {
 
 impl fmt::Display for CI {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            format_buffer,
-            "CI template: {}\nArchitecture: {:#?}\nOS: {:#?}\n",
-            self.template, self.arch, self.os
-        )?;
+        write!(format_buffer, "{:#?}", self.template)?;
+        write!(format_buffer, "{:#?}", self.arch)?;
+        write!(format_buffer, "{:#?}", self.os)?;
         Ok(())
     }
 }
 
 impl fmt::Display for TagBot {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(format_buffer, "Tagbot template: {}", self.template)?;
+        writeln!(format_buffer, "{:#?}", self.template)?;
         Ok(())
     }
 }
 
 impl fmt::Display for CompatHelper {
     fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(format_buffer, "Compat helper template: {}", self.template)?;
+        writeln!(format_buffer, "{:#?}", self.template)?;
         Ok(())
     }
 }
