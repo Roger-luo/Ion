@@ -44,7 +44,7 @@ impl Display for TestReport {
             Self::Group { name, reports } => {
                 writeln!(f, "{}", name)?;
                 for report in reports {
-                    writeln!(f, "  {}", report)?;
+                    write!(f, "  {}", report)?;
                 }
                 Ok(())
             }
@@ -57,10 +57,25 @@ impl Display for TestReport {
                     writeln!(f, "{}: passed", name)?;
                 } else {
                     writeln!(f, "{}: failed", name)?;
-                    writeln!(f, "  stdout:")?;
-                    writeln!(f, "  {}", String::from_utf8_lossy(&output.stdout))?;
-                    writeln!(f, "  stderr:")?;
-                    writeln!(f, "  {}", String::from_utf8_lossy(&output.stderr))?;
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let stdout = stdout.trim();
+                    let stderr = stderr.trim();
+                    let stdout = stdout.split('\n').collect::<Vec<_>>().iter()
+                        .map(|s| format!("  |{}", s))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    writeln!(f, "================= Output ================")?;
+                    writeln!(f, "{}", stdout)?;
+                    if !stderr.is_empty() {
+                        writeln!(f, "================= Error ================")?;
+                        let stderr = stderr.split('\n').collect::<Vec<_>>().iter()
+                        .map(|s| format!("  |{}", s))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                        writeln!(f, "{}", stderr)?;
+                    }
                 }
                 Ok(())
             }
@@ -122,6 +137,7 @@ impl JuliaTest {
                     entry = entry.display()
                 )
                 .as_julia_command(config);
+                log::debug!("running test: {:?}", cmd);
 
                 for arg in args {
                     cmd.arg(arg);
@@ -147,6 +163,7 @@ impl JuliaTest {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct JuliaTestRunner {
     pub(crate) args: Vec<String>, // compiler args
     pub(crate) test: JuliaTest,
