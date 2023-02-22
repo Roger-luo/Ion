@@ -3,7 +3,7 @@ use crate::{
     utils::{normalize_path, Julia},
 };
 use anyhow::Result;
-use tokio::runtime::Builder;
+use rayon::prelude::*;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use std::process::Output;
@@ -62,7 +62,10 @@ impl Display for TestReport {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     let stdout = stdout.trim();
                     let stderr = stderr.trim();
-                    let stdout = stdout.split('\n').collect::<Vec<_>>().iter()
+                    let stdout = stdout
+                        .split('\n')
+                        .collect::<Vec<_>>()
+                        .iter()
                         .map(|s| format!("  |{}", s))
                         .collect::<Vec<_>>()
                         .join("\n");
@@ -71,10 +74,13 @@ impl Display for TestReport {
                     writeln!(f, "{}", stdout)?;
                     if !stderr.is_empty() {
                         writeln!(f, "================= Error ================")?;
-                        let stderr = stderr.split('\n').collect::<Vec<_>>().iter()
-                        .map(|s| format!("  |{}", s))
-                        .collect::<Vec<_>>()
-                        .join("\n");
+                        let stderr = stderr
+                            .split('\n')
+                            .collect::<Vec<_>>()
+                            .iter()
+                            .map(|s| format!("  |{}", s))
+                            .collect::<Vec<_>>()
+                            .join("\n");
                         writeln!(f, "{}", stderr)?;
                     }
                 }
@@ -123,6 +129,13 @@ impl JuliaTest {
         }
     }
 
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Test { name, .. } => name,
+            Self::Group { name, .. } => name,
+        }
+    }
+
     fn is_test_path(path: impl AsRef<Path>) -> bool {
         let path = path.as_ref();
         path.file_name()
@@ -151,23 +164,18 @@ impl JuliaTest {
                 })
             }
             Self::Group { name, tests } => {
-                let runtime = Builder::new_multi_thread()
-                    .worker_threads(2)
-                    .build()?;
+                let mut results = Vec::with_capacity(tests.len());
+                tests
+                    .into_par_iter()
+                    .map(|test| {
+                        println!("running test: {}", test.name());
+                        test.run(config, args)
+                    })
+                    .collect_into_vec(&mut results);
 
-                let mut handles = Vec::with_capacity(tests.len());
-                for test in tests {
-                    let config = config.clone();
-                    let args = args.clone();
-                    let test = test.clone();
-                    handles.push(runtime.spawn(async move {
-                        test.run(&config, &args)
-                    }));
-                }
-
-                let mut reports = Vec::with_capacity(tests.len());
-                for handle in handles {
-                    reports.push(runtime.block_on(handle)??);
+                let mut reports = Vec::with_capacity(results.len());
+                for report in results {
+                    reports.push(report?);
                 }
 
                 Ok(TestReport::Group {
