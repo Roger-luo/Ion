@@ -71,7 +71,9 @@ pub fn emit_template(ast: &DeriveInput) -> TokenStream {
                 #validate
                 Ok(())
             }
+
         }
+
     };
     gen.into()
 }

@@ -112,7 +112,7 @@ pub fn list_templates(config: &Config) -> Result<()> {
     Ok(())
 }
 
-pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
+pub fn inspect_template(config: &Config, template_name: String, verbose_flag: bool) -> Result<()> {
     let templates = config.template_dir().read_dir()?;
 
     let mut template_found: bool = false;
@@ -136,8 +136,14 @@ pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
                 }
             };
             if template.name == template_name {
-                template_found = true;
-                println!("{source}");
+                // If there's no verbose flag (default), print the source, otherwise, display the full template details (verbose true)
+                if verbose_flag {
+                    template_found = true;
+                    println!("{:#?}", template);
+                } else {
+                    template_found = true;
+                    println!("{source}");
+                }
             }
         }
     }
@@ -145,37 +151,18 @@ pub fn inspect_template(config: &Config, template_name: String) -> Result<()> {
     // If the template the user requested is not in the list of downloaded templates, ask user to select existing template to inspect
     if !template_found {
         println!("The {template_name} template was not found.\nInstalled templates are:");
-        ask_inspect_template(config)?
+
+        ask_inspect_template(config, verbose_flag)?
     }
     Ok(())
 }
 
-pub fn inspect_all_templates(config: &Config) -> Result<()> {
-    let templates = config.template_dir().read_dir()?;
-
-    for entry in templates {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(e) => {
-                return Err(Error::new(e));
-            }
-        };
-
-        let path = entry.path();
-        if path.is_dir() {
-            let source = std::fs::read_to_string(path.join("template.toml"))?;
-
-            println!("\n{source}\n**********");
-        }
-    }
-    Ok(())
-}
-
-pub fn ask_inspect_template(config: &Config) -> Result<()> {
+pub fn ask_inspect_template(config: &Config, verbose_flag: bool) -> Result<()> {
     // Get selection options from installed templates
     let mut selection_options = vec![];
 
     let templates = config.template_dir().read_dir()?;
+
     for entry in templates {
         let entry = match entry {
             Ok(e) => e,
@@ -206,8 +193,45 @@ pub fn ask_inspect_template(config: &Config) -> Result<()> {
         .interact_opt()?;
 
     if let Some(template_name) = template_name {
-        inspect_template(config, selection_options[template_name].to_owned())?
+        inspect_template(
+            config,
+            selection_options[template_name].to_owned(),
+            verbose_flag,
+        )?
     };
+
+    Ok(())
+}
+
+pub fn inspect_all_templates(config: &Config, verbose_flag: bool) -> Result<()> {
+    let templates = config.template_dir().read_dir()?;
+
+    for entry in templates {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                return Err(Error::new(e));
+            }
+        };
+
+        let path = entry.path();
+        if path.is_dir() {
+            let source = std::fs::read_to_string(path.join("template.toml"))?;
+
+            let template = match toml::from_str::<Template>(&source) {
+                Ok(t) => t,
+                Err(e) => {
+                    return Err(format_err!("Error parsing template: {}", e));
+                }
+            };
+
+            if verbose_flag {
+                println!("\n{:#?}\n**********", template);
+            } else {
+                println!("\n{source}\n**********");
+            }
+        }
+    }
 
     Ok(())
 }

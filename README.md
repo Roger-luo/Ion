@@ -16,7 +16,7 @@ Download tarball in the release page and extract it to your `$HOME/.julia` direc
 
 ### build from source
 
-Using [`just`](https://github.com/casey/just):
+Using [`just`](https://github.com/casey/just) and [Rust's cargo/rustc compiler](https://rustup.rs/):
 
 ```bash
 just install
