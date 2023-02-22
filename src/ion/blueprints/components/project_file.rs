@@ -4,7 +4,7 @@ use dialoguer::Confirm;
 use julia_semver::Version;
 use log::debug;
 use serde_derive::{Deserialize, Serialize};
-use std::fmt;
+
 use uuid::Uuid;
 
 #[derive(Debug, Serialize, Clone)]

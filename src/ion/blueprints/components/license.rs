@@ -2,7 +2,7 @@ use crate::blueprints::*;
 use chrono::Datelike;
 use dialoguer::Input;
 use serde_derive::{Deserialize, Serialize};
-use std::fmt;
+
 use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Clone)]

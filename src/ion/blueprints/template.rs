@@ -5,7 +5,7 @@ use super::{Julia, Project};
 
 use ion_derive::Template;
 use serde_derive::Deserialize;
-use std::fmt;
+
 
 #[derive(Debug, Deserialize, Template)]
 pub struct Template {
