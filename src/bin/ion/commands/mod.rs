@@ -9,6 +9,7 @@ pub mod run;
 pub mod script;
 pub mod summon;
 pub mod template;
+pub mod test;
 
 pub use clap::parser::ArgMatches;
 pub use clap::{arg, Command, ValueHint};
