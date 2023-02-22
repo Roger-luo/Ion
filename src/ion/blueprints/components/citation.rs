@@ -117,12 +117,3 @@ impl Blueprint for Citation {
             .render(ctx, "CITATION.cff")
     }
 }
-
-impl fmt::Display for Citation {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "{:#?}", self.template)?;
-        write!(format_buffer, "{:#?}", self.readme)?;
-
-        Ok(())
-    }
-}

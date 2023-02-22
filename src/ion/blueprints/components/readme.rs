@@ -52,12 +52,3 @@ impl Badge {
         format!("[![{}]({})]({})", self.hover, self.image, self.link)
     }
 }
-
-impl fmt::Display for Readme {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "{:#?}", self.template)?;
-        write!(format_buffer, "{:#?}", self.inline_badge)?;
-
-        Ok(())
-    }
-}

@@ -33,12 +33,3 @@ impl Blueprint for ProjectTest {
             .render(ctx, "Project.toml")
     }
 }
-
-impl fmt::Display for ProjectTest {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "{:#?}", self.template)?;
-        write!(format_buffer, "{:#?}", self.project)?;
-
-        Ok(())
-    }
-}

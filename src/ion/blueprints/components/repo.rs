@@ -110,13 +110,3 @@ impl Blueprint for GitRepo {
         Ok(())
     }
 }
-
-impl fmt::Display for GitRepo {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "{:#?}", self.branch,)?;
-        write!(format_buffer, "{:#?}", self.ssh,)?;
-        write!(format_buffer, "{:#?}", self.suffix,)?;
-        write!(format_buffer, "{:#?}", self.ignore,)?;
-        Ok(())
-    }
-}

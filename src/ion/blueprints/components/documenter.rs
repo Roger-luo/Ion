@@ -77,14 +77,3 @@ impl Badgeable for Documenter {
         }
     }
 }
-
-impl fmt::Display for Documenter {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        write!(format_buffer, "{:#?}", self.make_jl)?;
-        write!(format_buffer, "{:#?}", self.index_md)?;
-        write!(format_buffer, "{:#?}", self.doc_project)?;
-        write!(format_buffer, "{:#?}", self.ignore)?;
-
-        Ok(())
-    }
-}

@@ -25,10 +25,3 @@ impl Blueprint for SrcDir {
             .render(ctx, format!("{module}.jl").as_str())
     }
 }
-
-impl fmt::Display for SrcDir {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(format_buffer, "{:#?}", self.template)?;
-        Ok(())
-    }
-}

@@ -21,12 +21,3 @@ impl Blueprint for Coveralls {
         Ok(())
     }
 }
-
-impl fmt::Display for Coveralls {
-    fn fmt(&self, format_buffer: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(template) = &self.template {
-            writeln!(format_buffer, "{:#?}", template)?;
-        }
-        Ok(())
-    }
-}
