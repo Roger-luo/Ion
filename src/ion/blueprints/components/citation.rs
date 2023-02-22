@@ -4,7 +4,6 @@ use chrono::Datelike;
 use dialoguer::{Confirm, Input};
 use serde_derive::{Deserialize, Serialize};
 
-
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
     pub readme: bool,

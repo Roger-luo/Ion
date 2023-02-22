@@ -2,7 +2,6 @@ use crate::blueprints::*;
 use dialoguer::Input;
 use serde_derive::{Deserialize, Serialize};
 
-
 #[derive(Debug, Serialize, Clone)]
 pub struct Info;
 

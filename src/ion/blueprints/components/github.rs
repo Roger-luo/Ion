@@ -2,7 +2,6 @@ use crate::blueprints::*;
 use log::debug;
 use serde_derive::{Deserialize, Serialize};
 
-
 #[derive(Debug, Serialize, Clone)]
 pub struct Info {
     pub documenter: bool,

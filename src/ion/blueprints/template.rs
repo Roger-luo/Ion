@@ -6,7 +6,6 @@ use super::{Julia, Project};
 use ion_derive::Template;
 use serde_derive::Deserialize;
 
-
 #[derive(Debug, Deserialize, Template)]
 pub struct Template {
     pub name: String,        // name of the template
