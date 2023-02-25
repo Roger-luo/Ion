@@ -1,4 +1,4 @@
-# Ion - a CLI toolbox for Julia developer
+# Ion - a CLI toolbox for Julia developers
 
 [![Build](https://github.com/Roger-luo/Ion/actions/workflows/main.yml/badge.svg)](https://github.com/Roger-luo/Ion/actions/workflows/main.yml)
 [![codecov](https://codecov.io/gh/Roger-luo/ion/branch/main/graph/badge.svg?token=3PIJaVaOkT)](https://codecov.io/gh/Roger-luo/ion)
@@ -79,6 +79,7 @@ With ion release you only need one line to do all these within seconds! e.g
 will automatically bump a patch version based on your current version in main and your registered version. If it's not a continuous version number, ion will warn you and ask if you want to continue; if your current version number is already valid, ion will ask if you want to release that instead - and Ion will also summon JuliaRegistrator directly without asking you to open the browser.
 
 #### Releases
+
 Custom release pipeline with summon and bump:
 
 We now also provide bump and summon commands to allow you to do more customization, e.g managing large mono-repo that contains many other packages or maybe you want to pack up some artifact before summon JuliaRegistrator. You can combine these two commands with [`just`](https://github.com/casey/just) (recommended) or `make`, like what I do here.
@@ -201,12 +202,6 @@ Last, please feel free to open issues on bug reports, feature requests, or contr
 
 ### Command Quick Reference:
 
-NB: sub-commands are indicated with bullet points and options are indicated with bullet points plus short or long flags (ie. -f or --flag).
-Arguments are listed in square brackets, such as [URL]. A positional arg which is capable of handling multiple arguments is listed with ellipses following the name (eg. [EXAMPLE...]).
-
-Optional arguments are listed with a `?` before the name; generally speaking, if required arguments are not provided, Ion will ask for them.
-
-
 | Commands                     | Description                                                  |
 | ---------------------------- | ------------------------------------------------------------ |
 | new [PATH]                   | Create a new package                                         |
@@ -230,8 +225,13 @@ Optional arguments are listed with a `?` before the name; generally speaking, if
 | auth login/logout            | manage Github authentication                                 |
 
 ---
-
 #### Command List
+
+NB: sub-commands are indicated with bullet points and options are indicated with bullet points plus short or long flags (ie. -f or --flag).
+Arguments are listed in square brackets, such as [URL]. A positional arg which is capable of handling multiple arguments is listed with ellipses following the name (eg. [EXAMPLE...]).
+
+Optional arguments are listed with a `?` before the name; generally speaking, if required arguments are not provided, Ion will ask for them.
+
   ion
 - auth
   - login
