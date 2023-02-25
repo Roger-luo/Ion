@@ -128,12 +128,14 @@ println("hello world")
 On the other hand, there might be cases where we want a script to be never changed, which is something I'm thinking to have a release mode script environment specification that is similar to Pluto notebook that has a complete Manifest.toml and Project.toml inside the script.
 
 #### A Local Environment by Default
+
 As for normal scripts, many Julia users want `julia --project` to be the default, which is something I advocate too, and I have been using alias jp="julia --project" in my terminal for years. Though this has been a safety concern for julia compiler binary, it is not a concern for a developer tool that only runs locally. So for a script without the #=ion dependencies, ion run is equivalent to the following (and it forwards Julia compiler flags like --threads etc. if you specify it)
 ```
-command 	equivalent to
-ion run 	julia --project
+command 			equivalent to
+ion run 			julia --project
 ion run script.jl 	julia --project script.jl
 ```
+
 #### Clone Julia packages
 
 Have you gotten annoyed that cloning a Julia package using git ends up in a folder with xxxx.jl by default?
