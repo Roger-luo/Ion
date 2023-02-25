@@ -133,7 +133,7 @@ As for normal scripts, many Julia users want `julia --project` to be the default
 ```
 command 			equivalent to
 ion run 			julia --project
-ion run script.jl 	julia --project script.jl
+ion run script.jl 		julia --project script.jl
 ```
 
 #### Clone Julia packages
