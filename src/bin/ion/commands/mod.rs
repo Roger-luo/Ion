@@ -9,6 +9,7 @@ pub mod run;
 pub mod script;
 pub mod summon;
 pub mod template;
+pub mod test;
 
 pub use clap::parser::ArgMatches;
 pub use clap::{arg, Command, ValueHint};
@@ -26,6 +27,7 @@ pub fn builtin() -> Vec<Command> {
         bump::cli(),
         new::cli(),
         run::cli(),
+        test::cli(),
         script::cli(),
         pkg::add::cli(),
         pkg::develop::cli(),
@@ -50,6 +52,7 @@ pub fn builtin_exec(cmd: &str) -> Option<fn(&mut Config, &ArgMatches) -> CliResu
         "bump" => bump::exec,
         "new" => new::exec,
         "run" => run::exec,
+        "test" => test::exec,
         "script" => script::exec,
         "add" => pkg::add::exec,
         "develop" => pkg::develop::exec,

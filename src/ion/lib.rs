@@ -8,6 +8,7 @@ pub mod script;
 pub mod spec;
 pub mod summon;
 pub mod template;
+pub mod test;
 pub mod utils;
 
 pub use blueprints::{Context, Template};

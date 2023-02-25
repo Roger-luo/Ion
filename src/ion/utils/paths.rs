@@ -1,8 +1,8 @@
 use std::path::{Component, Path, PathBuf};
 
 // from cargo:utils/paths.rs
-pub fn normalize_path(path: &Path) -> PathBuf {
-    let mut components = path.components().peekable();
+pub fn normalize_path(path: impl AsRef<Path>) -> PathBuf {
+    let mut components = path.as_ref().components().peekable();
     let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
         components.next();
         PathBuf::from(c.as_os_str())
@@ -26,4 +26,17 @@ pub fn normalize_path(path: &Path) -> PathBuf {
         }
     }
     ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normpath() {
+        assert_eq!(normalize_path("a/b/c"), PathBuf::from("a/b/c"));
+        assert_eq!(normalize_path("a/b/../c"), PathBuf::from("a/c"));
+        assert_eq!(normalize_path("a/b/./c"), PathBuf::from("a/b/c"));
+        assert_eq!(normalize_path("a/b/../../c"), PathBuf::from("c"));
+    }
 }
