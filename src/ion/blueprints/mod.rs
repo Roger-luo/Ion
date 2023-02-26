@@ -1,7 +1,6 @@
 pub mod badge;
 pub mod blueprint;
 pub mod components;
-pub mod context;
 pub mod file;
 pub mod info;
 pub mod template;
