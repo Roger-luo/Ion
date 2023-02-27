@@ -9,7 +9,7 @@ const config = {
   title: 'Ion',
   tagline: 'CLI toolkit for Julia developers',
   url: 'https://dev.rogerluo.com',
-  baseUrl: '/',
+  baseUrl: '/Ion/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
@@ -38,13 +38,6 @@ const config = {
           // Remove this to remove the "edit this page" links.
           editUrl:
             'https://github.com/Roger-luo/Ion/tree/main/website/docs/',
-        },
-        blog: {
-          showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/Roger-luo/Ion/tree/main/website/blog/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -104,10 +97,6 @@ const config = {
           {
             title: 'More',
             items: [
-              {
-                label: 'Blog',
-                to: '/blog',
-              },
               {
                 label: 'GitHub',
                 href: 'https://github.com/Roger-luo/Ion',
