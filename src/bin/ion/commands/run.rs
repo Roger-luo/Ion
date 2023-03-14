@@ -86,9 +86,9 @@ fn run_julia_repl(matches: &ArgMatches) -> CliResult {
     add_julia_flags(&mut cmd, matches);
     log::debug!("Running julia: {:?}", cmd);
     let status = cmd.spawn()?.wait()?;
-    return if status.success() {
+    if status.success() {
         Ok(())
     } else {
         Err(format_err!("Julia exited with non-zero status code").into())
-    };
+    }
 }

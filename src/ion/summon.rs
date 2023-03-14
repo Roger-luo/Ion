@@ -157,12 +157,12 @@ impl JuliaRegistrator {
         let branch = match self.branch {
             Some(ref branch) => branch.clone(),
             None => {
-                let branch = dialoguer::Input::new()
+                
+                dialoguer::Input::new()
                     .with_prompt("Branch to release")
                     .default(current_branch)
                     .show_default(true)
-                    .interact()?;
-                branch
+                    .interact()?
             }
         };
 
@@ -214,10 +214,10 @@ impl JuliaRegistrator {
             None => body,
         };
 
-        let body = match &self.note {
+        
+        match &self.note {
             Some(note) => format!("{body}\n\nRelease notes:\n\n{note}"),
             None => body,
-        };
-        body
+        }
     }
 }

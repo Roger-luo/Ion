@@ -37,11 +37,11 @@ impl Clone {
         let url = match Url::parse(url_or_name.as_ref()) {
             Ok(url) => url,
             Err(_) => {
-                let url = Registry::read(config, self.registry.clone())?
+                
+                Registry::read(config, self.registry.clone())?
                     .package(config)
                     .name(url_or_name.as_ref())
-                    .get_url()?;
-                url
+                    .get_url()?
             }
         };
 
