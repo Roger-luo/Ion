@@ -10,7 +10,8 @@ Ion is a CLI toolbox for Julia developer. It provides a set of tools to help you
 
 ### pre-build binary
 
-Download tarball in the release page and extract it to your `$HOME/.julia` directory.
+Download tarball in the release page and extract it to your `$HOME/.local` directory, remember to add this to your `PATH`
+environment variable if you haven't done so.
 
 ### build from source
 
