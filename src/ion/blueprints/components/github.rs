@@ -16,6 +16,7 @@ pub struct GitHub {
     pub ci: Option<CI>,
     pub tagbot: Option<TagBot>,
     pub compat_helper: Option<CompatHelper>,
+    pub dependabot: Option<DependaBot>,
 }
 
 impl Blueprint for GitHub {
@@ -48,6 +49,9 @@ impl Blueprint for GitHub {
         }
         if let Some(ref compat_helper) = self.compat_helper {
             compat_helper.render(t, config, ctx)?;
+        }
+        if let Some(ref dependabot) = self.dependabot {
+            dependabot.render(t, config, ctx)?;
         }
         Ok(())
     }
@@ -91,6 +95,18 @@ impl CompatHelper {
     }
 }
 
+#[derive(Debug, Deserialize)]
+pub struct DependaBot {
+    #[serde(default = "DependaBot::default_template")]
+    pub template: String,
+}
+
+impl DependaBot {
+    fn default_template() -> String {
+        ".github/dependabot.yml".into()
+    }
+}
+
 impl Default for CI {
     fn default() -> Self {
         CI {
@@ -121,6 +137,14 @@ impl Default for CompatHelper {
     }
 }
 
+impl Default for DependaBot {
+    fn default() -> Self {
+        DependaBot {
+            template: ".github/dependabot.yml".into(),
+        }
+    }
+}
+
 impl Blueprint for CI {
     fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
         debug!("rendering CI.yml: {:#?}", ctx.github);
@@ -139,5 +163,13 @@ impl Blueprint for CompatHelper {
         self.template
             .as_template(config)?
             .copy(ctx, "CompatHelper.yml")
+    }
+}
+
+impl Blueprint for DependaBot {
+    fn render(&self, _t: &Template, config: &Config, ctx: &Context) -> RenderResult {
+        self.template
+            .as_template(config)?
+            .copy(ctx, "dependabot.yml")
     }
 }
