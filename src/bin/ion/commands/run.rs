@@ -125,7 +125,7 @@ fn run_dir(config: &Config, matches: &ArgMatches, path: impl AsRef<Path>) -> Cli
                     || parent.join("JuliaProject.toml").is_file()
                 {
                     cmd.arg(format!("--project={}", parent.display()));
-                    cmd.arg(format!("-e using TestEnv; TestEnv.activate();"));
+                    cmd.arg("-e using TestEnv; TestEnv.activate();");
                 }
             }
             None => {
