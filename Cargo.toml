@@ -39,7 +39,7 @@ proc-macro2 = "1.0.50"
 quote = "1.0.23"
 serde = "1.0.152"
 serde_derive = "1.0.152"
-syn = "1.0.107"
+syn = "2.0.3"
 toml = "0.7.2"
 url = "2.2.2"
 uuid = { version = "1.2.2", features = ["v4"] }
