@@ -120,6 +120,9 @@ impl Script {
         if !path.exists() {
             return Err(format_err!("script does not exist: {:?}", path));
         }
+        if !path.is_file() {
+            return Err(format_err!("script is not a file: {:?}", path));
+        }
 
         let script = std::fs::read_to_string(path)?;
         log::debug!("script: {}", script);
