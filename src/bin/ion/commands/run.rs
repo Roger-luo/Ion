@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::format_err;
 use clap::{arg, ArgMatches, Command, ValueHint};
 use ion::config::Config;
@@ -6,6 +8,13 @@ use ion::{errors::CliResult, script::Script};
 pub fn cli() -> Command {
     Command::new("run")
         .about("Run a script, or start a REPL if no script is given")
+        .long_about(
+            "Run a script, or start a REPL if no script is given
+or if [PATH] is a directory then start REPL by setting [PATH] as
+the project environment. If [PATH] is a test directory located at
+`<project>/test/` then activate test environment in REPL using
+`TestEnv` package.",
+        )
         .arg(arg!(verbose: -v --verbose "show detailed output"))
         .arg(
             arg!(sysimage: -J --sysimage [PATH] "Path to the sysimage to use")
@@ -32,16 +41,20 @@ pub fn cli() -> Command {
 pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
     let args: Vec<_> = match matches.get_many::<String>("PATH") {
         Some(paths) => paths.collect(),
-        None => return run_julia_repl(matches),
+        None => return run_julia_repl(config, matches),
     };
 
     if args.is_empty() {
-        return run_julia_repl(matches);
+        return run_julia_repl(config, matches);
     }
 
     let path = args[0].clone();
     let args = &args[1..];
     let verbose = matches.get_flag("verbose");
+
+    if PathBuf::from(&path).is_dir() {
+        return run_dir(config, matches, path.as_str());
+    };
     let mut cmd = Script::from_path(config, path.as_str(), verbose)?.cmd();
 
     add_julia_flags(&mut cmd, matches);
@@ -80,15 +93,54 @@ fn add_julia_flags(cmd: &mut std::process::Command, matches: &ArgMatches) {
     }
 }
 
-fn run_julia_repl(matches: &ArgMatches) -> CliResult {
-    let mut cmd = std::process::Command::new("julia");
+fn run_julia_repl(config: &Config, matches: &ArgMatches) -> CliResult {
+    let program = config.julia().exe;
+    let mut cmd = std::process::Command::new(program);
     cmd.arg("--project");
     add_julia_flags(&mut cmd, matches);
     log::debug!("Running julia: {:?}", cmd);
     let status = cmd.spawn()?.wait()?;
-    return if status.success() {
+    if status.success() {
         Ok(())
     } else {
         Err(format_err!("Julia exited with non-zero status code").into())
+    }
+}
+
+fn run_dir(config: &Config, matches: &ArgMatches, path: impl AsRef<Path>) -> CliResult {
+    let path = path.as_ref().canonicalize()?;
+    let name = match path.file_name() {
+        Some(name) => name
+            .to_str()
+            .ok_or_else(|| format_err!("Invalid path: {:?}", path))?,
+        None => return Err(format_err!("Invalid path: {:?}", path).into()),
     };
+
+    let program = config.julia().exe;
+    let mut cmd = std::process::Command::new(program);
+    if name == "test" {
+        match path.parent() {
+            Some(parent) => {
+                if parent.join("Project.toml").is_file()
+                    || parent.join("JuliaProject.toml").is_file()
+                {
+                    cmd.arg(format!("--project={}", parent.display()));
+                    cmd.arg("-e using TestEnv; TestEnv.activate();");
+                }
+            }
+            None => {
+                cmd.arg(format!("--project={}", path.display()));
+            }
+        }
+    }
+
+    cmd.arg("--interactive"); // open a REPL
+    add_julia_flags(&mut cmd, matches);
+    log::debug!("Running julia: {:?}", cmd);
+    let status = cmd.spawn()?.wait()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format_err!("Julia exited with non-zero status code").into())
+    }
 }

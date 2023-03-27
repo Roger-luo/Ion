@@ -36,13 +36,10 @@ impl Clone {
     ) -> Result<RemoteProject> {
         let url = match Url::parse(url_or_name.as_ref()) {
             Ok(url) => url,
-            Err(_) => {
-                let url = Registry::read(config, self.registry.clone())?
-                    .package(config)
-                    .name(url_or_name.as_ref())
-                    .get_url()?;
-                url
-            }
+            Err(_) => Registry::read(config, self.registry.clone())?
+                .package(config)
+                .name(url_or_name.as_ref())
+                .get_url()?,
         };
 
         let repo = match url.path_segments() {

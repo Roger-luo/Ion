@@ -130,7 +130,7 @@ pub fn add(path: &PathBuf, item: impl AsRef<str>) -> Result<Output> {
     } else {
         let out = String::from_utf8(output.stdout)?.trim().to_string();
         let err = String::from_utf8(output.stderr)?.trim().to_string();
-        return Err(format_err!("Failed to add:\n{}{}", out, err));
+        Err(format_err!("Failed to add:\n{}{}", out, err))
     }
 }
 
@@ -148,7 +148,7 @@ pub fn commit(path: &PathBuf, msg: &str) -> Result<Output> {
     } else {
         let out = String::from_utf8(output.stdout)?.trim().to_string();
         let err = String::from_utf8(output.stderr)?.trim().to_string();
-        return Err(format_err!("Failed to commit:\n{}{}", out, err));
+        Err(format_err!("Failed to commit:\n{}{}", out, err))
     }
 }
 
@@ -159,7 +159,7 @@ pub fn pull(path: &PathBuf) -> Result<Output> {
     if output.status.success() {
         Ok(output)
     } else {
-        return Err(format_err!("Failed to pull"));
+        Err(format_err!("Failed to pull"))
     }
 }
 
@@ -170,7 +170,7 @@ pub fn push(path: &PathBuf) -> Result<Output> {
     if output.status.success() {
         Ok(output)
     } else {
-        return Err(format_err!("Failed to push"));
+        Err(format_err!("Failed to push"))
     }
 }
 
@@ -185,7 +185,7 @@ pub fn clone(url: &str, path: &PathBuf) -> Result<()> {
     if p.success() {
         Ok(())
     } else {
-        return Err(format_err!("Failed to clone"));
+        Err(format_err!("Failed to clone"))
     }
 }
 
@@ -200,7 +200,7 @@ pub fn checkout_branch(path: &PathBuf, branch: impl AsRef<str>) -> Result<()> {
     if p.success() {
         Ok(())
     } else {
-        return Err(format_err!("Failed to checkout branch"));
+        Err(format_err!("Failed to checkout branch"))
     }
 }
 

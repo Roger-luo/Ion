@@ -16,7 +16,8 @@ pub fn cli() -> Command {
             Command::new("inspect")
                 .about("inspect the contents of a template")
                 .arg(arg!([TEMPLATE] "Selects which template to print out"))
-                .arg(arg!(--"all" "Inspect all installed templates")),
+                .arg(arg!(--"all" "Inspect all installed templates"))
+                .arg(arg!(verbose: -v --verbose "Inspect details of the template output")),
         )
         .arg_required_else_help(true)
 }
@@ -43,17 +44,21 @@ pub fn exec(config: &mut Config, matches: &ArgMatches) -> CliResult {
             RemoteTemplate::new(config).download()?;
         }
         Some(("inspect", matches)) => {
-            download_templates(config)?;
-            // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
+            let all_flag = matches.get_flag("all");
+            let verbose_flag = matches.get_flag("verbose");
 
+            download_templates(config)?;
+
+            // Iff a template name is provided, inspect template; otherwise, check for --all flag; if no --all, ask user to select template from list
             match matches.get_one::<String>("TEMPLATE") {
-                Some(template) => inspect_template(config, template.to_owned())?,
+                Some(template) => {
+                    inspect_template(config, template.to_owned(), verbose_flag)?;
+                }
                 None => {
-                    let all_flag = matches.get_flag("all");
                     if all_flag {
-                        inspect_all_templates(config)?;
+                        inspect_all_templates(config, verbose_flag)?;
                     } else {
-                        ask_inspect_template(config)?;
+                        ask_inspect_template(config, verbose_flag)?;
                     }
                 }
             };
