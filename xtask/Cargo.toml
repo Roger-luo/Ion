@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
-cargo_metadata = "0.15.3"
+cargo_metadata = "0.17.0"
 clap = "4.1.6"
 semver = "1.0.16"
 toml_edit = "0.19.3"
