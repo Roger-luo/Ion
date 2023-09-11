@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -40,7 +40,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Julia
         uses: ./.github/actions/setup-julia
       - name: Install stable toolchain
@@ -63,7 +63,7 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Julia
         uses: ./.github/actions/setup-julia
       - name: Install Rust
@@ -84,7 +84,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: true
 
