@@ -40,7 +40,7 @@ quote = "1.0.23"
 serde = "1.0.152"
 serde_derive = "1.0.152"
 syn = "2.0.3"
-toml = "0.7.2"
+toml = "0.8.0"
 url = "2.2.2"
 uuid = { version = "1.2.2", features = ["v4"] }
 ion_derive = { version = "0.1.0", path = "ion_derive" }
