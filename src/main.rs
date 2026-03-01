@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+mod commands;
+
 #[derive(Parser)]
 #[command(name = "ion", about = "Agent skill manager")]
 struct Cli {
@@ -36,24 +38,16 @@ enum Commands {
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
-        Commands::Add { source, rev } => {
-            println!("Adding skill: {source}");
-            if let Some(rev) = &rev {
-                println!("  rev: {rev}");
-            }
-        }
-        Commands::Remove { name } => {
-            println!("Removing skill: {name}");
-        }
-        Commands::Install => {
-            println!("Installing skills from ion.toml...");
-        }
-        Commands::List => {
-            println!("Listing skills...");
-        }
-        Commands::Info { skill } => {
-            println!("Info for skill: {skill}");
-        }
+    let result = match cli.command {
+        Commands::Add { source, rev } => commands::add::run(&source, rev.as_deref()),
+        Commands::Remove { name } => commands::remove::run(&name),
+        Commands::Install => commands::install::run(),
+        Commands::List => commands::list::run(),
+        Commands::Info { skill } => commands::info::run(&skill),
+    };
+
+    if let Err(e) = result {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
     }
 }
