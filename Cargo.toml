@@ -8,5 +8,8 @@ anyhow = "1"
 clap = { version = "4.5.60", features = ["string", "derive"] }
 ion-skill = { path = "crates/ion-skill" }
 
+[dev-dependencies]
+tempfile = "3"
+
 [workspace]
 members = [".", "crates/ion-skill"]

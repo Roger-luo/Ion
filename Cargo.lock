@@ -283,6 +283,7 @@ dependencies = [
  "anyhow",
  "clap",
  "ion-skill",
+ "tempfile",
 ]
 
 [[package]]
