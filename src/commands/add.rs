@@ -1,15 +1,19 @@
+use ion_skill::config::GlobalConfig;
 use ion_skill::installer::install_skill;
 use ion_skill::lockfile::Lockfile;
 use ion_skill::manifest::Manifest;
+use ion_skill::manifest::ManifestOptions;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
 pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let project_dir = std::env::current_dir()?;
+    let global_config = GlobalConfig::load()?;
     let manifest_path = project_dir.join("ion.toml");
     let lockfile_path = project_dir.join("ion.lock");
 
-    let mut source = SkillSource::infer(source_str)?;
+    let expanded = global_config.resolve_source(source_str);
+    let mut source = SkillSource::infer(&expanded)?;
     if let Some(r) = rev {
         source.rev = Some(r.to_string());
     }
@@ -23,9 +27,12 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
         Manifest::empty()
     };
 
-    let locked = install_skill(&project_dir, &name, &source, &manifest.options)?;
+    let merged_targets = global_config.resolve_targets(&manifest.options);
+    let merged_options = ManifestOptions { targets: merged_targets };
+
+    let locked = install_skill(&project_dir, &name, &source, &merged_options)?;
     println!("  Installed to .agents/skills/{name}/");
-    for target_name in manifest.options.targets.keys() {
+    for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");
     }
 
