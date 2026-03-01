@@ -79,10 +79,10 @@ impl GlobalConfig {
 
         // Check if the first segment is an alias
         let segments: Vec<&str> = input.splitn(2, '/').collect();
-        if segments.len() == 2 {
-            if let Some(expanded) = self.sources.get(segments[0]) {
-                return format!("{}/{}", expanded, segments[1]);
-            }
+        if segments.len() == 2
+            && let Some(expanded) = self.sources.get(segments[0])
+        {
+            return format!("{}/{}", expanded, segments[1]);
         }
 
         input.to_string()
