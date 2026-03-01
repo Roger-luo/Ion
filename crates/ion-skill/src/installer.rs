@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::lockfile::LockedSkill;
@@ -49,7 +50,7 @@ pub fn install_skill(
     copy_skill_dir(&skill_dir, &agents_target)?;
 
     // Optionally copy to .claude/skills/<name>/
-    if options.install_to_claude {
+    if options.targets.contains_key("claude") {
         let claude_target = project_dir.join(".claude").join("skills").join(name);
         copy_skill_dir(&skill_dir, &claude_target)?;
     }
@@ -157,7 +158,7 @@ pub fn uninstall_skill(project_dir: &Path, name: &str, options: &ManifestOptions
     if agents_dir.exists() {
         std::fs::remove_dir_all(&agents_dir).map_err(Error::Io)?;
     }
-    if options.install_to_claude {
+    if options.targets.contains_key("claude") {
         let claude_dir = project_dir.join(".claude").join("skills").join(name);
         if claude_dir.exists() {
             std::fs::remove_dir_all(&claude_dir).map_err(Error::Io)?;
@@ -230,7 +231,7 @@ mod tests {
         std::fs::create_dir_all(&claude).unwrap();
         std::fs::write(claude.join("SKILL.md"), "x").unwrap();
 
-        let options = ManifestOptions { install_to_claude: true };
+        let options = ManifestOptions { targets: BTreeMap::from([("claude".into(), ".claude/skills".into())]) };
         uninstall_skill(project.path(), "test", &options).unwrap();
 
         assert!(!agents.exists());
@@ -253,7 +254,7 @@ mod tests {
             rev: None,
             version: None,
         };
-        let options = ManifestOptions { install_to_claude: false };
+        let options = ManifestOptions { targets: BTreeMap::new() };
 
         let locked = install_skill(project.path(), "local-test", &source, &options).unwrap();
         assert_eq!(locked.name, "local-test");

@@ -27,7 +27,7 @@ pub enum SkillEntry {
 #[serde(rename_all = "kebab-case")]
 pub struct ManifestOptions {
     #[serde(default)]
-    pub install_to_claude: bool,
+    pub targets: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,16 +135,26 @@ mod tests {
 
     #[test]
     fn parse_options() {
-        let toml_str = "[skills]\n\n[options]\ninstall-to-claude = true\n";
+        let toml_str = "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        assert!(manifest.options.install_to_claude);
+        assert_eq!(manifest.options.targets.len(), 1);
+        assert_eq!(manifest.options.targets["claude"], ".claude/skills");
+    }
+
+    #[test]
+    fn parse_targets_options() {
+        let toml_str = "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        assert_eq!(manifest.options.targets.len(), 2);
+        assert_eq!(manifest.options.targets["claude"], ".claude/skills");
+        assert_eq!(manifest.options.targets["cursor"], ".cursor/skills");
     }
 
     #[test]
     fn parse_empty_manifest() {
         let manifest = Manifest::parse("[skills]\n").unwrap();
         assert!(manifest.skills.is_empty());
-        assert!(!manifest.options.install_to_claude);
+        assert!(manifest.options.targets.is_empty());
     }
 
     #[test]
