@@ -2,4 +2,5 @@ pub mod add;
 pub mod info;
 pub mod install;
 pub mod list;
+pub mod migrate;
 pub mod remove;

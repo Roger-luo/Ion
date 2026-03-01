@@ -4,6 +4,7 @@ pub mod installer;
 pub mod lockfile;
 pub mod manifest;
 pub mod manifest_writer;
+pub mod migrate;
 pub mod skill;
 pub mod source;
 

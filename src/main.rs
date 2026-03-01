@@ -33,6 +33,15 @@ enum Commands {
         /// Skill source or name
         skill: String,
     },
+    /// Migrate skills from skills-lock.json or existing directories
+    Migrate {
+        /// Path to skills-lock.json (defaults to ./skills-lock.json)
+        #[arg(long)]
+        from: Option<String>,
+        /// Show what would be migrated without writing files
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 fn main() {
@@ -44,6 +53,7 @@ fn main() {
         Commands::Install => commands::install::run(),
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
+        Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
     };
 
     if let Err(e) = result {
