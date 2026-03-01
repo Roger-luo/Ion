@@ -1,6 +1,7 @@
+use ion_skill::config::GlobalConfig;
 use ion_skill::installer::uninstall_skill;
 use ion_skill::lockfile::Lockfile;
-use ion_skill::manifest::Manifest;
+use ion_skill::manifest::{Manifest, ManifestOptions};
 use ion_skill::manifest_writer;
 
 pub fn run(name: &str) -> anyhow::Result<()> {
@@ -13,9 +14,13 @@ pub fn run(name: &str) -> anyhow::Result<()> {
         anyhow::bail!("Skill '{name}' not found in ion.toml");
     }
 
+    let global_config = GlobalConfig::load()?;
+    let merged_targets = global_config.resolve_targets(&manifest.options);
+    let merged_options = ManifestOptions { targets: merged_targets };
+
     println!("Removing skill '{name}'...");
 
-    uninstall_skill(&project_dir, name, &manifest.options)?;
+    uninstall_skill(&project_dir, name, &merged_options)?;
     println!("  Removed from .agents/skills/{name}/");
 
     manifest_writer::remove_skill(&manifest_path, name)?;
