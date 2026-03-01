@@ -157,7 +157,59 @@ fn set_project_value(
 }
 
 fn run_interactive() -> anyhow::Result<()> {
-    // Placeholder — implemented in later tasks
-    println!("Interactive config TUI not yet implemented. Use 'ion config get/set/list' subcommands.");
-    Ok(())
+    use std::io;
+
+    use crossterm::event::{self, Event};
+    use crossterm::execute;
+    use crossterm::terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    };
+    use ratatui::Terminal;
+    use ratatui::backend::CrosstermBackend;
+
+    use crate::tui::app::App;
+    use crate::tui::event::handle_key;
+    use crate::tui::ui::render;
+
+    let global_config_path = GlobalConfig::config_path()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
+
+    let project_dir = std::env::current_dir()?;
+    let manifest_path = project_dir.join("ion.toml");
+    let manifest_opt = if manifest_path.exists() {
+        Some(manifest_path)
+    } else {
+        None
+    };
+
+    let mut app = App::new(global_config_path, manifest_opt)?;
+
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
+
+    // Main loop
+    let result = loop {
+        terminal.draw(|frame| render(frame, &app))?;
+
+        if let Event::Key(key) = event::read()? {
+            if let Err(e) = handle_key(&mut app, key) {
+                app.status_message = Some(format!("Error: {e}"));
+            }
+        }
+
+        if app.should_quit {
+            break Ok(());
+        }
+    };
+
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
+
+    result
 }

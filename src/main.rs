@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod tui;
 
 #[derive(Parser)]
 #[command(name = "ion", about = "Agent skill manager")]

@@ -416,6 +416,7 @@ dependencies = [
  "ion-skill",
  "ratatui",
  "tempfile",
+ "toml_edit",
 ]
 
 [[package]]
