@@ -25,4 +25,10 @@ pub enum Error {
 
     #[error("Manifest error: {0}")]
     Manifest(String),
+
+    #[error("Search error: {0}")]
+    Search(String),
+
+    #[error("HTTP error: {0}")]
+    Http(String),
 }
