@@ -50,13 +50,13 @@ pub fn run() -> anyhow::Result<()> {
         for dir in &missing {
             println!("  {dir}");
         }
-        print!("\nAdd them? [y/n] ");
+        print!("\nAdd them? [Y/n] (press Enter for yes) ");
         std::io::Write::flush(&mut std::io::stdout())?;
 
         let mut answer = String::new();
         std::io::stdin().read_line(&mut answer)?;
 
-        if answer.trim().eq_ignore_ascii_case("y") {
+        if answer.trim().is_empty() || answer.trim().eq_ignore_ascii_case("y") {
             let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
             ion_skill::gitignore::append_to_gitignore(&project_dir, &refs)?;
             println!("Updated .gitignore");
