@@ -42,6 +42,11 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Manage ion configuration
+    Config {
+        #[command(subcommand)]
+        action: Option<commands::config::ConfigAction>,
+    },
 }
 
 fn main() {
@@ -54,6 +59,7 @@ fn main() {
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
         Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
+        Commands::Config { action } => commands::config::run(action),
     };
 
     if let Err(e) = result {

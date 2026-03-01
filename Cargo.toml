@@ -8,6 +8,7 @@ anyhow = "1"
 clap = { version = "4.5.60", features = ["string", "derive"] }
 crossterm = "0.28"
 ion-skill = { path = "crates/ion-skill" }
+toml_edit = "0.22"
 ratatui = "0.29"
 
 [dev-dependencies]
