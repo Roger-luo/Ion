@@ -98,12 +98,17 @@ fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
             match &source.path {
                 Some(path) => {
                     let skill_dir = repo_dir.join(path);
-                    if !skill_dir.exists() {
-                        return Err(Error::Source(format!(
-                            "Skill path '{path}' not found in repository"
-                        )));
+                    if skill_dir.exists() {
+                        return Ok(skill_dir);
                     }
-                    Ok(skill_dir)
+                    // Fallback: try skills/<path> (common convention)
+                    let fallback_dir = repo_dir.join("skills").join(path);
+                    if fallback_dir.exists() {
+                        return Ok(fallback_dir);
+                    }
+                    Err(Error::Source(format!(
+                        "Skill path '{path}' not found in repository (also tried 'skills/{path}')"
+                    )))
                 }
                 None => Ok(repo_dir),
             }
