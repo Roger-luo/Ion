@@ -1,6 +1,7 @@
+use ion_skill::config::GlobalConfig;
 use ion_skill::installer::install_skill;
 use ion_skill::lockfile::Lockfile;
-use ion_skill::manifest::Manifest;
+use ion_skill::manifest::{Manifest, ManifestOptions};
 
 pub fn run() -> anyhow::Result<()> {
     let project_dir = std::env::current_dir()?;
@@ -13,18 +14,22 @@ pub fn run() -> anyhow::Result<()> {
 
     let manifest = Manifest::from_file(&manifest_path)?;
     let mut lockfile = Lockfile::from_file(&lockfile_path)?;
+    let global_config = GlobalConfig::load()?;
 
     if manifest.skills.is_empty() {
         println!("No skills declared in ion.toml.");
         return Ok(());
     }
 
+    let merged_targets = global_config.resolve_targets(&manifest.options);
+    let merged_options = ManifestOptions { targets: merged_targets };
+
     println!("Installing {} skill(s)...", manifest.skills.len());
 
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
         println!("  Installing '{name}'...");
-        let locked = install_skill(&project_dir, name, &source, &manifest.options)?;
+        let locked = install_skill(&project_dir, name, &source, &merged_options)?;
         lockfile.upsert(locked);
     }
 
@@ -34,7 +39,7 @@ pub fn run() -> anyhow::Result<()> {
 
     // Check gitignore for managed directories
     let mut managed_dirs = vec![".agents/".to_string()];
-    for path in manifest.options.targets.values() {
+    for path in merged_options.targets.values() {
         let top_level = path.split('/').next().unwrap_or(path);
         let entry = format!("{top_level}/");
         if !managed_dirs.contains(&entry) {
