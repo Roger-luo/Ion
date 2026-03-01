@@ -30,6 +30,25 @@ pub struct ManifestOptions {
     pub targets: BTreeMap<String, String>,
 }
 
+impl ManifestOptions {
+    /// Get a project config value by dot-notation key. Currently only targets are supported.
+    pub fn get_value(&self, key: &str) -> Option<String> {
+        let (section, field) = key.split_once('.')?;
+        match section {
+            "targets" => self.targets.get(field).cloned(),
+            _ => None,
+        }
+    }
+
+    /// List all project config values as (dot-key, value) pairs.
+    pub fn list_values(&self) -> Vec<(String, String)> {
+        self.targets
+            .iter()
+            .map(|(k, v)| (format!("targets.{k}"), v.clone()))
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
     #[serde(default)]
@@ -188,5 +207,25 @@ mod tests {
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
         assert_eq!(source.version.as_deref(), Some("1.0"));
+    }
+
+    #[test]
+    fn get_project_value() {
+        let toml_str = "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        assert_eq!(
+            manifest.options.get_value("targets.claude"),
+            Some(".claude/skills".to_string())
+        );
+        assert_eq!(manifest.options.get_value("targets.nonexistent"), None);
+    }
+
+    #[test]
+    fn list_project_values() {
+        let toml_str = "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let values = manifest.options.list_values();
+        assert_eq!(values.len(), 2);
+        assert!(values.contains(&("targets.claude".to_string(), ".claude/skills".to_string())));
     }
 }
