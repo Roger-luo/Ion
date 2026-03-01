@@ -1,5 +1,6 @@
 pub mod error;
 pub mod git;
+pub mod installer;
 pub mod lockfile;
 pub mod manifest;
 pub mod manifest_writer;
