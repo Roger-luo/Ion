@@ -75,24 +75,22 @@ fn install_from_manifest() {
     let skill_path = skill_base.path().join("manifest-skill");
     std::fs::create_dir(&skill_path).unwrap();
 
-    // Create a valid skill
     std::fs::write(
         skill_path.join("SKILL.md"),
         "---\nname: manifest-skill\ndescription: Manifest test.\n---\n\nBody.\n",
     )
     .unwrap();
 
-    // Write ion.toml manually
+    // Use new [options.targets] format
     std::fs::write(
         project.path().join("ion.toml"),
         format!(
-            "[skills]\nmanifest-skill = {{ type = \"path\", source = \"{}\" }}\n",
+            "[skills]\nmanifest-skill = {{ type = \"path\", source = \"{}\" }}\n\n[options.targets]\nclaude = \".claude/skills\"\n",
             skill_path.display()
         ),
     )
     .unwrap();
 
-    // ion install
     let output = ion_cmd()
         .args(["install"])
         .current_dir(project.path())
@@ -100,10 +98,14 @@ fn install_from_manifest() {
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "install failed: {stderr}");
-    assert!(project
-        .path()
-        .join(".agents/skills/manifest-skill/SKILL.md")
-        .exists());
+
+    // Canonical copy exists as real directory
+    assert!(project.path().join(".agents/skills/manifest-skill/SKILL.md").exists());
+
+    // Target is a symlink
+    let target = project.path().join(".claude/skills/manifest-skill");
+    assert!(target.is_symlink());
+    assert!(target.join("SKILL.md").exists());
 }
 
 #[test]
