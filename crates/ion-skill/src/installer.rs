@@ -139,7 +139,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
         let entry = entry.map_err(Error::Io)?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        if src_path.file_name().map_or(false, |n| n == ".git") {
+        if src_path.file_name().is_some_and(|n| n == ".git") {
             continue;
         }
         if src_path.is_dir() {

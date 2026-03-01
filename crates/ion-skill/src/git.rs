@@ -90,7 +90,7 @@ fn collect_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     for entry in std::fs::read_dir(dir).map_err(Error::Io)? {
         let entry = entry.map_err(Error::Io)?;
         let path = entry.path();
-        if path.file_name().map_or(false, |n| n == ".git") {
+        if path.file_name().is_some_and(|n| n == ".git") {
             continue;
         }
         if path.is_dir() {

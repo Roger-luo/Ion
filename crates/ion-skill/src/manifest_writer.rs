@@ -57,7 +57,7 @@ fn skill_to_toml(source: &SkillSource) -> Item {
             (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
             _ => source.source.clone(),
         };
-        return value(display).into();
+        return value(display);
     }
 
     let mut table = toml_edit::InlineTable::new();
@@ -87,13 +87,13 @@ fn skill_to_toml(source: &SkillSource) -> Item {
     if let Some(ref r) = source.rev {
         table.insert("rev", r.as_str().into());
     }
-    if let Some(ref p) = source.path {
-        if source.source_type != SourceType::Github {
-            table.insert("path", p.as_str().into());
-        }
+    if let Some(ref p) = source.path
+        && source.source_type != SourceType::Github
+    {
+        table.insert("path", p.as_str().into());
     }
 
-    value(table).into()
+    value(table)
 }
 
 #[cfg(test)]
