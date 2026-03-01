@@ -45,6 +45,19 @@ impl Manifest {
     }
 
     pub fn parse(content: &str) -> Result<Self> {
+        // Check for deprecated options before parsing
+        let raw: toml::Value = toml::from_str(content).map_err(Error::TomlParse)?;
+        if let Some(options) = raw.get("options") {
+            if options.get("install-to-claude").is_some() {
+                return Err(Error::Manifest(
+                    "'install-to-claude' is no longer supported. Use [options.targets] instead:\n\n\
+                     [options.targets]\n\
+                     claude = \".claude/skills\"\n"
+                        .to_string(),
+                ));
+            }
+        }
+
         toml::from_str(content).map_err(Error::TomlParse)
     }
 
@@ -155,6 +168,18 @@ mod tests {
         let manifest = Manifest::parse("[skills]\n").unwrap();
         assert!(manifest.skills.is_empty());
         assert!(manifest.options.targets.is_empty());
+    }
+
+    #[test]
+    fn rejects_old_install_to_claude_option() {
+        let toml_str = "[skills]\n\n[options]\ninstall-to-claude = true\n";
+        let result = Manifest::parse(toml_str);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("install-to-claude"),
+            "Error should mention the old option: {err_msg}"
+        );
     }
 
     #[test]
