@@ -98,6 +98,111 @@ impl GlobalConfig {
         std::fs::write(path, content).map_err(Error::Io)?;
         Ok(())
     }
+
+    /// Get a config value by dot-notation key (e.g., "targets.claude", "ui.color").
+    pub fn get_value(&self, key: &str) -> Option<String> {
+        let (section, field) = key.split_once('.')?;
+        match section {
+            "targets" => self.targets.get(field).cloned(),
+            "sources" => self.sources.get(field).cloned(),
+            "cache" => match field {
+                "max-age-days" => self.cache.max_age_days.map(|v| v.to_string()),
+                _ => None,
+            },
+            "ui" => match field {
+                "color" => self.ui.color.map(|v| v.to_string()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Set a config value in a TOML file by dot-notation key, preserving formatting.
+    pub fn set_value_in_file(path: &Path, key: &str, value: &str) -> Result<()> {
+        use toml_edit::{DocumentMut, Item, Table};
+
+        let (section, field) = key.split_once('.').ok_or_else(|| {
+            Error::Manifest(format!("Invalid key format '{key}': expected 'section.key'"))
+        })?;
+
+        match section {
+            "targets" | "sources" | "cache" | "ui" => {}
+            _ => {
+                return Err(Error::Manifest(format!(
+                    "Unknown config section '{section}'. Valid sections: targets, sources, cache, ui"
+                )));
+            }
+        }
+
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).map_err(Error::Io)?;
+        }
+
+        let content = std::fs::read_to_string(path).unwrap_or_default();
+        let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+        if !doc.contains_key(section) {
+            doc[section] = Item::Table(Table::new());
+        }
+
+        match (section, field) {
+            ("cache", "max-age-days") => {
+                let num: i64 = value.parse().map_err(|_| {
+                    Error::Manifest(format!("'{value}' is not a valid integer for {key}"))
+                })?;
+                doc[section][field] = toml_edit::value(num);
+            }
+            ("ui", "color") => {
+                let b: bool = value.parse().map_err(|_| {
+                    Error::Manifest(format!("'{value}' is not a valid boolean for {key}"))
+                })?;
+                doc[section][field] = toml_edit::value(b);
+            }
+            _ => {
+                doc[section][field] = toml_edit::value(value);
+            }
+        }
+
+        std::fs::write(path, doc.to_string()).map_err(Error::Io)?;
+        Ok(())
+    }
+
+    /// Delete a config value from a TOML file by dot-notation key, preserving formatting.
+    pub fn delete_value_in_file(path: &Path, key: &str) -> Result<()> {
+        use toml_edit::DocumentMut;
+
+        let (section, field) = key.split_once('.').ok_or_else(|| {
+            Error::Manifest(format!("Invalid key format '{key}': expected 'section.key'"))
+        })?;
+
+        let content = std::fs::read_to_string(path).map_err(Error::Io)?;
+        let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+        if let Some(table) = doc.get_mut(section).and_then(|item| item.as_table_mut()) {
+            table.remove(field);
+        }
+
+        std::fs::write(path, doc.to_string()).map_err(Error::Io)?;
+        Ok(())
+    }
+
+    /// List all config values as a Vec of (dot-key, value) pairs.
+    pub fn list_values(&self) -> Vec<(String, String)> {
+        let mut entries = Vec::new();
+        for (k, v) in &self.targets {
+            entries.push((format!("targets.{k}"), v.clone()));
+        }
+        for (k, v) in &self.sources {
+            entries.push((format!("sources.{k}"), v.clone()));
+        }
+        if let Some(days) = self.cache.max_age_days {
+            entries.push(("cache.max-age-days".to_string(), days.to_string()));
+        }
+        if let Some(color) = self.ui.color {
+            entries.push(("ui.color".to_string(), color.to_string()));
+        }
+        entries
+    }
 }
 
 #[cfg(test)]
@@ -243,5 +348,83 @@ color = true
         assert_eq!(reloaded.sources["superpowers"], "obra/superpowers");
         assert_eq!(reloaded.cache.max_age_days, Some(7));
         assert_eq!(reloaded.ui.color, Some(false));
+    }
+
+    #[test]
+    fn get_value_dot_notation() {
+        let mut config = GlobalConfig::default();
+        config.targets.insert("claude".to_string(), ".claude/skills".to_string());
+        config.cache.max_age_days = Some(30);
+        config.ui.color = Some(true);
+
+        assert_eq!(config.get_value("targets.claude"), Some(".claude/skills".to_string()));
+        assert_eq!(config.get_value("cache.max-age-days"), Some("30".to_string()));
+        assert_eq!(config.get_value("ui.color"), Some("true".to_string()));
+        assert_eq!(config.get_value("targets.nonexistent"), None);
+        assert_eq!(config.get_value("invalid"), None);
+    }
+
+    #[test]
+    fn set_value_preserves_formatting() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "# My config\n[targets]\nclaude = \".claude/skills\"\n").unwrap();
+
+        GlobalConfig::set_value_in_file(&path, "targets.cursor", ".cursor/skills").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("# My config"));
+        assert!(content.contains("cursor"));
+        assert!(content.contains(".cursor/skills"));
+        assert!(content.contains("claude"));
+    }
+
+    #[test]
+    fn set_value_creates_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "").unwrap();
+
+        GlobalConfig::set_value_in_file(&path, "targets.claude", ".claude/skills").unwrap();
+
+        let reloaded = GlobalConfig::load_from(&path).unwrap();
+        assert_eq!(reloaded.targets["claude"], ".claude/skills");
+    }
+
+    #[test]
+    fn set_value_cache_and_ui() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "").unwrap();
+
+        GlobalConfig::set_value_in_file(&path, "cache.max-age-days", "7").unwrap();
+        GlobalConfig::set_value_in_file(&path, "ui.color", "false").unwrap();
+
+        let reloaded = GlobalConfig::load_from(&path).unwrap();
+        assert_eq!(reloaded.cache.max_age_days, Some(7));
+        assert_eq!(reloaded.ui.color, Some(false));
+    }
+
+    #[test]
+    fn delete_value_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n").unwrap();
+
+        GlobalConfig::delete_value_in_file(&path, "targets.cursor").unwrap();
+
+        let reloaded = GlobalConfig::load_from(&path).unwrap();
+        assert_eq!(reloaded.targets.len(), 1);
+        assert!(reloaded.targets.contains_key("claude"));
+    }
+
+    #[test]
+    fn set_value_invalid_key_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "").unwrap();
+
+        let result = GlobalConfig::set_value_in_file(&path, "invalid", "value");
+        assert!(result.is_err());
     }
 }
