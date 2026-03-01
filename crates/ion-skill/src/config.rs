@@ -16,6 +16,10 @@ pub struct GlobalConfig {
     pub cache: CacheConfig,
     #[serde(default)]
     pub ui: UiConfig,
+    #[serde(default)]
+    pub registries: BTreeMap<String, RegistryConfig>,
+    #[serde(default)]
+    pub search: SearchConfig,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -28,6 +32,20 @@ pub struct CacheConfig {
 #[serde(rename_all = "kebab-case")]
 pub struct UiConfig {
     pub color: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct RegistryConfig {
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<bool>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct SearchConfig {
+    pub agent_command: Option<String>,
 }
 
 impl GlobalConfig {
@@ -113,6 +131,11 @@ impl GlobalConfig {
                 "color" => self.ui.color.map(|v| v.to_string()),
                 _ => None,
             },
+            "registries" => self.registries.get(field).map(|r| r.url.clone()),
+            "search" => match field {
+                "agent-command" => self.search.agent_command.clone(),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -126,10 +149,10 @@ impl GlobalConfig {
         })?;
 
         match section {
-            "targets" | "sources" | "cache" | "ui" => {}
+            "targets" | "sources" | "cache" | "ui" | "registries" | "search" => {}
             _ => {
                 return Err(Error::Manifest(format!(
-                    "Unknown config section '{section}'. Valid sections: targets, sources, cache, ui"
+                    "Unknown config section '{section}'. Valid sections: targets, sources, cache, ui, registries, search"
                 )));
             }
         }
@@ -157,6 +180,12 @@ impl GlobalConfig {
                     Error::Manifest(format!("'{value}' is not a valid boolean for {key}"))
                 })?;
                 doc[section][field] = toml_edit::value(b);
+            }
+            ("registries", _) => {
+                use toml_edit::InlineTable;
+                let mut t = InlineTable::new();
+                t.insert("url", value.into());
+                doc[section][field] = toml_edit::Item::Value(toml_edit::Value::InlineTable(t));
             }
             _ => {
                 doc[section][field] = toml_edit::value(value);
@@ -200,6 +229,12 @@ impl GlobalConfig {
         }
         if let Some(color) = self.ui.color {
             entries.push(("ui.color".to_string(), color.to_string()));
+        }
+        for (k, v) in &self.registries {
+            entries.push((format!("registries.{k}"), v.url.clone()));
+        }
+        if let Some(ref cmd) = self.search.agent_command {
+            entries.push(("search.agent-command".to_string(), cmd.clone()));
         }
         entries
     }
@@ -426,5 +461,52 @@ color = true
 
         let result = GlobalConfig::set_value_in_file(&path, "invalid", "value");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_registries_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, r#"
+[registries.skills-sh]
+url = "https://skills.sh/api"
+default = true
+
+[registries.my-company]
+url = "https://skills.internal.co/api"
+
+[search]
+agent-command = "claude -p 'search: {query}'"
+"#).unwrap();
+
+        let config = GlobalConfig::load_from(&path).unwrap();
+        assert_eq!(config.registries.len(), 2);
+        assert_eq!(config.registries["skills-sh"].url, "https://skills.sh/api");
+        assert_eq!(config.registries["skills-sh"].default, Some(true));
+        assert_eq!(config.search.agent_command, Some("claude -p 'search: {query}'".to_string()));
+    }
+
+    #[test]
+    fn load_config_without_registries() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[targets]\nclaude = \".claude/skills\"\n").unwrap();
+
+        let config = GlobalConfig::load_from(&path).unwrap();
+        assert!(config.registries.is_empty());
+        assert_eq!(config.search.agent_command, None);
+    }
+
+    #[test]
+    fn get_value_registries_and_search() {
+        let mut config = GlobalConfig::default();
+        config.registries.insert("skills-sh".to_string(), RegistryConfig {
+            url: "https://skills.sh/api".to_string(),
+            default: Some(true),
+        });
+        config.search.agent_command = Some("claude search {query}".to_string());
+
+        assert_eq!(config.get_value("registries.skills-sh"), Some("https://skills.sh/api".to_string()));
+        assert_eq!(config.get_value("search.agent-command"), Some("claude search {query}".to_string()));
     }
 }
