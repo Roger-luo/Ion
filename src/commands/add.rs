@@ -25,7 +25,7 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
 
     let locked = install_skill(&project_dir, &name, &source, &manifest.options)?;
     println!("  Installed to .agents/skills/{name}/");
-    for (target_name, _target_path) in &manifest.options.targets {
+    for target_name in manifest.options.targets.keys() {
         println!("  Linked to {target_name}");
     }
 

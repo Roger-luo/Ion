@@ -50,7 +50,7 @@ pub fn install_skill(
 
     // Create symlinks for each configured target
     let canonical = project_dir.join(".agents").join("skills").join(name);
-    for (_target_name, target_path) in &options.targets {
+    for target_path in options.targets.values() {
         let target_skill_dir = project_dir.join(target_path).join(name);
         create_skill_symlink(&canonical, &target_skill_dir)?;
     }
@@ -169,8 +169,7 @@ fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
     // Compute relative path from link's parent to the original
     let link_parent = link.parent().unwrap();
     let relative = pathdiff::diff_paths(original, link_parent)
-        .ok_or_else(|| Error::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        .ok_or_else(|| Error::Io(std::io::Error::other(
             format!("Cannot compute relative path from {} to {}", link_parent.display(), original.display()),
         )))?;
 
@@ -192,7 +191,7 @@ pub fn uninstall_skill(project_dir: &Path, name: &str, options: &ManifestOptions
     }
 
     // Remove symlinks from all targets
-    for (_target_name, target_path) in &options.targets {
+    for target_path in options.targets.values() {
         let target_dir = project_dir.join(target_path).join(name);
         if target_dir.is_symlink() {
             std::fs::remove_file(&target_dir).map_err(Error::Io)?;

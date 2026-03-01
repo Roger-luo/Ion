@@ -47,15 +47,15 @@ impl Manifest {
     pub fn parse(content: &str) -> Result<Self> {
         // Check for deprecated options before parsing
         let raw: toml::Value = toml::from_str(content).map_err(Error::TomlParse)?;
-        if let Some(options) = raw.get("options") {
-            if options.get("install-to-claude").is_some() {
-                return Err(Error::Manifest(
-                    "'install-to-claude' is no longer supported. Use [options.targets] instead:\n\n\
-                     [options.targets]\n\
-                     claude = \".claude/skills\"\n"
-                        .to_string(),
-                ));
-            }
+        if let Some(options) = raw.get("options")
+            && options.get("install-to-claude").is_some()
+        {
+            return Err(Error::Manifest(
+                "'install-to-claude' is no longer supported. Use [options.targets] instead:\n\n\
+                 [options.targets]\n\
+                 claude = \".claude/skills\"\n"
+                    .to_string(),
+            ));
         }
 
         toml::from_str(content).map_err(Error::TomlParse)

@@ -34,7 +34,7 @@ pub fn run() -> anyhow::Result<()> {
 
     // Check gitignore for managed directories
     let mut managed_dirs = vec![".agents/".to_string()];
-    for (_name, path) in &manifest.options.targets {
+    for path in manifest.options.targets.values() {
         let top_level = path.split('/').next().unwrap_or(path);
         let entry = format!("{top_level}/");
         if !managed_dirs.contains(&entry) {
