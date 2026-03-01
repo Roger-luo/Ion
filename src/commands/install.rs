@@ -31,5 +31,37 @@ pub fn run() -> anyhow::Result<()> {
     lockfile.write_to(&lockfile_path)?;
     println!("Updated ion.lock");
     println!("Done!");
+
+    // Check gitignore for managed directories
+    let mut managed_dirs = vec![".agents/".to_string()];
+    for (_name, path) in &manifest.options.targets {
+        let top_level = path.split('/').next().unwrap_or(path);
+        let entry = format!("{top_level}/");
+        if !managed_dirs.contains(&entry) {
+            managed_dirs.push(entry);
+        }
+    }
+
+    let dir_refs: Vec<&str> = managed_dirs.iter().map(|s| s.as_str()).collect();
+    let missing = ion_skill::gitignore::find_missing_gitignore_entries(&project_dir, &dir_refs)?;
+
+    if !missing.is_empty() {
+        println!("\nThese directories are not in .gitignore:");
+        for dir in &missing {
+            println!("  {dir}");
+        }
+        print!("\nAdd them? [y/n] ");
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer)?;
+
+        if answer.trim().eq_ignore_ascii_case("y") {
+            let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
+            ion_skill::gitignore::append_to_gitignore(&project_dir, &refs)?;
+            println!("Updated .gitignore");
+        }
+    }
+
     Ok(())
 }
