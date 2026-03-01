@@ -75,50 +75,44 @@ impl App {
     }
 
     fn build_global_sections(config: &GlobalConfig) -> Vec<ConfigSection> {
-        let mut sections = Vec::new();
-
-        // Always show targets and sources (even if empty, so user can add)
-        sections.push(ConfigSection {
-            name: "targets".to_string(),
-            entries: config
-                .targets
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-        });
-
-        sections.push(ConfigSection {
-            name: "sources".to_string(),
-            entries: config
-                .sources
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-        });
-
-        sections.push(ConfigSection {
-            name: "cache".to_string(),
-            entries: vec![(
-                "max-age-days".to_string(),
-                config
-                    .cache
-                    .max_age_days
-                    .map_or("(unset)".to_string(), |v| v.to_string()),
-            )],
-        });
-
-        sections.push(ConfigSection {
-            name: "ui".to_string(),
-            entries: vec![(
-                "color".to_string(),
-                config
-                    .ui
-                    .color
-                    .map_or("(unset)".to_string(), |v| v.to_string()),
-            )],
-        });
-
-        sections
+        vec![
+            ConfigSection {
+                name: "targets".to_string(),
+                entries: config
+                    .targets
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            },
+            ConfigSection {
+                name: "sources".to_string(),
+                entries: config
+                    .sources
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            },
+            ConfigSection {
+                name: "cache".to_string(),
+                entries: vec![(
+                    "max-age-days".to_string(),
+                    config
+                        .cache
+                        .max_age_days
+                        .map_or("(unset)".to_string(), |v| v.to_string()),
+                )],
+            },
+            ConfigSection {
+                name: "ui".to_string(),
+                entries: vec![(
+                    "color".to_string(),
+                    config
+                        .ui
+                        .color
+                        .map_or("(unset)".to_string(), |v| v.to_string()),
+                )],
+            },
+        ]
     }
 
     fn build_project_sections(manifest: &Manifest) -> Vec<ConfigSection> {
@@ -181,10 +175,10 @@ impl App {
         let config = self.sections_to_global_config();
         config.save_to(&self.global_config_path)?;
 
-        if let Some(ref mp) = self.manifest_path {
-            if mp.exists() {
-                self.save_project_config(mp)?;
-            }
+        if let Some(ref mp) = self.manifest_path
+            && mp.exists()
+        {
+            self.save_project_config(mp)?;
         }
 
         self.dirty = false;

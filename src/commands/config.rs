@@ -195,10 +195,10 @@ fn run_interactive() -> anyhow::Result<()> {
     let result = loop {
         terminal.draw(|frame| render(frame, &app))?;
 
-        if let Event::Key(key) = event::read()? {
-            if let Err(e) = handle_key(&mut app, key) {
-                app.status_message = Some(format!("Error: {e}"));
-            }
+        if let Event::Key(key) = event::read()?
+            && let Err(e) = handle_key(&mut app, key)
+        {
+            app.status_message = Some(format!("Error: {e}"));
         }
 
         if app.should_quit {

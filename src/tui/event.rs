@@ -51,15 +51,15 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
             app.status_message = None;
         }
         KeyCode::Enter => {
-            if app.total_entries() > 0 {
-                if let Some((_, value)) = app.current_entry() {
-                    app.input_buffer = if value == "(unset)" {
-                        String::new()
-                    } else {
-                        value
-                    };
-                    app.input_mode = InputMode::EditingValue;
-                }
+            if app.total_entries() > 0
+                && let Some((_, value)) = app.current_entry()
+            {
+                app.input_buffer = if value == "(unset)" {
+                    String::new()
+                } else {
+                    value
+                };
+                app.input_mode = InputMode::EditingValue;
             }
         }
         KeyCode::Char('a') => {
