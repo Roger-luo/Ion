@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::lockfile::LockedSkill;
@@ -49,10 +48,11 @@ pub fn install_skill(
     let agents_target = project_dir.join(".agents").join("skills").join(name);
     copy_skill_dir(&skill_dir, &agents_target)?;
 
-    // Optionally copy to .claude/skills/<name>/
-    if options.targets.contains_key("claude") {
-        let claude_target = project_dir.join(".claude").join("skills").join(name);
-        copy_skill_dir(&skill_dir, &claude_target)?;
+    // Create symlinks for each configured target
+    let canonical = project_dir.join(".agents").join("skills").join(name);
+    for (_target_name, target_path) in &options.targets {
+        let target_skill_dir = project_dir.join(target_path).join(name);
+        create_skill_symlink(&canonical, &target_skill_dir)?;
     }
 
     // Build locked entry
@@ -152,18 +152,55 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Create a relative symlink from `link` pointing to `original`.
+fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
+    // Remove existing file/dir/symlink at the link location
+    if link.is_symlink() {
+        std::fs::remove_file(link).map_err(Error::Io)?;
+    } else if link.exists() {
+        std::fs::remove_dir_all(link).map_err(Error::Io)?;
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = link.parent() {
+        std::fs::create_dir_all(parent).map_err(Error::Io)?;
+    }
+
+    // Compute relative path from link's parent to the original
+    let link_parent = link.parent().unwrap();
+    let relative = pathdiff::diff_paths(original, link_parent)
+        .ok_or_else(|| Error::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Cannot compute relative path from {} to {}", link_parent.display(), original.display()),
+        )))?;
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&relative, link).map_err(Error::Io)?;
+
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_dir(&relative, link).map_err(Error::Io)?;
+
+    Ok(())
+}
+
 /// Remove an installed skill from the project directory.
 pub fn uninstall_skill(project_dir: &Path, name: &str, options: &ManifestOptions) -> Result<()> {
+    // Remove canonical copy
     let agents_dir = project_dir.join(".agents").join("skills").join(name);
     if agents_dir.exists() {
         std::fs::remove_dir_all(&agents_dir).map_err(Error::Io)?;
     }
-    if options.targets.contains_key("claude") {
-        let claude_dir = project_dir.join(".claude").join("skills").join(name);
-        if claude_dir.exists() {
-            std::fs::remove_dir_all(&claude_dir).map_err(Error::Io)?;
+
+    // Remove symlinks from all targets
+    for (_target_name, target_path) in &options.targets {
+        let target_dir = project_dir.join(target_path).join(name);
+        if target_dir.is_symlink() {
+            std::fs::remove_file(&target_dir).map_err(Error::Io)?;
+        } else if target_dir.exists() {
+            std::fs::remove_dir_all(&target_dir).map_err(Error::Io)?;
         }
     }
+
     Ok(())
 }
 
@@ -227,15 +264,60 @@ mod tests {
         std::fs::create_dir_all(&agents).unwrap();
         std::fs::write(agents.join("SKILL.md"), "x").unwrap();
 
-        let claude = project.path().join(".claude").join("skills").join("test");
+        // Create a symlink target
+        let claude = project.path().join(".claude").join("skills");
         std::fs::create_dir_all(&claude).unwrap();
-        std::fs::write(claude.join("SKILL.md"), "x").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            std::path::Path::new("../../../.agents/skills/test"),
+            claude.join("test"),
+        ).unwrap();
 
-        let options = ManifestOptions { targets: BTreeMap::from([("claude".into(), ".claude/skills".into())]) };
+        let mut targets = std::collections::BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+        let options = ManifestOptions { targets };
         uninstall_skill(project.path(), "test", &options).unwrap();
 
         assert!(!agents.exists());
-        assert!(!claude.exists());
+        assert!(!claude.join("test").exists());
+    }
+
+    #[test]
+    fn install_creates_symlinks_for_targets() {
+        let skill_src = tempfile::tempdir().unwrap();
+        std::fs::write(
+            skill_src.path().join("SKILL.md"),
+            "---\nname: sym-test\ndescription: Symlink test.\n---\n\nBody.\n",
+        ).unwrap();
+
+        let project = tempfile::tempdir().unwrap();
+        let source = SkillSource {
+            source_type: SourceType::Path,
+            source: skill_src.path().display().to_string(),
+            path: None,
+            rev: None,
+            version: None,
+        };
+
+        let mut targets = std::collections::BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+        let options = ManifestOptions { targets };
+
+        let _locked = install_skill(project.path(), "sym-test", &source, &options).unwrap();
+
+        // Canonical copy is a real directory
+        let canonical = project.path().join(".agents/skills/sym-test");
+        assert!(canonical.exists());
+        assert!(canonical.is_dir());
+        assert!(!canonical.is_symlink());
+
+        // Target is a symlink
+        let target = project.path().join(".claude/skills/sym-test");
+        assert!(target.exists());
+        assert!(target.is_symlink());
+
+        // Symlink resolves to the right content
+        assert!(target.join("SKILL.md").exists());
     }
 
     #[test]
@@ -254,7 +336,7 @@ mod tests {
             rev: None,
             version: None,
         };
-        let options = ManifestOptions { targets: BTreeMap::new() };
+        let options = ManifestOptions { targets: std::collections::BTreeMap::new() };
 
         let locked = install_skill(project.path(), "local-test", &source, &options).unwrap();
         assert_eq!(locked.name, "local-test");
