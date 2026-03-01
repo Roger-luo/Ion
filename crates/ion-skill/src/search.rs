@@ -65,6 +65,64 @@ impl SearchSource for RegistrySource {
     }
 }
 
+#[derive(Deserialize)]
+struct GitHubSearchResponse {
+    items: Vec<GitHubRepo>,
+}
+
+#[derive(Deserialize)]
+struct GitHubRepo {
+    full_name: String,
+    description: Option<String>,
+}
+
+/// Parse a GitHub search API response into SearchResults.
+pub fn parse_github_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+    let resp: GitHubSearchResponse =
+        serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid GitHub response: {e}")))?;
+    Ok(resp
+        .items
+        .into_iter()
+        .take(limit)
+        .map(|repo| SearchResult {
+            name: repo.full_name.clone(),
+            description: repo.description.unwrap_or_default(),
+            source: repo.full_name,
+            registry: "github".to_string(),
+        })
+        .collect())
+}
+
+/// Searches GitHub repositories for skills.
+pub struct GitHubSource;
+
+impl SearchSource for GitHubSource {
+    fn name(&self) -> &str {
+        "github"
+    }
+
+    fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+        let url = format!(
+            "https://api.github.com/search/repositories?q={query}+topic:ai-skills&per_page={limit}"
+        );
+        let client = reqwest::blocking::Client::new();
+        let mut request = client
+            .get(&url)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "ion-skill-manager");
+        if let Ok(token) = std::env::var("GITHUB_TOKEN") {
+            request = request.header("Authorization", format!("Bearer {token}"));
+        }
+        let response = request
+            .send()
+            .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
+        let body = response
+            .text()
+            .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
+        parse_github_response(&body, limit)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,5 +219,36 @@ mod tests {
         let json = "not json";
         let result = parse_registry_response(json, "test", 10);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn github_source_parses_search_response() {
+        let json = r#"{
+            "total_count": 2,
+            "items": [
+                {"full_name": "anthropics/skills", "description": "AI agent skills collection", "html_url": "https://github.com/anthropics/skills"},
+                {"full_name": "acme/brainstorm-skill", "description": "Brainstorm skill", "html_url": "https://github.com/acme/brainstorm-skill"}
+            ]
+        }"#;
+        let results = parse_github_response(json, 10).unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].name, "anthropics/skills");
+        assert_eq!(results[0].source, "anthropics/skills");
+        assert_eq!(results[0].registry, "github");
+        assert_eq!(results[1].description, "Brainstorm skill");
+    }
+
+    #[test]
+    fn github_source_handles_empty_items() {
+        let json = r#"{"total_count": 0, "items": []}"#;
+        let results = parse_github_response(json, 10).unwrap();
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn github_source_null_description() {
+        let json = r#"{"total_count": 1, "items": [{"full_name": "a/b", "description": null, "html_url": "https://github.com/a/b"}]}"#;
+        let results = parse_github_response(json, 10).unwrap();
+        assert_eq!(results[0].description, "");
     }
 }
