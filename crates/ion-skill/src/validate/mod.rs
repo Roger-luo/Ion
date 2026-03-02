@@ -5,6 +5,7 @@ use crate::skill::SkillMetadata;
 
 pub mod discovery;
 pub mod markdown;
+pub mod security;
 
 // ---------------------------------------------------------------------------
 // Severity
@@ -186,7 +187,8 @@ mod tests {
     #[test]
     fn run_all_checkers_returns_empty_with_no_checkers() {
         let meta = dummy_meta();
-        let findings = run_all_checkers(Path::new("/tmp"), &meta, "body");
+        let empty_dir = tempfile::tempdir().unwrap();
+        let findings = run_all_checkers(empty_dir.path(), &meta, "body");
         assert!(findings.is_empty());
     }
 }
