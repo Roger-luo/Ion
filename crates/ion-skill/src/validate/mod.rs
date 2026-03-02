@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::skill::SkillMetadata;
 
 pub mod discovery;
+pub mod markdown;
 
 // ---------------------------------------------------------------------------
 // Severity
