@@ -129,16 +129,6 @@ impl<'a> SkillInstaller<'a> {
     }
 }
 
-/// Install a single skill from a resolved source into a project directory.
-pub fn install_skill(
-    project_dir: &Path,
-    name: &str,
-    source: &SkillSource,
-    options: &ManifestOptions,
-) -> Result<LockedSkill> {
-    SkillInstaller::new(project_dir, options).install(name, source)
-}
-
 /// Fetch a skill source to a local directory. Returns the path to the skill directory.
 fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
     match source.source_type {
@@ -243,11 +233,6 @@ fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
     std::os::windows::fs::symlink_dir(&relative, link).map_err(Error::Io)?;
 
     Ok(())
-}
-
-/// Remove an installed skill from the project directory.
-pub fn uninstall_skill(project_dir: &Path, name: &str, options: &ManifestOptions) -> Result<()> {
-    SkillInstaller::new(project_dir, options).uninstall(name)
 }
 
 fn find_repo_root(path: &Path) -> PathBuf {
