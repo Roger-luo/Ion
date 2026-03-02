@@ -21,12 +21,16 @@ pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     ])
     .split(chunks[0]);
 
+    // Compute visible height from left column, accounting for borders (2 lines)
+    let list_inner_height = columns[0].height.saturating_sub(2) as usize;
+    app.visible_height = list_inner_height;
+
     render_list(frame, app, columns[0]);
     render_detail(frame, app, columns[1]);
     render_footer(frame, chunks[1]);
 }
 
-fn render_list(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
+fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Search Results ");
@@ -40,8 +44,6 @@ fn render_list(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
         frame.render_widget(msg, inner);
         return;
     }
-
-    app.visible_height = inner.height as usize;
 
     let start = app.scroll_offset;
     let end = (start + app.visible_height).min(app.results.len());

@@ -2,10 +2,10 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::search_app::SearchApp;
 
-pub fn handle_search_key(app: &mut SearchApp, key: KeyEvent) {
+pub fn handle_search_key(app: &mut SearchApp, key: KeyEvent) -> anyhow::Result<()> {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
         app.should_quit = true;
-        return;
+        return Ok(());
     }
 
     match key.code {
@@ -21,4 +21,6 @@ pub fn handle_search_key(app: &mut SearchApp, key: KeyEvent) {
         }
         _ => {}
     }
+
+    Ok(())
 }

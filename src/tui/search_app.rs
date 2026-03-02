@@ -45,6 +45,6 @@ impl SearchApp {
     }
 
     pub fn owner_of(result: &SearchResult) -> &str {
-        result.name.split('/').next().unwrap_or(&result.name)
+        result.name.split_once('/').map_or(&result.name, |(owner, _)| owner)
     }
 }
