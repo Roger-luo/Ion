@@ -180,6 +180,58 @@ impl SearchSource for AgentSource {
     }
 }
 
+/// Run search sources sequentially. Stop at the first source that returns results.
+/// If a source errors, print a warning and continue.
+pub fn cascade_search(
+    sources: Vec<Box<dyn SearchSource>>,
+    query: &str,
+    limit: usize,
+) -> Vec<SearchResult> {
+    for source in &sources {
+        match source.search(query, limit) {
+            Ok(results) if !results.is_empty() => return results,
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Warning: {} search failed: {e}", source.name());
+            }
+        }
+    }
+    vec![]
+}
+
+/// Run all search sources in parallel using threads. Merge all results.
+/// If a source errors, print a warning and skip it.
+pub fn parallel_search(
+    sources: Vec<Box<dyn SearchSource + Send>>,
+    query: &str,
+    limit: usize,
+) -> Vec<SearchResult> {
+    let query = query.to_string();
+    let handles: Vec<_> = sources
+        .into_iter()
+        .map(|source| {
+            let q = query.clone();
+            std::thread::spawn(move || {
+                match source.search(&q, limit) {
+                    Ok(results) => results,
+                    Err(e) => {
+                        eprintln!("Warning: {} search failed: {e}", source.name());
+                        vec![]
+                    }
+                }
+            })
+        })
+        .collect();
+
+    let mut all_results = Vec::new();
+    for handle in handles {
+        if let Ok(results) = handle.join() {
+            all_results.extend(results);
+        }
+    }
+    all_results
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -340,5 +392,41 @@ mod tests {
         let output = "brainstorming\tDesc\towner/repo\nsome freeform text\ntdd\tDesc2\towner2/repo2\n";
         let results = parse_agent_output(output, 10);
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn cascade_stops_at_first_source_with_results() {
+        let sources: Vec<Box<dyn SearchSource>> = vec![
+            Box::new(FakeSource { results: vec![] }),
+            Box::new(FakeSource {
+                results: vec![SearchResult {
+                    name: "found".to_string(),
+                    description: "".to_string(),
+                    source: "x/y".to_string(),
+                    registry: "second".to_string(),
+                }],
+            }),
+            Box::new(FakeSource {
+                results: vec![SearchResult {
+                    name: "should-not-reach".to_string(),
+                    description: "".to_string(),
+                    source: "a/b".to_string(),
+                    registry: "third".to_string(),
+                }],
+            }),
+        ];
+        let results = cascade_search(sources, "q", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "found");
+    }
+
+    #[test]
+    fn cascade_returns_empty_if_all_sources_empty() {
+        let sources: Vec<Box<dyn SearchSource>> = vec![
+            Box::new(FakeSource { results: vec![] }),
+            Box::new(FakeSource { results: vec![] }),
+        ];
+        let results = cascade_search(sources, "q", 10);
+        assert!(results.is_empty());
     }
 }
