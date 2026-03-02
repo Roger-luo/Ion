@@ -271,10 +271,10 @@ pub fn enrich_github_results(results: &mut [SearchResult]) {
             if let Some(desc) = skill_desc {
                 results[i].skill_description = Some(desc);
             }
-            if let Some(s) = stars {
-                if results[i].stars.is_none() {
-                    results[i].stars = Some(s);
-                }
+            if let Some(s) = stars
+                && results[i].stars.is_none()
+            {
+                results[i].stars = Some(s);
             }
         }
     }
@@ -333,7 +333,7 @@ fn fetch_stars_if_missing(source: &str) -> Option<u64> {
 fn base64_decode(input: &str) -> Option<String> {
     // Simple lookup table approach
     let table: Vec<u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-        .iter().copied().collect();
+        .to_vec();
     let mut buf = Vec::new();
     let mut bits: u32 = 0;
     let mut n_bits = 0;
