@@ -7,6 +7,7 @@ pub mod discovery;
 pub mod markdown;
 pub mod security;
 pub mod structure;
+pub mod codeblock;
 
 // ---------------------------------------------------------------------------
 // Severity
@@ -97,6 +98,7 @@ pub fn run_all_checkers(
         Box::new(security::SuspiciousFileChecker),
         Box::new(structure::ReferenceIntegrityChecker),
         Box::new(structure::ToolDeclarationConsistencyChecker),
+        Box::new(codeblock::TreeSitterCodeBlockChecker),
     ];
 
     let mut findings: Vec<Finding> = checkers
