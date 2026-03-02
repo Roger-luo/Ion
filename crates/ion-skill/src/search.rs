@@ -77,78 +77,46 @@ impl SearchSource for RegistrySource {
     }
 }
 
-// --- GitHub repo search response ---
+// --- GitHub CLI (`gh`) search ---
 
+/// JSON entry from `gh search code --json path,repository`
 #[derive(Deserialize)]
-struct GitHubRepoSearchResponse {
-    items: Vec<GitHubRepo>,
-}
-
-#[derive(Deserialize)]
-struct GitHubRepo {
-    full_name: String,
-    description: Option<String>,
-}
-
-/// Parse a GitHub repository search API response into SearchResults.
-pub fn parse_github_repo_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-    let resp: GitHubRepoSearchResponse =
-        serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid GitHub response: {e}")))?;
-    Ok(resp
-        .items
-        .into_iter()
-        .take(limit)
-        .map(|repo| SearchResult {
-            name: repo.full_name.clone(),
-            description: repo.description.unwrap_or_default(),
-            source: repo.full_name,
-            registry: "github".to_string(),
-        })
-        .collect())
-}
-
-// --- GitHub code search response (for SKILL.md file search) ---
-
-#[derive(Deserialize)]
-struct GitHubCodeSearchResponse {
-    items: Vec<GitHubCodeItem>,
-}
-
-#[derive(Deserialize)]
-struct GitHubCodeItem {
+struct GhCodeEntry {
     path: String,
-    repository: GitHubCodeRepo,
+    repository: GhCodeRepo,
 }
 
 #[derive(Deserialize)]
-struct GitHubCodeRepo {
-    full_name: String,
+#[serde(rename_all = "camelCase")]
+struct GhCodeRepo {
+    name_with_owner: String,
+    #[serde(default)]
     description: Option<String>,
 }
 
-/// Parse a GitHub code search API response into SearchResults.
+/// Parse `gh search code --json` output into SearchResults.
 /// Deduplicates by repository (a repo may have multiple SKILL.md matches).
-pub fn parse_github_code_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-    let resp: GitHubCodeSearchResponse =
-        serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid GitHub response: {e}")))?;
+pub fn parse_gh_code_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+    let entries: Vec<GhCodeEntry> =
+        serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid gh output: {e}")))?;
     let mut seen = std::collections::HashSet::new();
     let mut results = Vec::new();
-    for item in resp.items {
-        if seen.insert(item.repository.full_name.clone()) {
+    for item in entries {
+        if seen.insert(item.repository.name_with_owner.clone()) {
             let source = if item.path == "SKILL.md" {
-                item.repository.full_name.clone()
+                item.repository.name_with_owner.clone()
             } else {
                 // SKILL.md is in a subdirectory — include the path minus the filename
                 let skill_dir = item.path.trim_end_matches("/SKILL.md").trim_end_matches("SKILL.md");
                 let skill_dir = skill_dir.trim_end_matches('/');
                 if skill_dir.is_empty() {
-                    item.repository.full_name.clone()
+                    item.repository.name_with_owner.clone()
                 } else {
-                    format!("{}/{}", item.repository.full_name, skill_dir)
+                    format!("{}/{}", item.repository.name_with_owner, skill_dir)
                 }
             };
             results.push(SearchResult {
-                name: item.repository.full_name.clone(),
+                name: item.repository.name_with_owner.clone(),
                 description: item.repository.description.unwrap_or_default(),
                 source,
                 registry: "github".to_string(),
@@ -161,57 +129,59 @@ pub fn parse_github_code_response(body: &str, limit: usize) -> crate::Result<Vec
     Ok(results)
 }
 
-/// Searches GitHub for skills. With GITHUB_TOKEN, uses code search to find
-/// repos containing SKILL.md files. Without, falls back to repo search.
+/// JSON entry from `gh search repos --json fullName,description`
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GhRepoEntry {
+    full_name: String,
+    #[serde(default)]
+    description: Option<String>,
+}
+
+/// Parse `gh search repos --json` output into SearchResults.
+pub fn parse_gh_repo_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+    let entries: Vec<GhRepoEntry> =
+        serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid gh output: {e}")))?;
+    Ok(entries
+        .into_iter()
+        .take(limit)
+        .map(|repo| SearchResult {
+            name: repo.full_name.clone(),
+            description: repo.description.unwrap_or_default(),
+            source: repo.full_name,
+            registry: "github".to_string(),
+        })
+        .collect())
+}
+
+/// Searches GitHub using the `gh` CLI. Uses `gh search code --filename SKILL.md`
+/// for precise results, falling back to `gh search repos` if code search returns nothing.
+/// If `gh` is not installed, returns an error suggesting installation.
 pub struct GitHubSource;
 
 impl GitHubSource {
-    fn build_client() -> crate::Result<reqwest::blocking::Client> {
-        reqwest::blocking::Client::builder()
-            .timeout(std::time::Duration::from_secs(10))
-            .build()
-            .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))
+    fn gh_available() -> bool {
+        std::process::Command::new("gh")
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
     }
 
-    /// Code search: find SKILL.md files matching the query (requires auth).
-    fn search_code(&self, client: &reqwest::blocking::Client, token: &str, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let code_query = format!("filename:SKILL.md {query}");
-        log::debug!("github: code search (q={code_query:?}, per_page={limit})");
-        let response = client
-            .get("https://api.github.com/search/code")
-            .query(&[("q", code_query.as_str()), ("per_page", &limit.to_string())])
-            .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "ion-skill-manager")
-            .header("Authorization", format!("Bearer {token}"))
-            .send()
-            .map_err(|e| crate::Error::Http(format!("GitHub code search: {e}")))?
-            .error_for_status()
-            .map_err(|e| crate::Error::Http(format!("GitHub code search: {e}")))?;
-        let body = response.text().map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
-        log::debug!("github: code search returned {} bytes", body.len());
-        parse_github_code_response(&body, limit)
-    }
-
-    /// Repo search: broader search by name/description (no auth required).
-    fn search_repos(&self, client: &reqwest::blocking::Client, token: Option<&str>, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let repo_query = format!("{query} skill claude");
-        log::debug!("github: repo search (q={repo_query:?}, per_page={limit})");
-        let mut request = client
-            .get("https://api.github.com/search/repositories")
-            .query(&[("q", repo_query.as_str()), ("per_page", &limit.to_string())])
-            .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "ion-skill-manager");
-        if let Some(token) = token {
-            request = request.header("Authorization", format!("Bearer {token}"));
+    fn run_gh(args: &[&str]) -> crate::Result<String> {
+        log::debug!("github: running gh {}", args.join(" "));
+        let output = std::process::Command::new("gh")
+            .args(args)
+            .output()
+            .map_err(|e| crate::Error::Search(format!("Failed to run gh: {e}")))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(crate::Error::Search(format!("gh failed: {stderr}")));
         }
-        let response = request
-            .send()
-            .map_err(|e| crate::Error::Http(format!("GitHub repo search: {e}")))?
-            .error_for_status()
-            .map_err(|e| crate::Error::Http(format!("GitHub repo search: {e}")))?;
-        let body = response.text().map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
-        log::debug!("github: repo search returned {} bytes", body.len());
-        parse_github_repo_response(&body, limit)
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        log::debug!("github: gh returned {} bytes", stdout.len());
+        Ok(stdout)
     }
 }
 
@@ -221,28 +191,41 @@ impl SearchSource for GitHubSource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let client = Self::build_client()?;
-        let token = std::env::var("GITHUB_TOKEN").ok();
-        log::debug!("github: GITHUB_TOKEN={}", if token.is_some() { "set" } else { "unset" });
+        if !Self::gh_available() {
+            return Err(crate::Error::Search(
+                "GitHub CLI (gh) not found. Install it from https://cli.github.com and run `gh auth login`".to_string(),
+            ));
+        }
 
-        // With token: try code search for SKILL.md first, fall back to repo search
-        if let Some(ref token) = token {
-            match self.search_code(&client, token, query, limit) {
-                Ok(results) if !results.is_empty() => {
+        let limit_str = limit.to_string();
+
+        // Try code search for SKILL.md files first (most precise)
+        log::debug!("github: trying code search for SKILL.md files matching {query:?}");
+        match Self::run_gh(&[
+            "search", "code", "--filename", "SKILL.md", query,
+            "--json", "path,repository", "--limit", &limit_str,
+        ]) {
+            Ok(body) => {
+                let results = parse_gh_code_response(&body, limit)?;
+                if !results.is_empty() {
                     log::debug!("github: code search found {} results", results.len());
                     return Ok(results);
                 }
-                Ok(_) => {
-                    log::debug!("github: code search found 0 results, falling back to repo search");
-                }
-                Err(e) => {
-                    log::debug!("github: code search failed ({e}), falling back to repo search");
-                }
+                log::debug!("github: code search found 0 results, falling back to repo search");
+            }
+            Err(e) => {
+                log::debug!("github: code search failed ({e}), falling back to repo search");
             }
         }
 
-        // Fall back to repo search (works without auth)
-        let results = self.search_repos(&client, token.as_deref(), query, limit)?;
+        // Fall back to repo search
+        let repo_query = format!("{query} skill");
+        log::debug!("github: repo search for {repo_query:?}");
+        let body = Self::run_gh(&[
+            "search", "repos", &repo_query,
+            "--json", "fullName,description", "--limit", &limit_str,
+        ])?;
+        let results = parse_gh_repo_response(&body, limit)?;
         log::debug!("github: repo search found {} results", results.len());
         Ok(results)
     }
@@ -478,15 +461,12 @@ mod tests {
     }
 
     #[test]
-    fn github_source_parses_search_response() {
-        let json = r#"{
-            "total_count": 2,
-            "items": [
-                {"full_name": "anthropics/skills", "description": "AI agent skills collection", "html_url": "https://github.com/anthropics/skills"},
-                {"full_name": "acme/brainstorm-skill", "description": "Brainstorm skill", "html_url": "https://github.com/acme/brainstorm-skill"}
-            ]
-        }"#;
-        let results = parse_github_repo_response(json, 10).unwrap();
+    fn gh_repo_search_parses_response() {
+        let json = r#"[
+            {"fullName": "anthropics/skills", "description": "AI agent skills collection"},
+            {"fullName": "acme/brainstorm-skill", "description": "Brainstorm skill"}
+        ]"#;
+        let results = parse_gh_repo_response(json, 10).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "anthropics/skills");
         assert_eq!(results[0].source, "anthropics/skills");
@@ -495,29 +475,26 @@ mod tests {
     }
 
     #[test]
-    fn github_source_handles_empty_items() {
-        let json = r#"{"total_count": 0, "items": []}"#;
-        let results = parse_github_repo_response(json, 10).unwrap();
+    fn gh_repo_search_handles_empty() {
+        let json = "[]";
+        let results = parse_gh_repo_response(json, 10).unwrap();
         assert!(results.is_empty());
     }
 
     #[test]
-    fn github_source_null_description() {
-        let json = r#"{"total_count": 1, "items": [{"full_name": "a/b", "description": null, "html_url": "https://github.com/a/b"}]}"#;
-        let results = parse_github_repo_response(json, 10).unwrap();
+    fn gh_repo_search_null_description() {
+        let json = r#"[{"fullName": "a/b", "description": null}]"#;
+        let results = parse_gh_repo_response(json, 10).unwrap();
         assert_eq!(results[0].description, "");
     }
 
     #[test]
-    fn github_code_search_parses_response() {
-        let json = r#"{
-            "total_count": 2,
-            "items": [
-                {"path": "SKILL.md", "repository": {"full_name": "org/skill-a", "description": "Skill A"}},
-                {"path": "skills/brainstorming/SKILL.md", "repository": {"full_name": "org/monorepo", "description": "Multi-skill repo"}}
-            ]
-        }"#;
-        let results = parse_github_code_response(json, 10).unwrap();
+    fn gh_code_search_parses_response() {
+        let json = r#"[
+            {"path": "SKILL.md", "repository": {"nameWithOwner": "org/skill-a", "description": "Skill A"}},
+            {"path": "skills/brainstorming/SKILL.md", "repository": {"nameWithOwner": "org/monorepo", "description": "Multi-skill repo"}}
+        ]"#;
+        let results = parse_gh_code_response(json, 10).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "org/skill-a");
         assert_eq!(results[0].source, "org/skill-a");
@@ -526,16 +503,13 @@ mod tests {
     }
 
     #[test]
-    fn github_code_search_deduplicates_repos() {
-        let json = r#"{
-            "total_count": 3,
-            "items": [
-                {"path": "skills/a/SKILL.md", "repository": {"full_name": "org/repo", "description": "Repo"}},
-                {"path": "skills/b/SKILL.md", "repository": {"full_name": "org/repo", "description": "Repo"}},
-                {"path": "SKILL.md", "repository": {"full_name": "org/other", "description": "Other"}}
-            ]
-        }"#;
-        let results = parse_github_code_response(json, 10).unwrap();
+    fn gh_code_search_deduplicates_repos() {
+        let json = r#"[
+            {"path": "skills/a/SKILL.md", "repository": {"nameWithOwner": "org/repo", "description": "Repo"}},
+            {"path": "skills/b/SKILL.md", "repository": {"nameWithOwner": "org/repo", "description": "Repo"}},
+            {"path": "SKILL.md", "repository": {"nameWithOwner": "org/other", "description": "Other"}}
+        ]"#;
+        let results = parse_gh_code_response(json, 10).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].source, "org/repo/skills/a");
         assert_eq!(results[1].source, "org/other");
