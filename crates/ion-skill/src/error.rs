@@ -31,4 +31,23 @@ pub enum Error {
 
     #[error("HTTP error: {0}")]
     Http(String),
+
+    #[error(
+        "Validation failed: {error_count} error(s), {warning_count} warning(s), {info_count} info finding(s)"
+    )]
+    ValidationFailed {
+        report: crate::validate::ValidationReport,
+        error_count: usize,
+        warning_count: usize,
+        info_count: usize,
+    },
+
+    #[error(
+        "Validation warnings require confirmation: {warning_count} warning(s), {info_count} info finding(s)"
+    )]
+    ValidationWarning {
+        report: crate::validate::ValidationReport,
+        warning_count: usize,
+        info_count: usize,
+    },
 }

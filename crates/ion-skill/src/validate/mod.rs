@@ -67,6 +67,39 @@ pub struct Finding {
     pub detail: Option<String>,
 }
 
+/// Aggregated validation output for a single skill.
+#[derive(Debug, Clone)]
+pub struct ValidationReport {
+    pub findings: Vec<Finding>,
+    pub error_count: usize,
+    pub warning_count: usize,
+    pub info_count: usize,
+}
+
+impl ValidationReport {
+    pub fn from_findings(findings: Vec<Finding>) -> Self {
+        let error_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Error)
+            .count();
+        let warning_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Warning)
+            .count();
+        let info_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Info)
+            .count();
+
+        Self {
+            findings,
+            error_count,
+            warning_count,
+            info_count,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SkillChecker trait
 // ---------------------------------------------------------------------------
@@ -109,6 +142,11 @@ pub fn run_all_checkers(
     // Sort by severity descending (Error first, then Warning, then Info).
     findings.sort_by(|a, b| b.severity.cmp(&a.severity));
     findings
+}
+
+/// Run validation and return an aggregated report with counts.
+pub fn validate_skill_dir(skill_dir: &Path, meta: &SkillMetadata, body: &str) -> ValidationReport {
+    ValidationReport::from_findings(run_all_checkers(skill_dir, meta, body))
 }
 
 /// Returns `true` if any finding has `Severity::Error`.
