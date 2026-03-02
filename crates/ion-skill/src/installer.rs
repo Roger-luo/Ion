@@ -14,6 +14,121 @@ fn cache_dir() -> PathBuf {
         .join("repos")
 }
 
+/// Manages skill installation and uninstallation for a project.
+pub struct SkillInstaller<'a> {
+    project_dir: &'a Path,
+    options: &'a ManifestOptions,
+}
+
+impl<'a> SkillInstaller<'a> {
+    pub fn new(project_dir: &'a Path, options: &'a ManifestOptions) -> Self {
+        Self {
+            project_dir,
+            options,
+        }
+    }
+
+    pub fn install(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
+        let skill_dir = self.fetch(source)?;
+        let meta = self.validate(&skill_dir, source)?;
+        self.deploy(name, &skill_dir)?;
+        self.build_locked_entry(name, source, &meta, &skill_dir)
+    }
+
+    pub fn uninstall(&self, name: &str) -> Result<()> {
+        let agents_dir = self.project_dir.join(".agents").join("skills").join(name);
+        if agents_dir.exists() {
+            std::fs::remove_dir_all(&agents_dir).map_err(Error::Io)?;
+        }
+
+        for target_path in self.options.targets.values() {
+            let target_dir = self.project_dir.join(target_path).join(name);
+            if target_dir.is_symlink() {
+                std::fs::remove_file(&target_dir).map_err(Error::Io)?;
+            } else if target_dir.exists() {
+                std::fs::remove_dir_all(&target_dir).map_err(Error::Io)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn fetch(&self, source: &SkillSource) -> Result<PathBuf> {
+        fetch_skill(source)
+    }
+
+    fn validate(&self, skill_dir: &Path, source: &SkillSource) -> Result<SkillMetadata> {
+        let skill_md = skill_dir.join("SKILL.md");
+        if !skill_md.exists() {
+            return Err(Error::InvalidSkill(format!(
+                "No SKILL.md found at {}",
+                skill_md.display()
+            )));
+        }
+
+        let (meta, _body) = SkillMetadata::from_file(&skill_md)?;
+
+        if let Some(ref required_version) = source.version {
+            let actual_version = meta.version().unwrap_or("(none)");
+            if actual_version != required_version {
+                return Err(Error::InvalidSkill(format!(
+                    "Version mismatch: expected {required_version}, found {actual_version}"
+                )));
+            }
+        }
+
+        Ok(meta)
+    }
+
+    fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
+        let agents_target = self.project_dir.join(".agents").join("skills").join(name);
+        copy_skill_dir(skill_dir, &agents_target)?;
+
+        let canonical = self.project_dir.join(".agents").join("skills").join(name);
+        for target_path in self.options.targets.values() {
+            let target_skill_dir = self.project_dir.join(target_path).join(name);
+            create_skill_symlink(&canonical, &target_skill_dir)?;
+        }
+
+        Ok(())
+    }
+
+    fn build_locked_entry(
+        &self,
+        name: &str,
+        source: &SkillSource,
+        meta: &SkillMetadata,
+        skill_dir: &Path,
+    ) -> Result<LockedSkill> {
+        let (commit, checksum) = match source.source_type {
+            SourceType::Github | SourceType::Git => {
+                let repo_dir = find_repo_root(skill_dir);
+                let commit = git::head_commit(&repo_dir).ok();
+                let checksum = git::checksum_dir(skill_dir).ok();
+                (commit, checksum)
+            }
+            SourceType::Path | SourceType::Http => {
+                let checksum = git::checksum_dir(skill_dir).ok();
+                (None, checksum)
+            }
+        };
+
+        let git_url = source
+            .git_url()
+            .ok()
+            .unwrap_or_else(|| source.source.clone());
+
+        Ok(LockedSkill {
+            name: name.to_string(),
+            source: git_url,
+            path: source.path.clone(),
+            version: meta.version().map(|s| s.to_string()),
+            commit,
+            checksum,
+        })
+    }
+}
+
 /// Install a single skill from a resolved source into a project directory.
 pub fn install_skill(
     project_dir: &Path,
@@ -21,64 +136,7 @@ pub fn install_skill(
     source: &SkillSource,
     options: &ManifestOptions,
 ) -> Result<LockedSkill> {
-    let skill_dir = fetch_skill(source)?;
-
-    // Validate SKILL.md exists and is valid
-    let skill_md = skill_dir.join("SKILL.md");
-    if !skill_md.exists() {
-        return Err(Error::InvalidSkill(format!(
-            "No SKILL.md found at {}",
-            skill_md.display()
-        )));
-    }
-
-    let (meta, _body) = SkillMetadata::from_file(&skill_md)?;
-
-    // Version check
-    if let Some(ref required_version) = source.version {
-        let actual_version = meta.version().unwrap_or("(none)");
-        if actual_version != required_version {
-            return Err(Error::InvalidSkill(format!(
-                "Version mismatch: expected {required_version}, found {actual_version}"
-            )));
-        }
-    }
-
-    // Copy to .agents/skills/<name>/
-    let agents_target = project_dir.join(".agents").join("skills").join(name);
-    copy_skill_dir(&skill_dir, &agents_target)?;
-
-    // Create symlinks for each configured target
-    let canonical = project_dir.join(".agents").join("skills").join(name);
-    for target_path in options.targets.values() {
-        let target_skill_dir = project_dir.join(target_path).join(name);
-        create_skill_symlink(&canonical, &target_skill_dir)?;
-    }
-
-    // Build locked entry
-    let (commit, checksum) = match source.source_type {
-        SourceType::Github | SourceType::Git => {
-            let repo_dir = find_repo_root(&skill_dir);
-            let commit = git::head_commit(&repo_dir).ok();
-            let checksum = git::checksum_dir(&skill_dir).ok();
-            (commit, checksum)
-        }
-        SourceType::Path | SourceType::Http => {
-            let checksum = git::checksum_dir(&skill_dir).ok();
-            (None, checksum)
-        }
-    };
-
-    let git_url = source.git_url().ok().unwrap_or_else(|| source.source.clone());
-
-    Ok(LockedSkill {
-        name: name.to_string(),
-        source: git_url,
-        path: source.path.clone(),
-        version: meta.version().map(|s| s.to_string()),
-        commit,
-        checksum,
-    })
+    SkillInstaller::new(project_dir, options).install(name, source)
 }
 
 /// Fetch a skill source to a local directory. Returns the path to the skill directory.
@@ -189,23 +247,7 @@ fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
 
 /// Remove an installed skill from the project directory.
 pub fn uninstall_skill(project_dir: &Path, name: &str, options: &ManifestOptions) -> Result<()> {
-    // Remove canonical copy
-    let agents_dir = project_dir.join(".agents").join("skills").join(name);
-    if agents_dir.exists() {
-        std::fs::remove_dir_all(&agents_dir).map_err(Error::Io)?;
-    }
-
-    // Remove symlinks from all targets
-    for target_path in options.targets.values() {
-        let target_dir = project_dir.join(target_path).join(name);
-        if target_dir.is_symlink() {
-            std::fs::remove_file(&target_dir).map_err(Error::Io)?;
-        } else if target_dir.exists() {
-            std::fs::remove_dir_all(&target_dir).map_err(Error::Io)?;
-        }
-    }
-
-    Ok(())
+    SkillInstaller::new(project_dir, options).uninstall(name)
 }
 
 fn find_repo_root(path: &Path) -> PathBuf {
@@ -275,12 +317,15 @@ mod tests {
         std::os::unix::fs::symlink(
             std::path::Path::new("../../../.agents/skills/test"),
             claude.join("test"),
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
         let options = ManifestOptions { targets };
-        uninstall_skill(project.path(), "test", &options).unwrap();
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        installer.uninstall("test").unwrap();
 
         assert!(!agents.exists());
         assert!(!claude.join("test").exists());
@@ -292,7 +337,8 @@ mod tests {
         std::fs::write(
             skill_src.path().join("SKILL.md"),
             "---\nname: sym-test\ndescription: Symlink test.\n---\n\nBody.\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let project = tempfile::tempdir().unwrap();
         let source = SkillSource {
@@ -307,7 +353,8 @@ mod tests {
         targets.insert("claude".to_string(), ".claude/skills".to_string());
         let options = ManifestOptions { targets };
 
-        let _locked = install_skill(project.path(), "sym-test", &source, &options).unwrap();
+        let installer = SkillInstaller::new(project.path(), &options);
+        let _locked = installer.install("sym-test", &source).unwrap();
 
         // Canonical copy is a real directory
         let canonical = project.path().join(".agents/skills/sym-test");
@@ -330,7 +377,8 @@ mod tests {
         std::fs::write(
             skill_src.path().join("SKILL.md"),
             "---\nname: local-test\ndescription: A local test skill.\n---\n\nInstructions here.\n",
-        ).unwrap();
+        )
+        .unwrap();
 
         let project = tempfile::tempdir().unwrap();
         let source = SkillSource {
@@ -340,10 +388,16 @@ mod tests {
             rev: None,
             version: None,
         };
-        let options = ManifestOptions { targets: std::collections::BTreeMap::new() };
+        let options = ManifestOptions {
+            targets: std::collections::BTreeMap::new(),
+        };
 
-        let locked = install_skill(project.path(), "local-test", &source, &options).unwrap();
+        let installer = SkillInstaller::new(project.path(), &options);
+        let locked = installer.install("local-test", &source).unwrap();
         assert_eq!(locked.name, "local-test");
-        assert!(project.path().join(".agents/skills/local-test/SKILL.md").exists());
+        assert!(project
+            .path()
+            .join(".agents/skills/local-test/SKILL.md")
+            .exists());
     }
 }

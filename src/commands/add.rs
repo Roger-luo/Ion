@@ -1,4 +1,4 @@
-use ion_skill::installer::install_skill;
+use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
@@ -19,7 +19,8 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
 
-    let locked = install_skill(&ctx.project_dir, &name, &source, &merged_options)?;
+    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+    let locked = installer.install(&name, &source)?;
     println!("  Installed to .agents/skills/{name}/");
     for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");

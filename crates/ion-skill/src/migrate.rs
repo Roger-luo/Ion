@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::installer::install_skill;
+use crate::installer::SkillInstaller;
 use crate::lockfile::{LockedSkill, Lockfile};
 use crate::manifest::ManifestOptions;
 use crate::manifest_writer;
@@ -192,13 +192,14 @@ pub fn migrate(
     let mut lockfile = Lockfile::from_file(&lockfile_path)?;
     let mut locked_skills = Vec::new();
 
+    let installer = SkillInstaller::new(project_dir, &options.manifest_options);
     for skill in resolved {
         let mut source = skill.source.clone();
         if let Some(ref rev) = skill.rev {
             source.rev = Some(rev.clone());
         }
 
-        let locked = install_skill(project_dir, &skill.name, &source, &options.manifest_options)?;
+        let locked = installer.install(&skill.name, &source)?;
         manifest_writer::add_skill(&manifest_path, &skill.name, &source)?;
         lockfile.upsert(locked.clone());
         locked_skills.push(locked);

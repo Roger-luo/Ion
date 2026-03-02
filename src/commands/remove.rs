@@ -1,4 +1,4 @@
-use ion_skill::installer::uninstall_skill;
+use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
 
 use crate::context::ProjectContext;
@@ -15,7 +15,7 @@ pub fn run(name: &str) -> anyhow::Result<()> {
 
     println!("Removing skill '{name}'...");
 
-    uninstall_skill(&ctx.project_dir, name, &merged_options)?;
+    SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(name)?;
     println!("  Removed from .agents/skills/{name}/");
 
     manifest_writer::remove_skill(&ctx.manifest_path, name)?;

@@ -1,4 +1,4 @@
-use ion_skill::installer::install_skill;
+use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest::Manifest;
 
 use crate::context::ProjectContext;
@@ -19,10 +19,11 @@ pub fn run() -> anyhow::Result<()> {
 
     println!("Installing {} skill(s)...", manifest.skills.len());
 
+    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
         println!("  Installing '{name}'...");
-        let locked = install_skill(&ctx.project_dir, name, &source, &merged_options)?;
+        let locked = installer.install(name, &source)?;
         lockfile.upsert(locked);
     }
 
