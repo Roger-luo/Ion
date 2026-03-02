@@ -61,7 +61,7 @@ enum Commands {
         #[arg(long)]
         source: Option<String>,
         /// Max results per source
-        #[arg(long, default_value = "10")]
+        #[arg(long, default_value = "50")]
         limit: usize,
         /// Enable verbose debug logging
         #[arg(long, short)]

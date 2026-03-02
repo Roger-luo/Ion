@@ -1,5 +1,20 @@
 use serde::Deserialize;
 
+/// Extract "owner/repo" from a source string.
+/// `"obra/superpowers/skills/brainstorming"` → `"obra/superpowers"`.
+/// Returns the full string if it has fewer than two `/`-separated segments.
+pub fn owner_repo_of(source: &str) -> &str {
+    let mut slashes = source.match_indices('/');
+    if let Some((_, _)) = slashes.next() {
+        if let Some((second, _)) = slashes.next() {
+            return &source[..second];
+        }
+        // Exactly one slash: "owner/repo" — return as-is
+        return source;
+    }
+    source
+}
+
 /// Search result from any source.
 #[derive(Debug, Clone)]
 pub struct SearchResult {
@@ -87,6 +102,147 @@ impl SearchSource for RegistrySource {
     }
 }
 
+// --- skills.sh website scraping ---
+
+/// A skill entry parsed from the skills.sh RSC payload.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SkillsShEntry {
+    source: String,
+    #[serde(default)]
+    skill_id: String,
+    name: String,
+    #[serde(default)]
+    installs: u64,
+}
+
+/// Parse the skills.sh HTML page to extract skill entries from the RSC payload.
+/// The page embeds an `initialSkills` JSON array inside a `self.__next_f.push(...)` call.
+pub fn parse_skills_sh_page(body: &str, query: &str, limit: usize) -> Vec<SearchResult> {
+    // The RSC payload may use escaped quotes — unescape before parsing.
+    let unescaped;
+    let text = if body.contains("\\\"initialSkills\\\"") {
+        unescaped = body.replace("\\\"", "\"").replace("\\\\", "\\");
+        unescaped.as_str()
+    } else {
+        body
+    };
+
+    let marker = "\"initialSkills\":";
+    let Some(start) = text.find(marker) else {
+        log::debug!("skills.sh: initialSkills marker not found");
+        return vec![];
+    };
+    let json_start = start + marker.len();
+
+    // Find the matching closing bracket for the array.
+    let bytes = text.as_bytes();
+    let mut depth = 0;
+    let mut end = json_start;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (i, &b) in bytes[json_start..].iter().enumerate() {
+        if in_string {
+            if b == b'"' && !escaped {
+                in_string = false;
+            }
+            escaped = b == b'\\' && !escaped;
+            continue;
+        }
+        match b {
+            b'"' => in_string = true,
+            b'[' => depth += 1,
+            b']' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = json_start + i + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if depth != 0 {
+        log::debug!("skills.sh: failed to find end of initialSkills array");
+        return vec![];
+    }
+
+    let json_str = &text[json_start..end];
+
+    let entries: Vec<SkillsShEntry> = match serde_json::from_str(json_str) {
+        Ok(e) => e,
+        Err(e) => {
+            log::debug!("skills.sh: failed to parse initialSkills: {e}");
+            return vec![];
+        }
+    };
+
+    log::debug!("skills.sh: parsed {} total skills, filtering by {query:?}", entries.len());
+
+    let query_lower = query.to_lowercase();
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+    entries
+        .into_iter()
+        .filter(|e| {
+            let name_lower = e.name.to_lowercase();
+            let source_lower = e.source.to_lowercase();
+            let skill_id_lower = e.skill_id.to_lowercase();
+            query_words.iter().all(|w| {
+                name_lower.contains(w) || source_lower.contains(w) || skill_id_lower.contains(w)
+            })
+        })
+        .take(limit)
+        .map(|e| {
+            // Build source: if skillId differs from the repo name, it's a monorepo skill
+            let source = if e.source.contains('/') {
+                let repo_name = e.source.rsplit('/').next().unwrap_or("");
+                if e.skill_id != repo_name && !e.skill_id.is_empty() {
+                    format!("{}/{}", e.source, e.skill_id)
+                } else {
+                    e.source.clone()
+                }
+            } else {
+                e.source.clone()
+            };
+
+            let mut result = SearchResult::new(e.name, "", source, "skills.sh");
+            result.stars = Some(e.installs);
+            result
+        })
+        .collect()
+}
+
+/// Searches skills.sh by fetching the website and filtering the embedded skill catalog.
+pub struct SkillsShSource;
+
+impl SearchSource for SkillsShSource {
+    fn name(&self) -> &str {
+        "skills.sh"
+    }
+
+    fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+        log::debug!("skills.sh: fetching website");
+        let response = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()
+            .map_err(|e| crate::Error::Http(format!("skills.sh: {e}")))?
+            .get("https://skills.sh/")
+            .send()
+            .map_err(|e| crate::Error::Http(format!("skills.sh: {e}")))?
+            .error_for_status()
+            .map_err(|e| crate::Error::Http(format!("skills.sh: {e}")))?;
+        let body = response
+            .text()
+            .map_err(|e| crate::Error::Http(format!("skills.sh: {e}")))?;
+        log::debug!("skills.sh: received {} bytes", body.len());
+        let results = parse_skills_sh_page(&body, query, limit);
+        log::debug!("skills.sh: {} results for {query:?}", results.len());
+        Ok(results)
+    }
+}
+
 // --- GitHub CLI (`gh`) search ---
 
 /// JSON entry from `gh search code --json path,repository`
@@ -107,28 +263,44 @@ struct GhCodeRepo {
 }
 
 /// Parse `gh search code --json` output into SearchResults.
-/// Deduplicates by repository (a repo may have multiple SKILL.md matches).
+/// Deduplicates by install source (repo + skill path), so monorepos with
+/// multiple skills each get their own result.
+/// Filters out entries that aren't actual SKILL.md files (GitHub's --filename
+/// does substring matching, so "browser-agent-skill.md" would slip through).
 pub fn parse_gh_code_response(body: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
     let entries: Vec<GhCodeEntry> =
         serde_json::from_str(body).map_err(|e| crate::Error::Search(format!("Invalid gh output: {e}")))?;
     let mut seen = std::collections::HashSet::new();
     let mut results = Vec::new();
     for item in entries {
-        if seen.insert(item.repository.name_with_owner.clone()) {
-            let source = if item.path == "SKILL.md" {
+        // Only accept files literally named SKILL.md (not "my-skill.md", "SOFT_SKILL.md", etc.)
+        let filename = item.path.rsplit('/').next().unwrap_or(&item.path);
+        if !filename.eq_ignore_ascii_case("skill.md") {
+            continue;
+        }
+
+        let source = if item.path == "SKILL.md" || item.path == "skill.md" {
+            item.repository.name_with_owner.clone()
+        } else {
+            // SKILL.md is in a subdirectory — include the path minus the filename
+            let skill_dir = item.path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+            if skill_dir.is_empty() {
                 item.repository.name_with_owner.clone()
             } else {
-                // SKILL.md is in a subdirectory — include the path minus the filename
-                let skill_dir = item.path.trim_end_matches("/SKILL.md").trim_end_matches("SKILL.md");
-                let skill_dir = skill_dir.trim_end_matches('/');
-                if skill_dir.is_empty() {
-                    item.repository.name_with_owner.clone()
-                } else {
-                    format!("{}/{}", item.repository.name_with_owner, skill_dir)
-                }
+                format!("{}/{}", item.repository.name_with_owner, skill_dir)
+            }
+        };
+        if seen.insert(source.clone()) {
+            // Use the skill directory name as the display name for monorepo skills
+            let name = if source.contains('/') && source != item.repository.name_with_owner {
+                // Monorepo skill: show "skill-dir (owner/repo)" for clarity
+                let skill_dir = source.rsplit('/').next().unwrap_or(&source);
+                format!("{} ({})", skill_dir, item.repository.name_with_owner)
+            } else {
+                item.repository.name_with_owner.clone()
             };
             let mut result = SearchResult::new(
-                item.repository.name_with_owner.clone(),
+                name,
                 item.repository.description.unwrap_or_default(),
                 source,
                 "github",
@@ -217,38 +389,227 @@ impl SearchSource for GitHubSource {
             ));
         }
 
-        let limit_str = limit.to_string();
+        // Collect results from all strategies with generous internal limits,
+        // then deduplicate, sort by stars, and truncate to the requested limit.
+        // This ensures high-star repos (like monorepos with many skills) surface
+        // first regardless of which strategy found them.
+        let fetch_limit = (limit * 3).max(30).to_string();
+        let mut results = Vec::new();
+        let mut seen_sources = std::collections::HashSet::new();
 
-        // Try code search for SKILL.md files first (most precise)
-        log::debug!("github: trying code search for SKILL.md files matching {query:?}");
-        match Self::run_gh(&[
+        // 1. Code search (content): find SKILL.md files whose content matches the query
+        log::debug!("github: code search (content) for {query:?}");
+        if let Ok(body) = Self::run_gh(&[
             "search", "code", "--filename", "SKILL.md", query,
-            "--json", "path,repository", "--limit", &limit_str,
+            "--json", "path,repository", "--limit", &fetch_limit,
         ]) {
-            Ok(body) => {
-                let results = parse_gh_code_response(&body, limit)?;
-                if !results.is_empty() {
-                    log::debug!("github: code search found {} results", results.len());
-                    return Ok(results);
+            for r in parse_gh_code_response(&body, limit * 3)? {
+                if seen_sources.insert(r.source.clone()) {
+                    results.push(r);
                 }
-                log::debug!("github: code search found 0 results, falling back to repo search");
             }
-            Err(e) => {
-                log::debug!("github: code search failed ({e}), falling back to repo search");
+            log::debug!("github: content search found {} results", results.len());
+        }
+
+        // 2. Code search (path): find SKILL.md files in directories matching the query
+        //    e.g., searching "brainstorming" finds skills/brainstorming/SKILL.md
+        log::debug!("github: code search (path) for {query:?}");
+        if let Ok(body) = Self::run_gh(&[
+            "search", "code", "--filename", "SKILL.md", "--match", "path", query,
+            "--json", "path,repository", "--limit", &fetch_limit,
+        ]) {
+            let before = results.len();
+            for r in parse_gh_code_response(&body, limit * 3)? {
+                if seen_sources.insert(r.source.clone()) {
+                    results.push(r);
+                }
+            }
+            log::debug!("github: path search added {} results", results.len() - before);
+        }
+
+        // 3. Repo search: find repos whose name/description matches the query.
+        //    For skill-related repos, enumerate ALL their individual skills.
+        log::debug!("github: repo search for {query:?}");
+        if let Ok(body) = Self::run_gh(&[
+            "search", "repos", query,
+            "--json", "fullName,description,stargazersCount", "--limit", "10",
+        ]) {
+            let repo_results = parse_gh_repo_response(&body, 10)?;
+            log::debug!("github: repo search found {} repos", repo_results.len());
+            for repo in &repo_results {
+                // Skip repos already fully represented in code search results
+                if seen_sources.contains(&repo.source) {
+                    continue;
+                }
+                // Enumerate individual skills within skill-related repos
+                if looks_skill_related(repo) {
+                    let mut skills = enumerate_repo_skills(&repo.source, limit * 3, &seen_sources);
+                    if !skills.is_empty() {
+                        log::debug!("github: enumerated {} skills in {}", skills.len(), repo.source);
+                        // Propagate the repo's star count to enumerated skills
+                        // (gh search code doesn't include stargazersCount)
+                        for r in &mut skills {
+                            if r.stars.is_none() {
+                                r.stars = repo.stars;
+                            }
+                        }
+                        for r in skills {
+                            seen_sources.insert(r.source.clone());
+                            results.push(r);
+                        }
+                    } else {
+                        log::debug!("github: {} looks skill-related but has no SKILL.md, skipping", repo.source);
+                    }
+                    continue;
+                }
+                // Fall back to showing repo as a single result only if it has a SKILL.md
+                if seen_sources.insert(repo.source.clone()) && repo_has_skill_md(&repo.source) {
+                    results.push(repo.clone());
+                }
             }
         }
 
-        // Fall back to repo search
-        let repo_query = format!("{query} skill");
-        log::debug!("github: repo search for {repo_query:?}");
-        let body = Self::run_gh(&[
-            "search", "repos", &repo_query,
-            "--json", "fullName,description,stargazersCount", "--limit", &limit_str,
-        ])?;
-        let results = parse_gh_repo_response(&body, limit)?;
-        log::debug!("github: repo search found {} results", results.len());
+        // Sort by stars (descending), then select with repo diversity
+        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+        results = select_with_diversity(results, limit);
+
+        log::debug!("github: returning {} results", results.len());
         Ok(results)
     }
+}
+
+/// Check if a search result looks skill-related (has "skill" or "agent" in name/description).
+fn looks_skill_related(result: &SearchResult) -> bool {
+    let name_lower = result.name.to_lowercase();
+    let desc_lower = result.description.to_lowercase();
+    name_lower.contains("skill")
+        || name_lower.contains("agent")
+        || name_lower.contains("superpower")
+        || desc_lower.contains("skill")
+        || desc_lower.contains("agent")
+}
+
+/// Enumerate individual skills in a GitHub repo by searching for SKILL.md files.
+/// Returns results for each skill found, excluding already-seen sources.
+fn enumerate_repo_skills(
+    repo: &str,
+    limit: usize,
+    seen: &std::collections::HashSet<String>,
+) -> Vec<SearchResult> {
+    let limit_str = limit.to_string();
+    log::debug!("github: enumerating skills in {repo}");
+    let body = match GitHubSource::run_gh(&[
+        "search", "code", "--filename", "SKILL.md", "--repo", repo,
+        "--json", "path,repository", "--limit", &limit_str,
+    ]) {
+        Ok(b) => b,
+        Err(e) => {
+            log::debug!("github: failed to enumerate {repo}: {e}");
+            return vec![];
+        }
+    };
+    match parse_gh_code_response(&body, limit) {
+        Ok(results) => results.into_iter().filter(|r| !seen.contains(&r.source)).collect(),
+        Err(e) => {
+            log::debug!("github: failed to parse enumeration for {repo}: {e}");
+            vec![]
+        }
+    }
+}
+
+/// Check whether a repo has a SKILL.md at its root.
+fn repo_has_skill_md(repo: &str) -> bool {
+    log::debug!("github: checking if {repo} has SKILL.md");
+    let Ok(body) = GitHubSource::run_gh(&[
+        "search", "code", "--filename", "SKILL.md", "--repo", repo,
+        "--json", "path,repository", "--limit", "1",
+    ]) else {
+        return false;
+    };
+    parse_gh_code_response(&body, 1).is_ok_and(|r| !r.is_empty())
+}
+
+/// Select up to `limit` results while ensuring repo diversity.
+///
+/// Guarantees that the final set contains results from at least `MIN_REPOS`
+/// different repos (or all available repos if fewer exist). When a single
+/// high-star repo would otherwise dominate, lower-priority skills from that
+/// repo are evicted to make room for at least one result from other repos.
+///
+/// Expects `results` to be pre-sorted by stars descending.
+fn select_with_diversity(mut results: Vec<SearchResult>, limit: usize) -> Vec<SearchResult> {
+    const MIN_REPOS: usize = 5;
+
+    if results.len() <= limit {
+        return results;
+    }
+
+    // Split into selected (top `limit`) and overflow
+    let overflow = results.split_off(limit);
+
+    // Count unique repos already in selected set
+    let selected_repos: std::collections::HashSet<&str> =
+        results.iter().map(|r| owner_repo_of(&r.source)).collect();
+
+    if selected_repos.len() >= MIN_REPOS {
+        return results;
+    }
+
+    // Collect one representative from each new repo in the overflow
+    let mut new_repo_results: Vec<SearchResult> = Vec::new();
+    let mut seen_new: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for r in overflow {
+        let repo = owner_repo_of(&r.source).to_string();
+        if !selected_repos.contains(repo.as_str()) && seen_new.insert(repo) {
+            new_repo_results.push(r);
+            if selected_repos.len() + new_repo_results.len() >= MIN_REPOS {
+                break;
+            }
+        }
+    }
+
+    if new_repo_results.is_empty() {
+        return results;
+    }
+
+    // Evict from over-represented repos to make room
+    let to_add = new_repo_results.len();
+    let mut repo_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for r in &results {
+        *repo_counts
+            .entry(owner_repo_of(&r.source).to_string())
+            .or_default() += 1;
+    }
+
+    let mut removed = 0;
+    while removed < to_add {
+        // Find repo with the most results
+        let max_repo = repo_counts
+            .iter()
+            .max_by_key(|&(_, c)| *c)
+            .map(|(k, _)| k.clone());
+        if let Some(repo) = max_repo {
+            if repo_counts[&repo] <= 1 {
+                break; // Can't remove without losing a repo entirely
+            }
+            // Remove the last (lowest-star) result from this repo
+            if let Some(pos) = results
+                .iter()
+                .rposition(|r| owner_repo_of(&r.source) == repo)
+            {
+                results.remove(pos);
+                *repo_counts.get_mut(&repo).unwrap() -= 1;
+                removed += 1;
+            }
+        } else {
+            break;
+        }
+    }
+
+    results.extend(new_repo_results.into_iter().take(removed));
+    results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+    results
 }
 
 /// Enrich GitHub search results by fetching SKILL.md descriptions from each repository.
@@ -615,21 +976,24 @@ mod tests {
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "org/skill-a");
         assert_eq!(results[0].source, "org/skill-a");
-        assert_eq!(results[1].name, "org/monorepo");
+        assert_eq!(results[1].name, "brainstorming (org/monorepo)");
         assert_eq!(results[1].source, "org/monorepo/skills/brainstorming");
     }
 
     #[test]
-    fn gh_code_search_deduplicates_repos() {
+    fn gh_code_search_shows_all_monorepo_skills() {
         let json = r#"[
             {"path": "skills/a/SKILL.md", "repository": {"nameWithOwner": "org/repo", "description": "Repo"}},
             {"path": "skills/b/SKILL.md", "repository": {"nameWithOwner": "org/repo", "description": "Repo"}},
             {"path": "SKILL.md", "repository": {"nameWithOwner": "org/other", "description": "Other"}}
         ]"#;
         let results = parse_gh_code_response(json, 10).unwrap();
-        assert_eq!(results.len(), 2);
+        assert_eq!(results.len(), 3);
         assert_eq!(results[0].source, "org/repo/skills/a");
-        assert_eq!(results[1].source, "org/other");
+        assert_eq!(results[0].name, "a (org/repo)");
+        assert_eq!(results[1].source, "org/repo/skills/b");
+        assert_eq!(results[1].name, "b (org/repo)");
+        assert_eq!(results[2].source, "org/other");
     }
 
     #[test]
@@ -739,5 +1103,136 @@ mod tests {
         let json = r#"[{"fullName": "org/repo", "description": "A repo"}]"#;
         let results = parse_gh_repo_response(json, 10).unwrap();
         assert_eq!(results[0].stars, None);
+    }
+
+    #[test]
+    fn owner_repo_of_full_path() {
+        assert_eq!(owner_repo_of("obra/superpowers/skills/brainstorming"), "obra/superpowers");
+    }
+
+    #[test]
+    fn owner_repo_of_just_owner_repo() {
+        assert_eq!(owner_repo_of("obra/superpowers"), "obra/superpowers");
+    }
+
+    #[test]
+    fn owner_repo_of_no_slash() {
+        assert_eq!(owner_repo_of("superpowers"), "superpowers");
+    }
+
+    #[test]
+    fn owner_repo_of_empty() {
+        assert_eq!(owner_repo_of(""), "");
+    }
+
+    #[test]
+    fn diversity_noop_when_under_limit() {
+        let results = vec![
+            make_result("a/one", "a/one", 100),
+            make_result("b/two", "b/two", 50),
+        ];
+        let selected = select_with_diversity(results.clone(), 10);
+        assert_eq!(selected.len(), 2);
+    }
+
+    #[test]
+    fn diversity_evicts_from_dominant_repo() {
+        // 8 skills from monorepo (high stars) + 3 from other repos (low stars)
+        let mut results = Vec::new();
+        for i in 0..8 {
+            results.push(make_result(
+                &format!("skill-{i} (mono/repo)"),
+                &format!("mono/repo/skills/skill-{i}"),
+                1000,
+            ));
+        }
+        results.push(make_result("other/a", "other/a", 10));
+        results.push(make_result("other/b", "other/b", 5));
+        results.push(make_result("other/c", "other/c", 1));
+
+        // Pre-sort by stars (as GitHubSource does)
+        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+
+        let selected = select_with_diversity(results, 10);
+        assert_eq!(selected.len(), 10);
+
+        // Should have results from at least 4 repos (mono + other/a + other/b + other/c)
+        let repos: std::collections::HashSet<&str> =
+            selected.iter().map(|r| owner_repo_of(&r.source)).collect();
+        assert!(repos.len() >= 4, "expected >=4 repos, got {}: {:?}", repos.len(), repos);
+        assert!(repos.contains("other/a"));
+        assert!(repos.contains("other/b"));
+        assert!(repos.contains("other/c"));
+    }
+
+    #[test]
+    fn diversity_preserves_order() {
+        let mut results = Vec::new();
+        for i in 0..12 {
+            results.push(make_result(
+                &format!("skill-{i}"),
+                &format!("big/repo/skills/s{i}"),
+                1000,
+            ));
+        }
+        results.push(make_result("small/a", "small/a", 500));
+        results.push(make_result("small/b", "small/b", 200));
+        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+
+        let selected = select_with_diversity(results, 10);
+        // Should still be sorted by stars descending
+        for w in selected.windows(2) {
+            assert!(w[0].stars.unwrap_or(0) >= w[1].stars.unwrap_or(0));
+        }
+    }
+
+    fn make_result(name: &str, source: &str, stars: u64) -> SearchResult {
+        let mut r = SearchResult::new(name, "", source, "github");
+        r.stars = Some(stars);
+        r
+    }
+
+    #[test]
+    fn skills_sh_parse_basic() {
+        let body = r#"stuff before"initialSkills":[{"source":"obra/superpowers","skillId":"brainstorming","name":"brainstorming","installs":5000},{"source":"obra/superpowers","skillId":"writing-plans","name":"writing-plans","installs":3000},{"source":"acme/tdd","skillId":"tdd","name":"tdd","installs":1000}]more stuff"#;
+        let results = parse_skills_sh_page(body, "brainstorming", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "brainstorming");
+        assert_eq!(results[0].source, "obra/superpowers/brainstorming");
+        assert_eq!(results[0].registry, "skills.sh");
+        assert_eq!(results[0].stars, Some(5000));
+    }
+
+    #[test]
+    fn skills_sh_parse_broad_query() {
+        let body = r#"x"initialSkills":[{"source":"obra/superpowers","skillId":"brainstorming","name":"brainstorming","installs":5000},{"source":"obra/superpowers","skillId":"writing","name":"writing","installs":3000},{"source":"acme/skill","skillId":"skill","name":"skill","installs":100}]y"#;
+        // "obra" matches both superpowers skills by source
+        let results = parse_skills_sh_page(body, "obra", 10);
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn skills_sh_parse_escaped_quotes() {
+        // Simulates RSC payload with escaped quotes
+        let body = r#"x\"initialSkills\":[{\"source\":\"owner/repo\",\"skillId\":\"my-skill\",\"name\":\"my-skill\",\"installs\":42}]y"#;
+        let results = parse_skills_sh_page(body, "my-skill", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "my-skill");
+    }
+
+    #[test]
+    fn skills_sh_parse_no_marker() {
+        let body = "no skills data here";
+        let results = parse_skills_sh_page(body, "test", 10);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn skills_sh_same_skill_id_as_repo() {
+        // When skillId matches the repo name, source should just be owner/repo
+        let body = r#"x"initialSkills":[{"source":"acme/tdd","skillId":"tdd","name":"tdd","installs":100}]y"#;
+        let results = parse_skills_sh_page(body, "tdd", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].source, "acme/tdd");
     }
 }

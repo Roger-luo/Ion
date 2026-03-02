@@ -12,7 +12,7 @@ pub fn handle_search_key(app: &mut SearchApp, key: KeyEvent) -> anyhow::Result<(
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Enter => {
-            if !app.results.is_empty() {
+            if !app.rows.is_empty() {
                 app.should_install = true;
             }
         }
