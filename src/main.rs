@@ -43,6 +43,26 @@ enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Search for skills across registries and GitHub
+    Search {
+        /// Search query (word or phrase)
+        query: String,
+        /// Search all sources in parallel instead of cascading
+        #[arg(long, short)]
+        all: bool,
+        /// Include configured CLI agent in search
+        #[arg(long)]
+        agent: bool,
+        /// Pick a result to install interactively
+        #[arg(long, short)]
+        interactive: bool,
+        /// Search only a specific source
+        #[arg(long)]
+        source: Option<String>,
+        /// Max results per source
+        #[arg(long, default_value = "10")]
+        limit: usize,
+    },
     /// Manage ion configuration
     Config {
         #[command(subcommand)]
@@ -60,6 +80,9 @@ fn main() {
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
         Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
+        Commands::Search { query, all, agent, interactive, source, limit } => {
+            commands::search::run(&query, all, agent, interactive, source.as_deref(), limit)
+        }
         Commands::Config { action } => commands::config::run(action),
     };
 
