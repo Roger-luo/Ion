@@ -6,6 +6,7 @@ use crate::skill::SkillMetadata;
 pub mod discovery;
 pub mod markdown;
 pub mod security;
+pub mod structure;
 
 // ---------------------------------------------------------------------------
 // Severity
@@ -89,7 +90,14 @@ pub fn run_all_checkers(
     meta: &SkillMetadata,
     body: &str,
 ) -> Vec<Finding> {
-    let checkers: Vec<Box<dyn SkillChecker>> = vec![];
+    let checkers: Vec<Box<dyn SkillChecker>> = vec![
+        Box::new(security::PromptInjectionChecker),
+        Box::new(security::DangerousCommandChecker),
+        Box::new(security::SensitivePathChecker),
+        Box::new(security::SuspiciousFileChecker),
+        Box::new(structure::ReferenceIntegrityChecker),
+        Box::new(structure::ToolDeclarationConsistencyChecker),
+    ];
 
     let mut findings: Vec<Finding> = checkers
         .iter()
