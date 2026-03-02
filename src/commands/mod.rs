@@ -7,3 +7,4 @@ pub mod migrate;
 pub mod remove;
 pub mod search;
 pub mod validation;
+pub mod validate;

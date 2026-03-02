@@ -64,6 +64,11 @@ enum Commands {
         #[arg(long, short)]
         verbose: bool,
     },
+    /// Validate local skill definitions
+    Validate {
+        /// Optional path to a SKILL.md file or skill/workspace directory
+        path: Option<String>,
+    },
     /// Manage ion configuration
     Config {
         #[command(subcommand)]
@@ -89,6 +94,7 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
+        Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Config { action } => commands::config::run(action),
     };
 
