@@ -7,6 +7,21 @@ pub struct SearchResult {
     pub description: String,
     pub source: String,
     pub registry: String,
+    pub stars: Option<u64>,
+    pub skill_description: Option<String>,
+}
+
+impl SearchResult {
+    pub fn new(name: impl Into<String>, description: impl Into<String>, source: impl Into<String>, registry: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            description: description.into(),
+            source: source.into(),
+            registry: registry.into(),
+            stars: None,
+            skill_description: None,
+        }
+    }
 }
 
 /// A searchable source of skills.
@@ -34,12 +49,7 @@ pub fn parse_registry_response(
     Ok(entries
         .into_iter()
         .take(limit)
-        .map(|e| SearchResult {
-            name: e.name,
-            description: e.description,
-            source: e.source,
-            registry: registry_name.to_string(),
-        })
+        .map(|e| SearchResult::new(e.name, e.description, e.source, registry_name))
         .collect())
 }
 
@@ -92,6 +102,8 @@ struct GhCodeRepo {
     name_with_owner: String,
     #[serde(default)]
     description: Option<String>,
+    #[serde(default)]
+    stargazers_count: Option<u64>,
 }
 
 /// Parse `gh search code --json` output into SearchResults.
@@ -115,12 +127,14 @@ pub fn parse_gh_code_response(body: &str, limit: usize) -> crate::Result<Vec<Sea
                     format!("{}/{}", item.repository.name_with_owner, skill_dir)
                 }
             };
-            results.push(SearchResult {
-                name: item.repository.name_with_owner.clone(),
-                description: item.repository.description.unwrap_or_default(),
+            let mut result = SearchResult::new(
+                item.repository.name_with_owner.clone(),
+                item.repository.description.unwrap_or_default(),
                 source,
-                registry: "github".to_string(),
-            });
+                "github",
+            );
+            result.stars = item.repository.stargazers_count;
+            results.push(result);
             if results.len() >= limit {
                 break;
             }
@@ -136,6 +150,8 @@ struct GhRepoEntry {
     full_name: String,
     #[serde(default)]
     description: Option<String>,
+    #[serde(default)]
+    stargazers_count: Option<u64>,
 }
 
 /// Parse `gh search repos --json` output into SearchResults.
@@ -145,11 +161,15 @@ pub fn parse_gh_repo_response(body: &str, limit: usize) -> crate::Result<Vec<Sea
     Ok(entries
         .into_iter()
         .take(limit)
-        .map(|repo| SearchResult {
-            name: repo.full_name.clone(),
-            description: repo.description.unwrap_or_default(),
-            source: repo.full_name,
-            registry: "github".to_string(),
+        .map(|repo| {
+            let mut result = SearchResult::new(
+                repo.full_name.clone(),
+                repo.description.unwrap_or_default(),
+                repo.full_name,
+                "github",
+            );
+            result.stars = repo.stargazers_count;
+            result
         })
         .collect())
 }
@@ -223,12 +243,134 @@ impl SearchSource for GitHubSource {
         log::debug!("github: repo search for {repo_query:?}");
         let body = Self::run_gh(&[
             "search", "repos", &repo_query,
-            "--json", "fullName,description", "--limit", &limit_str,
+            "--json", "fullName,description,stargazersCount", "--limit", &limit_str,
         ])?;
         let results = parse_gh_repo_response(&body, limit)?;
         log::debug!("github: repo search found {} results", results.len());
         Ok(results)
     }
+}
+
+/// Enrich GitHub search results by fetching SKILL.md descriptions from each repository.
+/// Results are enriched in parallel using threads.
+pub fn enrich_github_results(results: &mut [SearchResult]) {
+    let handles: Vec<_> = results
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.registry == "github" && !r.source.is_empty())
+        .map(|(i, r)| {
+            let source = r.source.clone();
+            std::thread::spawn(move || {
+                (i, fetch_skill_description(&source), fetch_stars_if_missing(&source))
+            })
+        })
+        .collect();
+
+    for handle in handles {
+        if let Ok((i, skill_desc, stars)) = handle.join() {
+            if let Some(desc) = skill_desc {
+                results[i].skill_description = Some(desc);
+            }
+            if let Some(s) = stars {
+                if results[i].stars.is_none() {
+                    results[i].stars = Some(s);
+                }
+            }
+        }
+    }
+}
+
+/// Fetch the description from a SKILL.md file in a GitHub repository.
+fn fetch_skill_description(source: &str) -> Option<String> {
+    // source is like "owner/repo" or "owner/repo/path/to/skill"
+    let parts: Vec<&str> = source.splitn(3, '/').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let (owner_repo, skill_path) = if parts.len() == 3 {
+        (format!("{}/{}", parts[0], parts[1]), format!("{}/SKILL.md", parts[2]))
+    } else {
+        (source.to_string(), "SKILL.md".to_string())
+    };
+
+    log::debug!("enrich: fetching SKILL.md from {owner_repo} path={skill_path}");
+    let output = std::process::Command::new("gh")
+        .args(["api", &format!("repos/{owner_repo}/contents/{skill_path}"), "--jq", ".content"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        log::debug!("enrich: failed to fetch SKILL.md from {owner_repo}");
+        return None;
+    }
+
+    let b64 = String::from_utf8_lossy(&output.stdout);
+    let b64_clean: String = b64.chars().filter(|c| !c.is_whitespace()).collect();
+    let decoded = base64_decode(&b64_clean)?;
+    parse_skill_description(&decoded)
+}
+
+/// Fetch star count for a repo if not already known.
+fn fetch_stars_if_missing(source: &str) -> Option<u64> {
+    let parts: Vec<&str> = source.splitn(3, '/').collect();
+    if parts.len() < 2 {
+        return None;
+    }
+    let owner_repo = format!("{}/{}", parts[0], parts[1]);
+    let output = std::process::Command::new("gh")
+        .args(["api", &format!("repos/{owner_repo}"), "--jq", ".stargazers_count"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    String::from_utf8_lossy(&output.stdout).trim().parse().ok()
+}
+
+/// Simple base64 decoder (standard alphabet, no padding required).
+fn base64_decode(input: &str) -> Option<String> {
+    // Simple lookup table approach
+    let table: Vec<u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        .iter().copied().collect();
+    let mut buf = Vec::new();
+    let mut bits: u32 = 0;
+    let mut n_bits = 0;
+    for &byte in input.as_bytes() {
+        if byte == b'=' { break; }
+        let val = table.iter().position(|&b| b == byte)? as u32;
+        bits = (bits << 6) | val;
+        n_bits += 6;
+        if n_bits >= 8 {
+            n_bits -= 8;
+            buf.push((bits >> n_bits) as u8);
+            bits &= (1 << n_bits) - 1;
+        }
+    }
+    String::from_utf8(buf).ok()
+}
+
+/// Parse YAML frontmatter from SKILL.md content to extract the description.
+fn parse_skill_description(content: &str) -> Option<String> {
+    let content = content.trim();
+    if !content.starts_with("---") {
+        return None;
+    }
+    let rest = &content[3..];
+    let end = rest.find("---")?;
+    let frontmatter = &rest[..end];
+    // Simple line-based YAML parsing for description field
+    for line in frontmatter.lines() {
+        let line = line.trim();
+        if let Some(value) = line.strip_prefix("description:") {
+            let value = value.trim().trim_matches('"').trim_matches('\'');
+            if !value.is_empty() {
+                return Some(value.to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Parse agent CLI output. If lines are tab-separated (name\tdesc\tsource), parse as structured.
@@ -242,21 +384,16 @@ pub fn parse_agent_output(output: &str, limit: usize) -> Vec<SearchResult> {
     for line in trimmed.lines() {
         let parts: Vec<&str> = line.split('\t').collect();
         if parts.len() == 3 {
-            structured.push(SearchResult {
-                name: parts[0].trim().to_string(),
-                description: parts[1].trim().to_string(),
-                source: parts[2].trim().to_string(),
-                registry: "agent".to_string(),
-            });
+            structured.push(SearchResult::new(
+                parts[0].trim(),
+                parts[1].trim(),
+                parts[2].trim(),
+                "agent",
+            ));
         }
     }
     if structured.is_empty() {
-        vec![SearchResult {
-            name: "agent-result".to_string(),
-            description: trimmed.to_string(),
-            source: String::new(),
-            registry: "agent".to_string(),
-        }]
+        vec![SearchResult::new("agent-result", trimmed, "", "agent")]
     } else {
         structured.into_iter().take(limit).collect()
     }
@@ -382,12 +519,7 @@ mod tests {
     #[test]
     fn trait_search_returns_results() {
         let source = FakeSource {
-            results: vec![SearchResult {
-                name: "test-skill".to_string(),
-                description: "A test".to_string(),
-                source: "owner/repo/test-skill".to_string(),
-                registry: "fake".to_string(),
-            }],
+            results: vec![SearchResult::new("test-skill", "A test", "owner/repo/test-skill", "fake")],
         };
         let results = source.search("test", 10).unwrap();
         assert_eq!(results.len(), 1);
@@ -398,24 +530,9 @@ mod tests {
     fn trait_search_respects_limit() {
         let source = FakeSource {
             results: vec![
-                SearchResult {
-                    name: "a".to_string(),
-                    description: "".to_string(),
-                    source: "".to_string(),
-                    registry: "fake".to_string(),
-                },
-                SearchResult {
-                    name: "b".to_string(),
-                    description: "".to_string(),
-                    source: "".to_string(),
-                    registry: "fake".to_string(),
-                },
-                SearchResult {
-                    name: "c".to_string(),
-                    description: "".to_string(),
-                    source: "".to_string(),
-                    registry: "fake".to_string(),
-                },
+                SearchResult::new("a", "", "", "fake"),
+                SearchResult::new("b", "", "", "fake"),
+                SearchResult::new("c", "", "", "fake"),
             ],
         };
         let results = source.search("x", 2).unwrap();
@@ -553,20 +670,10 @@ mod tests {
         let sources: Vec<Box<dyn SearchSource + Send>> = vec![
             Box::new(FakeSource { results: vec![] }),
             Box::new(FakeSource {
-                results: vec![SearchResult {
-                    name: "found".to_string(),
-                    description: "".to_string(),
-                    source: "x/y".to_string(),
-                    registry: "second".to_string(),
-                }],
+                results: vec![SearchResult::new("found", "", "x/y", "second")],
             }),
             Box::new(FakeSource {
-                results: vec![SearchResult {
-                    name: "should-not-reach".to_string(),
-                    description: "".to_string(),
-                    source: "a/b".to_string(),
-                    registry: "third".to_string(),
-                }],
+                results: vec![SearchResult::new("should-not-reach", "", "a/b", "third")],
             }),
         ];
         let results = cascade_search(sources, "q", 10);
@@ -582,5 +689,55 @@ mod tests {
         ];
         let results = cascade_search(sources, "q", 10);
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn parse_skill_description_from_frontmatter() {
+        let content = "---\nname: brainstorming\ndescription: Collaborative brainstorming skill\n---\n# Brainstorming\nContent here.";
+        assert_eq!(parse_skill_description(content), Some("Collaborative brainstorming skill".to_string()));
+    }
+
+    #[test]
+    fn parse_skill_description_quoted() {
+        let content = "---\nname: test\ndescription: \"A quoted description\"\n---\n";
+        assert_eq!(parse_skill_description(content), Some("A quoted description".to_string()));
+    }
+
+    #[test]
+    fn parse_skill_description_missing() {
+        let content = "---\nname: test\n---\n# No description";
+        assert_eq!(parse_skill_description(content), None);
+    }
+
+    #[test]
+    fn parse_skill_description_no_frontmatter() {
+        let content = "# Just a markdown file\nNo frontmatter here.";
+        assert_eq!(parse_skill_description(content), None);
+    }
+
+    #[test]
+    fn base64_decode_works() {
+        // "Hello, World!" in base64
+        assert_eq!(base64_decode("SGVsbG8sIFdvcmxkIQ=="), Some("Hello, World!".to_string()));
+    }
+
+    #[test]
+    fn base64_decode_no_padding() {
+        // "Hi" in base64 (no padding needed)
+        assert_eq!(base64_decode("SGk"), Some("Hi".to_string()));
+    }
+
+    #[test]
+    fn gh_repo_search_includes_stars() {
+        let json = r#"[{"fullName": "org/repo", "description": "A repo", "stargazersCount": 42}]"#;
+        let results = parse_gh_repo_response(json, 10).unwrap();
+        assert_eq!(results[0].stars, Some(42));
+    }
+
+    #[test]
+    fn gh_repo_search_missing_stars() {
+        let json = r#"[{"fullName": "org/repo", "description": "A repo"}]"#;
+        let results = parse_gh_repo_response(json, 10).unwrap();
+        assert_eq!(results[0].stars, None);
     }
 }

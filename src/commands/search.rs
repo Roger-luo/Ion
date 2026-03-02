@@ -1,7 +1,7 @@
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
-    cascade_search, parallel_search, AgentSource, GitHubSource, RegistrySource, SearchResult,
-    SearchSource,
+    cascade_search, enrich_github_results, parallel_search, AgentSource, GitHubSource,
+    RegistrySource, SearchResult, SearchSource,
 };
 
 pub fn run(
@@ -15,7 +15,7 @@ pub fn run(
     log::debug!("search starting: query={query:?}, all={all}, agent={agent}, interactive={interactive}, source={source_filter:?}, limit={limit}");
     let config = GlobalConfig::load()?;
     log::debug!("loaded config: {} registries, agent_command={:?}", config.registries.len(), config.search.agent_command);
-    let results = execute_search(&config, query, all, agent, source_filter, limit)?;
+    let mut results = execute_search(&config, query, all, agent, source_filter, limit)?;
 
     if results.is_empty() {
         log::debug!("no results found");
@@ -23,7 +23,8 @@ pub fn run(
         return Ok(());
     }
 
-    log::debug!("found {} total results", results.len());
+    log::debug!("found {} total results, enriching GitHub results", results.len());
+    enrich_github_results(&mut results);
     print_results(&results);
 
     if interactive {
@@ -148,10 +149,17 @@ fn print_results(results: &[SearchResult]) {
         if r.source.is_empty() {
             println!("  {}", r.description);
         } else {
-            println!(
-                "  {:<24} {:<44} {}",
-                r.name, r.description, r.source
-            );
+            let stars = match r.stars {
+                Some(n) => format!("* {n}"),
+                None => String::new(),
+            };
+            println!("  {:<30} {:>6}  {}", r.name, stars, r.source);
+            if !r.description.is_empty() {
+                println!("    {}", r.description);
+            }
+            if let Some(ref skill_desc) = r.skill_description {
+                println!("    Skill: {skill_desc}");
+            }
         }
     }
 }
