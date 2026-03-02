@@ -1,8 +1,10 @@
-use ion_skill::installer::SkillInstaller;
+use ion_skill::Error as SkillError;
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
 use crate::context::ProjectContext;
+use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
 
 pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
@@ -20,7 +22,25 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let merged_options = ctx.merged_options(&manifest);
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
-    let locked = installer.install(&name, &source)?;
+    let locked = match installer.install(&name, &source) {
+        Ok(locked) => locked,
+        Err(SkillError::ValidationWarning { report, .. }) => {
+            print_validation_report(&name, &report);
+            if !confirm_install_on_warnings()? {
+                anyhow::bail!("Installation cancelled due to validation warnings.");
+            }
+
+            installer.install_with_options(
+                &name,
+                &source,
+                InstallValidationOptions {
+                    skip_validation: false,
+                    allow_warnings: true,
+                },
+            )?
+        }
+        Err(err) => return Err(err.into()),
+    };
     println!("  Installed to .agents/skills/{name}/");
     for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");
