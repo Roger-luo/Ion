@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use super::search_app::SearchApp;
+use super::util::wrap_text;
 
 pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     let area = frame.area();
@@ -177,25 +178,3 @@ fn render_footer(frame: &mut Frame, area: Rect) {
     frame.render_widget(help, area);
 }
 
-fn wrap_text(text: &str, width: usize) -> Vec<String> {
-    if width == 0 {
-        return vec![text.to_string()];
-    }
-    let mut lines = Vec::new();
-    let mut current = String::new();
-    for word in text.split_whitespace() {
-        if current.is_empty() {
-            current = word.to_string();
-        } else if current.len() + 1 + word.len() <= width {
-            current.push(' ');
-            current.push_str(word);
-        } else {
-            lines.push(current);
-            current = word.to_string();
-        }
-    }
-    if !current.is_empty() {
-        lines.push(current);
-    }
-    lines
-}

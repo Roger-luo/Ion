@@ -199,45 +199,30 @@ fn print_results(results: &[SearchResult]) {
 
 fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, color: bool) {
     let prefix: String = " ".repeat(indent);
-    let mut lines_printed = 0;
-    let mut remaining = text;
+    let lines = crate::tui::util::wrap_text(text, width);
 
-    while !remaining.is_empty() && lines_printed < max_lines {
-        let is_last_line = lines_printed + 1 == max_lines;
-        let chunk_len = if remaining.len() <= width {
-            remaining.len()
-        } else if is_last_line {
-            // Last allowed line: reserve 3 chars for "..."
+    for (i, line) in lines.iter().take(max_lines).enumerate() {
+        let is_last_allowed = i + 1 == max_lines;
+        let has_more = i + 1 < lines.len();
+
+        let display = if is_last_allowed && has_more {
             let limit = width.saturating_sub(3);
-            // Break at last space within limit, or hard-break
-            remaining[..limit]
-                .rfind(' ')
-                .unwrap_or(limit)
+            let truncated = if line.len() > limit {
+                &line[..limit]
+            } else {
+                line.as_str()
+            };
+            format!("{truncated}...")
         } else {
-            // Break at last space within width, or hard-break
-            remaining[..width]
-                .rfind(' ')
-                .map(|pos| pos + 1) // include the space in current chunk, skip it
-                .unwrap_or(width)
-        };
-
-        let chunk = &remaining[..chunk_len];
-        let leftover = remaining[chunk_len..].trim_start();
-
-        let line = if is_last_line && !leftover.is_empty() {
-            format!("{}...", chunk.trim_end())
-        } else {
-            chunk.trim_end().to_string()
+            line.clone()
         };
 
         if color {
-            println!("{prefix}{}", line.cyan());
+            use crossterm::style::Stylize;
+            println!("{prefix}{}", display.cyan());
         } else {
-            println!("{prefix}{line}");
+            println!("{prefix}{display}");
         }
-
-        remaining = leftover;
-        lines_printed += 1;
     }
 }
 
