@@ -227,19 +227,12 @@ fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, colo
 }
 
 fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
-    use std::io;
-
     use crossterm::event::{self, Event};
-    use crossterm::execute;
-    use crossterm::terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    };
-    use ratatui::Terminal;
-    use ratatui::backend::CrosstermBackend;
 
     use crate::tui::search_app::SearchApp;
     use crate::tui::search_event::handle_search_key;
     use crate::tui::search_ui::render_search;
+    use crate::tui::terminal::run_tui;
 
     let installable: Vec<SearchResult> = results
         .iter()
@@ -253,43 +246,33 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
 
     let mut app = SearchApp::new(installable);
 
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    run_tui(|terminal| {
+        loop {
+            terminal.draw(|frame| render_search(frame, &mut app))?;
 
-    // Main loop
-    loop {
-        terminal.draw(|frame| render_search(frame, &mut app))?;
-
-        if let Event::Key(key) = event::read()? {
-            handle_search_key(&mut app, key)?;
-        }
-
-        if app.should_quit || app.should_install {
-            break;
-        }
-    }
-
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
-    // Handle install
-    if app.should_install {
-        if let Some(chosen) = app.selected_result() {
-            log::debug!("user selected: {} (source={})", chosen.name, chosen.source);
-            println!("\nInstalling '{}'...", chosen.name);
-            let status = std::process::Command::new("ion")
-                .arg("add")
-                .arg(&chosen.source)
-                .status()?;
-            if !status.success() {
-                anyhow::bail!("ion add failed");
+            if let Event::Key(key) = event::read()? {
+                handle_search_key(&mut app, key)?;
             }
+
+            if app.should_quit || app.should_install {
+                break;
+            }
+        }
+        Ok(())
+    })?;
+
+    // Handle install (after terminal is restored)
+    if app.should_install
+        && let Some(chosen) = app.selected_result()
+    {
+        log::debug!("user selected: {} (source={})", chosen.name, chosen.source);
+        println!("\nInstalling '{}'...", chosen.name);
+        let status = std::process::Command::new("ion")
+            .arg("add")
+            .arg(&chosen.source)
+            .status()?;
+        if !status.success() {
+            anyhow::bail!("ion add failed");
         }
     }
 
