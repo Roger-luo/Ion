@@ -793,6 +793,7 @@ dependencies = [
  "dirs",
  "log",
  "pathdiff",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

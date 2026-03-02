@@ -10,6 +10,7 @@ pub mod migrate;
 pub mod search;
 pub mod skill;
 pub mod source;
+pub mod validate;
 
 pub use error::Error;
 
