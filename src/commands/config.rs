@@ -77,6 +77,21 @@ fn run_set(key: &str, value: &str, project: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn print_config_sections(values: &[(String, String)]) {
+    let mut current_section = "";
+    for (key, value) in values {
+        let (section, field) = key.split_once('.').unwrap();
+        if section != current_section {
+            if !current_section.is_empty() {
+                println!();
+            }
+            println!("[{section}]");
+            current_section = section;
+        }
+        println!("{field} = \"{value}\"");
+    }
+}
+
 fn run_list(project: bool) -> anyhow::Result<()> {
     if project {
         let manifest_path = std::env::current_dir()?.join("ion.toml");
@@ -85,18 +100,7 @@ fn run_list(project: bool) -> anyhow::Result<()> {
         if values.is_empty() {
             println!("No project config values set.");
         } else {
-            let mut current_section = "";
-            for (key, value) in &values {
-                let (section, field) = key.split_once('.').unwrap();
-                if section != current_section {
-                    if !current_section.is_empty() {
-                        println!();
-                    }
-                    println!("[{section}]");
-                    current_section = section;
-                }
-                println!("{field} = \"{value}\"");
-            }
+            print_config_sections(&values);
         }
     } else {
         let config = GlobalConfig::load()?;
@@ -104,18 +108,7 @@ fn run_list(project: bool) -> anyhow::Result<()> {
         if values.is_empty() {
             println!("No global config values set.");
         } else {
-            let mut current_section = "";
-            for (key, value) in &values {
-                let (section, field) = key.split_once('.').unwrap();
-                if section != current_section {
-                    if !current_section.is_empty() {
-                        println!();
-                    }
-                    println!("[{section}]");
-                    current_section = section;
-                }
-                println!("{field} = \"{value}\"");
-            }
+            print_config_sections(&values);
         }
     }
     Ok(())
@@ -157,18 +150,11 @@ fn set_project_value(
 }
 
 fn run_interactive() -> anyhow::Result<()> {
-    use std::io;
-
     use crossterm::event::{self, Event};
-    use crossterm::execute;
-    use crossterm::terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    };
-    use ratatui::Terminal;
-    use ratatui::backend::CrosstermBackend;
 
     use crate::tui::app::App;
     use crate::tui::event::handle_key;
+    use crate::tui::terminal::run_tui;
     use crate::tui::ui::render;
 
     let global_config_path = GlobalConfig::config_path()
@@ -184,32 +170,19 @@ fn run_interactive() -> anyhow::Result<()> {
 
     let mut app = App::new(global_config_path, manifest_opt)?;
 
-    // Setup terminal
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    run_tui(|terminal| {
+        loop {
+            terminal.draw(|frame| render(frame, &app))?;
 
-    // Main loop
-    let result = loop {
-        terminal.draw(|frame| render(frame, &app))?;
+            if let Event::Key(key) = event::read()?
+                && let Err(e) = handle_key(&mut app, key)
+            {
+                app.status_message = Some(format!("Error: {e}"));
+            }
 
-        if let Event::Key(key) = event::read()?
-            && let Err(e) = handle_key(&mut app, key)
-        {
-            app.status_message = Some(format!("Error: {e}"));
+            if app.should_quit {
+                return Ok(());
+            }
         }
-
-        if app.should_quit {
-            break Ok(());
-        }
-    };
-
-    // Restore terminal
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
-    result
+    })
 }
