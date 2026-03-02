@@ -55,8 +55,16 @@ impl SearchSource for RegistrySource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let url = format!("{}/search?q={}&limit={}", self.base_url.trim_end_matches('/'), query, limit);
-        let response = reqwest::blocking::get(&url)
+        let url = format!("{}/search", self.base_url.trim_end_matches('/'));
+        let response = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| crate::Error::Http(format!("{}: {e}", self.registry_name)))?
+            .get(&url)
+            .query(&[("q", query), ("limit", &limit.to_string())])
+            .send()
+            .map_err(|e| crate::Error::Http(format!("{}: {e}", self.registry_name)))?
+            .error_for_status()
             .map_err(|e| crate::Error::Http(format!("{}: {e}", self.registry_name)))?;
         let body = response
             .text()
@@ -102,12 +110,14 @@ impl SearchSource for GitHubSource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let url = format!(
-            "https://api.github.com/search/repositories?q={query}+topic:ai-skills&per_page={limit}"
-        );
-        let client = reqwest::blocking::Client::new();
+        let github_query = format!("{query} topic:ai-skills");
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
         let mut request = client
-            .get(&url)
+            .get("https://api.github.com/search/repositories")
+            .query(&[("q", github_query.as_str()), ("per_page", &limit.to_string())])
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "ion-skill-manager");
         if let Ok(token) = std::env::var("GITHUB_TOKEN") {
@@ -115,6 +125,8 @@ impl SearchSource for GitHubSource {
         }
         let response = request
             .send()
+            .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?
+            .error_for_status()
             .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
         let body = response
             .text()
@@ -165,7 +177,8 @@ impl SearchSource for AgentSource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let command = self.command_template.replace("{query}", query);
+        let escaped = format!("'{}'", query.replace('\'', "'\\''"));
+        let command = self.command_template.replace("{query}", &escaped);
         let output = std::process::Command::new("sh")
             .arg("-c")
             .arg(&command)
@@ -183,7 +196,7 @@ impl SearchSource for AgentSource {
 /// Run search sources sequentially. Stop at the first source that returns results.
 /// If a source errors, print a warning and continue.
 pub fn cascade_search(
-    sources: Vec<Box<dyn SearchSource>>,
+    sources: Vec<Box<dyn SearchSource + Send>>,
     query: &str,
     limit: usize,
 ) -> Vec<SearchResult> {
@@ -225,8 +238,9 @@ pub fn parallel_search(
 
     let mut all_results = Vec::new();
     for handle in handles {
-        if let Ok(results) = handle.join() {
-            all_results.extend(results);
+        match handle.join() {
+            Ok(results) => all_results.extend(results),
+            Err(_) => eprintln!("Warning: a search thread panicked"),
         }
     }
     all_results
@@ -396,7 +410,7 @@ mod tests {
 
     #[test]
     fn cascade_stops_at_first_source_with_results() {
-        let sources: Vec<Box<dyn SearchSource>> = vec![
+        let sources: Vec<Box<dyn SearchSource + Send>> = vec![
             Box::new(FakeSource { results: vec![] }),
             Box::new(FakeSource {
                 results: vec![SearchResult {
@@ -422,7 +436,7 @@ mod tests {
 
     #[test]
     fn cascade_returns_empty_if_all_sources_empty() {
-        let sources: Vec<Box<dyn SearchSource>> = vec![
+        let sources: Vec<Box<dyn SearchSource + Send>> = vec![
             Box::new(FakeSource { results: vec![] }),
             Box::new(FakeSource { results: vec![] }),
         ];

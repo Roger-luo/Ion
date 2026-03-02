@@ -38,53 +38,24 @@ fn execute_search(
     limit: usize,
 ) -> anyhow::Result<Vec<SearchResult>> {
     if let Some(name) = source_filter {
-        return search_single_source(config, name, query, agent, limit);
+        return search_single_source(config, name, query, limit);
+    }
+
+    let mut sources = build_sources(config);
+    if agent
+        && let Some(s) = build_agent_source(config)
+    {
+        sources.push(Box::new(s));
     }
 
     if all {
-        let mut sources = build_sources_send(config);
-        if agent {
-            if let Some(s) = build_agent_source(config) {
-                sources.push(Box::new(s));
-            }
-        }
         Ok(parallel_search(sources, query, limit))
     } else {
-        let mut sources = build_sources(config);
-        if agent {
-            if let Some(s) = build_agent_source(config) {
-                sources.push(Box::new(s));
-            }
-        }
         Ok(cascade_search(sources, query, limit))
     }
 }
 
-fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource>> {
-    let mut sources: Vec<Box<dyn SearchSource>> = Vec::new();
-
-    for (name, reg) in &config.registries {
-        if reg.default == Some(true) {
-            sources.insert(
-                0,
-                Box::new(RegistrySource {
-                    registry_name: name.clone(),
-                    base_url: reg.url.clone(),
-                }),
-            );
-        } else {
-            sources.push(Box::new(RegistrySource {
-                registry_name: name.clone(),
-                base_url: reg.url.clone(),
-            }));
-        }
-    }
-
-    sources.push(Box::new(GitHubSource));
-    sources
-}
-
-fn build_sources_send(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {
+fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {
     let mut sources: Vec<Box<dyn SearchSource + Send>> = Vec::new();
 
     for (name, reg) in &config.registries {
@@ -118,13 +89,12 @@ fn search_single_source(
     config: &GlobalConfig,
     name: &str,
     query: &str,
-    agent: bool,
     limit: usize,
 ) -> anyhow::Result<Vec<SearchResult>> {
     if name == "github" {
         return Ok(GitHubSource.search(query, limit)?);
     }
-    if name == "agent" && agent {
+    if name == "agent" {
         if let Some(s) = build_agent_source(config) {
             return Ok(s.search(query, limit)?);
         }
