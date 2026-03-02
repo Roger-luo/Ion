@@ -41,8 +41,8 @@ pub fn run(action: Option<ConfigAction>) -> anyhow::Result<()> {
 
 fn run_get(key: &str, project: bool) -> anyhow::Result<()> {
     if project {
-        let manifest_path = std::env::current_dir()?.join("ion.toml");
-        let manifest = Manifest::from_file(&manifest_path)?;
+        let ctx = crate::context::ProjectContext::load()?;
+        let manifest = Manifest::from_file(&ctx.manifest_path)?;
         match manifest.options.get_value(key) {
             Some(value) => println!("{value}"),
             None => {
@@ -65,8 +65,8 @@ fn run_get(key: &str, project: bool) -> anyhow::Result<()> {
 
 fn run_set(key: &str, value: &str, project: bool) -> anyhow::Result<()> {
     if project {
-        let manifest_path = std::env::current_dir()?.join("ion.toml");
-        set_project_value(&manifest_path, key, value)?;
+        let ctx = crate::context::ProjectContext::load()?;
+        set_project_value(&ctx.manifest_path, key, value)?;
         println!("Set {key} = \"{value}\" in project config");
     } else {
         let config_path = GlobalConfig::config_path()
@@ -94,8 +94,8 @@ fn print_config_sections(values: &[(String, String)]) {
 
 fn run_list(project: bool) -> anyhow::Result<()> {
     if project {
-        let manifest_path = std::env::current_dir()?.join("ion.toml");
-        let manifest = Manifest::from_file(&manifest_path)?;
+        let ctx = crate::context::ProjectContext::load()?;
+        let manifest = Manifest::from_file(&ctx.manifest_path)?;
         let values = manifest.options.list_values();
         if values.is_empty() {
             println!("No project config values set.");
@@ -160,10 +160,9 @@ fn run_interactive() -> anyhow::Result<()> {
     let global_config_path = GlobalConfig::config_path()
         .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
 
-    let project_dir = std::env::current_dir()?;
-    let manifest_path = project_dir.join("ion.toml");
-    let manifest_opt = if manifest_path.exists() {
-        Some(manifest_path)
+    let ctx = crate::context::ProjectContext::load()?;
+    let manifest_opt = if ctx.manifest_path.exists() {
+        Some(ctx.manifest_path)
     } else {
         None
     };

@@ -1,20 +1,18 @@
-use ion_skill::manifest::Manifest;
 use ion_skill::skill::SkillMetadata;
 use ion_skill::source::SkillSource;
 
-pub fn run(skill_str: &str) -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let manifest_path = project_dir.join("ion.toml");
+use crate::context::ProjectContext;
 
-    // First check if it's a name in the manifest
-    if manifest_path.exists() {
-        let manifest = Manifest::from_file(&manifest_path)?;
+pub fn run(skill_str: &str) -> anyhow::Result<()> {
+    let ctx = ProjectContext::load()?;
+
+    if ctx.manifest_path.exists() {
+        let manifest = ctx.manifest()?;
         if manifest.skills.contains_key(skill_str) {
-            return show_info_from_installed(&project_dir, skill_str);
+            return show_info_from_installed(&ctx.project_dir, skill_str);
         }
     }
 
-    // Otherwise try to resolve as a source
     let source = SkillSource::infer(skill_str)?;
     println!("Fetching info for '{skill_str}'...");
     println!("  Source type: {:?}", source.source_type);

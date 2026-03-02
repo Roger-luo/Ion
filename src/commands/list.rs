@@ -1,17 +1,13 @@
-use ion_skill::lockfile::Lockfile;
 use ion_skill::manifest::Manifest;
 
+use crate::context::ProjectContext;
+
 pub fn run() -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let manifest_path = project_dir.join("ion.toml");
-    let lockfile_path = project_dir.join("ion.lock");
+    let ctx = ProjectContext::load()?;
+    ctx.require_manifest()?;
 
-    if !manifest_path.exists() {
-        anyhow::bail!("No ion.toml found in current directory");
-    }
-
-    let manifest = Manifest::from_file(&manifest_path)?;
-    let lockfile = Lockfile::from_file(&lockfile_path)?;
+    let manifest = ctx.manifest()?;
+    let lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
         println!("No skills declared in ion.toml.");
@@ -30,7 +26,8 @@ pub fn run() -> anyhow::Result<()> {
             .and_then(|l| l.commit.as_deref())
             .map(|c| &c[..c.len().min(8)])
             .unwrap_or("none");
-        let installed = project_dir
+        let installed = ctx
+            .project_dir
             .join(".agents")
             .join("skills")
             .join(name)

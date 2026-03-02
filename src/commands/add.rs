@@ -1,18 +1,13 @@
-use ion_skill::config::GlobalConfig;
 use ion_skill::installer::install_skill;
-use ion_skill::lockfile::Lockfile;
-use ion_skill::manifest::Manifest;
-use ion_skill::manifest::ManifestOptions;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
-pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let global_config = GlobalConfig::load()?;
-    let manifest_path = project_dir.join("ion.toml");
-    let lockfile_path = project_dir.join("ion.lock");
+use crate::context::ProjectContext;
 
-    let expanded = global_config.resolve_source(source_str);
+pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
+    let ctx = ProjectContext::load()?;
+
+    let expanded = ctx.global_config.resolve_source(source_str);
     let mut source = SkillSource::infer(&expanded)?;
     if let Some(r) = rev {
         source.rev = Some(r.to_string());
@@ -21,27 +16,21 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let name = skill_name_from_source(&source);
     println!("Adding skill '{name}' from {source_str}...");
 
-    let manifest = if manifest_path.exists() {
-        Manifest::from_file(&manifest_path)?
-    } else {
-        Manifest::empty()
-    };
+    let manifest = ctx.manifest_or_empty()?;
+    let merged_options = ctx.merged_options(&manifest);
 
-    let merged_targets = global_config.resolve_targets(&manifest.options);
-    let merged_options = ManifestOptions { targets: merged_targets };
-
-    let locked = install_skill(&project_dir, &name, &source, &merged_options)?;
+    let locked = install_skill(&ctx.project_dir, &name, &source, &merged_options)?;
     println!("  Installed to .agents/skills/{name}/");
     for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");
     }
 
-    manifest_writer::add_skill(&manifest_path, &name, &source)?;
+    manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
     println!("  Updated ion.toml");
 
-    let mut lockfile = Lockfile::from_file(&lockfile_path)?;
+    let mut lockfile = ctx.lockfile()?;
     lockfile.upsert(locked);
-    lockfile.write_to(&lockfile_path)?;
+    lockfile.write_to(&ctx.lockfile_path)?;
     println!("  Updated ion.lock");
 
     println!("Done!");

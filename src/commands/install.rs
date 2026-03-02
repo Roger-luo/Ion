@@ -1,39 +1,32 @@
-use ion_skill::config::GlobalConfig;
 use ion_skill::installer::install_skill;
-use ion_skill::lockfile::Lockfile;
-use ion_skill::manifest::{Manifest, ManifestOptions};
+use ion_skill::manifest::Manifest;
+
+use crate::context::ProjectContext;
 
 pub fn run() -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir()?;
-    let manifest_path = project_dir.join("ion.toml");
-    let lockfile_path = project_dir.join("ion.lock");
+    let ctx = ProjectContext::load()?;
+    ctx.require_manifest()?;
 
-    if !manifest_path.exists() {
-        anyhow::bail!("No ion.toml found in current directory");
-    }
-
-    let manifest = Manifest::from_file(&manifest_path)?;
-    let mut lockfile = Lockfile::from_file(&lockfile_path)?;
-    let global_config = GlobalConfig::load()?;
+    let manifest = ctx.manifest()?;
+    let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
         println!("No skills declared in ion.toml.");
         return Ok(());
     }
 
-    let merged_targets = global_config.resolve_targets(&manifest.options);
-    let merged_options = ManifestOptions { targets: merged_targets };
+    let merged_options = ctx.merged_options(&manifest);
 
     println!("Installing {} skill(s)...", manifest.skills.len());
 
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
         println!("  Installing '{name}'...");
-        let locked = install_skill(&project_dir, name, &source, &merged_options)?;
+        let locked = install_skill(&ctx.project_dir, name, &source, &merged_options)?;
         lockfile.upsert(locked);
     }
 
-    lockfile.write_to(&lockfile_path)?;
+    lockfile.write_to(&ctx.lockfile_path)?;
     println!("Updated ion.lock");
     println!("Done!");
 
@@ -48,7 +41,8 @@ pub fn run() -> anyhow::Result<()> {
     }
 
     let dir_refs: Vec<&str> = managed_dirs.iter().map(|s| s.as_str()).collect();
-    let missing = ion_skill::gitignore::find_missing_gitignore_entries(&project_dir, &dir_refs)?;
+    let missing =
+        ion_skill::gitignore::find_missing_gitignore_entries(&ctx.project_dir, &dir_refs)?;
 
     if !missing.is_empty() {
         println!("\nThese directories are not in .gitignore:");
@@ -63,7 +57,7 @@ pub fn run() -> anyhow::Result<()> {
 
         if answer.trim().is_empty() || answer.trim().eq_ignore_ascii_case("y") {
             let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
-            ion_skill::gitignore::append_to_gitignore(&project_dir, &refs)?;
+            ion_skill::gitignore::append_to_gitignore(&ctx.project_dir, &refs)?;
             println!("Updated .gitignore");
         }
     }

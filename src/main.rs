@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 
 mod commands;
+mod context;
 mod tui;
 
 #[derive(Parser)]

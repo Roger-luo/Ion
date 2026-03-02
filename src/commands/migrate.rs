@@ -8,10 +8,11 @@ use ion_skill::migrate::{
 };
 
 pub fn run(from: Option<&str>, dry_run: bool) -> anyhow::Result<()> {
-    let project_dir = std::env::current_dir()?;
+    let ctx = crate::context::ProjectContext::load()?;
+    let project_dir = &ctx.project_dir;
     let lockfile_path = from
         .map(PathBuf::from)
-        .unwrap_or_else(|| project_dir.join("skills-lock.json"));
+        .unwrap_or_else(|| ctx.project_dir.join("skills-lock.json"));
 
     // Discover skills
     let discovered = if lockfile_path.exists() {
@@ -20,7 +21,7 @@ pub fn run(from: Option<&str>, dry_run: bool) -> anyhow::Result<()> {
         skills
     } else {
         println!("No skills-lock.json found, scanning directories...");
-        let skills = discover_from_directories(&project_dir)?;
+        let skills = discover_from_directories(project_dir)?;
         if skills.is_empty() {
             println!("No skills found in .agents/skills/ or .claude/skills/.");
             return Ok(());
@@ -84,7 +85,7 @@ pub fn run(from: Option<&str>, dry_run: bool) -> anyhow::Result<()> {
         manifest_options: ManifestOptions::default(),
     };
 
-    let locked = ion_skill::migrate::migrate(&project_dir, &resolved, &options)?;
+    let locked = ion_skill::migrate::migrate(project_dir, &resolved, &options)?;
 
     // Print results
     for entry in &locked {
