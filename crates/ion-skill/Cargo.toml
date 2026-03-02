@@ -13,6 +13,7 @@ toml_edit = "0.22"
 pathdiff = "0.2"
 sha2 = "0.10"
 log = "0.4"
+regex = "1"
 reqwest = { version = "0.12", features = ["blocking", "rustls-tls"], default-features = false }
 thiserror = "2"
 
