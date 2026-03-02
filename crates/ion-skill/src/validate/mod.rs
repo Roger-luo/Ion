@@ -3,6 +3,12 @@ use std::path::Path;
 
 use crate::skill::SkillMetadata;
 
+pub mod discovery;
+pub mod markdown;
+pub mod security;
+pub mod structure;
+pub mod codeblock;
+
 // ---------------------------------------------------------------------------
 // Severity
 // ---------------------------------------------------------------------------
@@ -61,6 +67,39 @@ pub struct Finding {
     pub detail: Option<String>,
 }
 
+/// Aggregated validation output for a single skill.
+#[derive(Debug, Clone)]
+pub struct ValidationReport {
+    pub findings: Vec<Finding>,
+    pub error_count: usize,
+    pub warning_count: usize,
+    pub info_count: usize,
+}
+
+impl ValidationReport {
+    pub fn from_findings(findings: Vec<Finding>) -> Self {
+        let error_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Error)
+            .count();
+        let warning_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Warning)
+            .count();
+        let info_count = findings
+            .iter()
+            .filter(|f| f.severity == Severity::Info)
+            .count();
+
+        Self {
+            findings,
+            error_count,
+            warning_count,
+            info_count,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // SkillChecker trait
 // ---------------------------------------------------------------------------
@@ -85,7 +124,15 @@ pub fn run_all_checkers(
     meta: &SkillMetadata,
     body: &str,
 ) -> Vec<Finding> {
-    let checkers: Vec<Box<dyn SkillChecker>> = vec![];
+    let checkers: Vec<Box<dyn SkillChecker>> = vec![
+        Box::new(security::PromptInjectionChecker),
+        Box::new(security::DangerousCommandChecker),
+        Box::new(security::SensitivePathChecker),
+        Box::new(security::SuspiciousFileChecker),
+        Box::new(structure::ReferenceIntegrityChecker),
+        Box::new(structure::ToolDeclarationConsistencyChecker),
+        Box::new(codeblock::TreeSitterCodeBlockChecker),
+    ];
 
     let mut findings: Vec<Finding> = checkers
         .iter()
@@ -95,6 +142,11 @@ pub fn run_all_checkers(
     // Sort by severity descending (Error first, then Warning, then Info).
     findings.sort_by(|a, b| b.severity.cmp(&a.severity));
     findings
+}
+
+/// Run validation and return an aggregated report with counts.
+pub fn validate_skill_dir(skill_dir: &Path, meta: &SkillMetadata, body: &str) -> ValidationReport {
+    ValidationReport::from_findings(run_all_checkers(skill_dir, meta, body))
 }
 
 /// Returns `true` if any finding has `Severity::Error`.
@@ -183,7 +235,8 @@ mod tests {
     #[test]
     fn run_all_checkers_returns_empty_with_no_checkers() {
         let meta = dummy_meta();
-        let findings = run_all_checkers(Path::new("/tmp"), &meta, "body");
+        let empty_dir = tempfile::tempdir().unwrap();
+        let findings = run_all_checkers(empty_dir.path(), &meta, "body");
         assert!(findings.is_empty());
     }
 }

@@ -1,7 +1,9 @@
-use ion_skill::installer::SkillInstaller;
+use ion_skill::Error as SkillError;
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest::Manifest;
 
 use crate::context::ProjectContext;
+use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
 
 pub fn run() -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
@@ -23,7 +25,27 @@ pub fn run() -> anyhow::Result<()> {
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
         println!("  Installing '{name}'...");
-        let locked = installer.install(name, &source)?;
+        let locked = match installer.install(name, &source) {
+            Ok(locked) => locked,
+            Err(SkillError::ValidationWarning { report, .. }) => {
+                print_validation_report(name, &report);
+                if !confirm_install_on_warnings()? {
+                    anyhow::bail!(
+                        "Installation of '{name}' cancelled due to validation warnings."
+                    );
+                }
+
+                installer.install_with_options(
+                    name,
+                    &source,
+                    InstallValidationOptions {
+                        skip_validation: false,
+                        allow_warnings: true,
+                    },
+                )?
+            }
+            Err(err) => return Err(err.into()),
+        };
         lockfile.upsert(locked);
     }
 
