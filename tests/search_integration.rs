@@ -12,7 +12,6 @@ fn search_shows_help() {
         .expect("failed to run ion");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Search for skills"));
-    assert!(stdout.contains("--all"));
     assert!(stdout.contains("--agent"));
     assert!(stdout.contains("--interactive"));
     assert!(stdout.contains("--source"));

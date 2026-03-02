@@ -1,4 +1,4 @@
-use ion_skill::search::{owner_repo_of, SearchResult};
+use ion_skill::search::{group_by_owner_repo, SearchResult};
 
 /// A row in the left-panel list. Groups of 2+ skills from the same repo get a
 /// `RepoHeader` followed by indented `Skill` rows; standalone skills appear as
@@ -27,7 +27,7 @@ pub struct SearchApp {
 
 impl SearchApp {
     pub fn new(mut results: Vec<SearchResult>) -> Self {
-        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+        SearchResult::sort_by_stars(&mut results);
         let rows = build_rows(&results);
         Self {
             results,
@@ -70,31 +70,16 @@ impl SearchApp {
 
 /// Build a flat list of rows, grouping results that share the same owner/repo.
 fn build_rows(results: &[SearchResult]) -> Vec<ListRow> {
-    // Gather groups preserving first-occurrence order.
-    let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
-    let mut key_to_idx: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
-
-    for (i, r) in results.iter().enumerate() {
-        let key = owner_repo_of(&r.source).to_string();
-        if let Some(&g) = key_to_idx.get(&key) {
-            groups[g].1.push(i);
-        } else {
-            key_to_idx.insert(key.clone(), groups.len());
-            groups.push((key, vec![i]));
-        }
-    }
+    let groups = group_by_owner_repo(results);
 
     let mut rows = Vec::new();
     for (owner_repo, indices) in groups {
         if indices.len() == 1 {
-            // Standalone skill — no header
             rows.push(ListRow::Skill {
                 result_idx: indices[0],
                 grouped: false,
             });
         } else {
-            // Multi-skill group: header + indented skills
             let first = &results[indices[0]];
             rows.push(ListRow::RepoHeader {
                 owner_repo,

@@ -48,9 +48,6 @@ enum Commands {
     Search {
         /// Search query (word or phrase)
         query: String,
-        /// Search all sources in parallel instead of cascading
-        #[arg(long, short)]
-        all: bool,
         /// Include configured CLI agent in search
         #[arg(long)]
         agent: bool,
@@ -84,13 +81,13 @@ fn main() {
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
         Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
-        Commands::Search { query, all, agent, interactive, source, limit, verbose } => {
+        Commands::Search { query, agent, interactive, source, limit, verbose } => {
             if verbose {
                 env_logger::Builder::new()
                     .filter_level(log::LevelFilter::Debug)
                     .init();
             }
-            commands::search::run(&query, all, agent, interactive, source.as_deref(), limit)
+            commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
         Commands::Config { action } => commands::config::run(action),
     };

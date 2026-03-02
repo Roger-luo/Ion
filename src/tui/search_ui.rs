@@ -4,10 +4,14 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
-use ion_skill::search::owner_repo_of;
+use ion_skill::search::skill_dir_name;
 
 use super::search_app::{ListRow, SearchApp};
 use super::util::wrap_text;
+
+const LABEL_STYLE: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
+const VALUE_STYLE: Style = Style::new().fg(Color::White);
+const DIM_STYLE: Style = Style::new().fg(Color::DarkGray);
 
 pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     let area = frame.area();
@@ -65,10 +69,7 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD)
                 };
-                let stars_str = match stars {
-                    Some(n) => format!(" *{n}"),
-                    None => String::new(),
-                };
+                let stars_str = format_stars_compact(*stars);
                 lines.push(Line::from(vec![
                     Span::styled(prefix, style),
                     Span::styled(owner_repo.as_str(), style),
@@ -107,46 +108,25 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                     Style::default().fg(Color::DarkGray)
                 };
 
-                // For grouped skills, show just the skill dir name; for ungrouped, show full name
-                let display_name: String = if *grouped {
-                    let owner_repo = owner_repo_of(&r.source);
-                    r.source
-                        .strip_prefix(owner_repo)
-                        .and_then(|s| s.strip_prefix('/'))
-                        .map(|s| s.rsplit('/').next().unwrap_or(s))
-                        .unwrap_or(&r.name)
-                        .to_string()
+                let display_name: &str = if *grouped {
+                    skill_dir_name(&r.source)
                 } else {
-                    r.name.clone()
+                    &r.name
                 };
 
                 let stars_str = if *grouped {
-                    String::new() // stars shown on the header
+                    String::new()
                 } else {
-                    match r.stars {
-                        Some(n) => format!(" *{n}"),
-                        None => String::new(),
-                    }
+                    format_stars_compact(r.stars)
                 };
 
                 let badge = if *grouped {
                     String::new()
                 } else {
-                    let badge_color = match r.registry.as_str() {
-                        "github" => Color::White,
-                        "agent" => Color::Magenta,
-                        _ => Color::Blue,
-                    };
-                    // We'll push this as a separate span below
-                    let _ = badge_color;
                     format!(" [{}]", r.registry)
                 };
 
-                let badge_color = match r.registry.as_str() {
-                    "github" => Color::White,
-                    "agent" => Color::Magenta,
-                    _ => Color::Blue,
-                };
+                let badge_color = registry_color(&r.registry);
 
                 lines.push(Line::from(vec![
                     Span::styled(format!("{indent}{prefix}"), style),
@@ -193,59 +173,36 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
         return;
     };
 
-    let label_style = Style::default()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-    let value_style = Style::default().fg(Color::White);
-    let dim_style = Style::default().fg(Color::DarkGray);
-
     let owner = r
         .name
         .split_once('/')
         .map_or(r.name.as_str(), |(owner, _)| owner);
     let stars_str = r.stars.map_or("—".to_string(), |n| n.to_string());
+    let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
-            Span::styled("Owner: ", label_style),
-            Span::styled(owner, value_style),
+            Span::styled("Owner: ", LABEL_STYLE),
+            Span::styled(owner, VALUE_STYLE),
         ]),
         Line::from(vec![
-            Span::styled("Stars: ", label_style),
-            Span::styled(format!("* {stars_str}"), value_style),
+            Span::styled("Stars: ", LABEL_STYLE),
+            Span::styled(format!("* {stars_str}"), VALUE_STYLE),
         ]),
         Line::from(""),
     ];
 
-    if !r.description.is_empty() {
-        lines.push(Line::from(Span::styled("Description:", label_style)));
-        let wrap_width = area.width.saturating_sub(2) as usize;
-        for wrapped_line in wrap_text(&r.description, wrap_width) {
-            lines.push(Line::from(Span::styled(
-                format!("  {wrapped_line}"),
-                value_style,
-            )));
-        }
-        lines.push(Line::from(""));
-    }
+    push_wrapped_section(&mut lines, "Description:", &r.description, wrap_width);
 
     if let Some(ref skill_desc) = r.skill_description {
-        lines.push(Line::from(Span::styled("Skill Description:", label_style)));
-        let wrap_width = area.width.saturating_sub(2) as usize;
-        for wrapped_line in wrap_text(skill_desc, wrap_width) {
-            lines.push(Line::from(Span::styled(
-                format!("  {wrapped_line}"),
-                value_style,
-            )));
-        }
-        lines.push(Line::from(""));
+        push_wrapped_section(&mut lines, "Skill Description:", skill_desc, wrap_width);
     }
 
     if !r.source.is_empty() {
-        lines.push(Line::from(Span::styled("Install:", label_style)));
+        lines.push(Line::from(Span::styled("Install:", LABEL_STYLE)));
         lines.push(Line::from(Span::styled(
             format!("  ion add {}", r.source),
-            dim_style,
+            DIM_STYLE,
         )));
     }
 
@@ -261,57 +218,72 @@ fn render_repo_detail(
     description: &str,
     skill_count: usize,
 ) {
-    let label_style = Style::default()
-        .fg(Color::Cyan)
-        .add_modifier(Modifier::BOLD);
-    let value_style = Style::default().fg(Color::White);
-    let dim_style = Style::default().fg(Color::DarkGray);
-
     let owner = owner_repo
         .split_once('/')
         .map_or(owner_repo, |(owner, _)| owner);
     let stars_str = stars.map_or("—".to_string(), |n| n.to_string());
+    let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
-            Span::styled("Repo: ", label_style),
-            Span::styled(owner_repo, value_style),
+            Span::styled("Repo: ", LABEL_STYLE),
+            Span::styled(owner_repo, VALUE_STYLE),
         ]),
         Line::from(vec![
-            Span::styled("Owner: ", label_style),
-            Span::styled(owner, value_style),
+            Span::styled("Owner: ", LABEL_STYLE),
+            Span::styled(owner, VALUE_STYLE),
         ]),
         Line::from(vec![
-            Span::styled("Stars: ", label_style),
-            Span::styled(format!("* {stars_str}"), value_style),
+            Span::styled("Stars: ", LABEL_STYLE),
+            Span::styled(format!("* {stars_str}"), VALUE_STYLE),
         ]),
         Line::from(vec![
-            Span::styled("Skills: ", label_style),
-            Span::styled(skill_count.to_string(), value_style),
+            Span::styled("Skills: ", LABEL_STYLE),
+            Span::styled(skill_count.to_string(), VALUE_STYLE),
         ]),
         Line::from(""),
     ];
 
-    if !description.is_empty() {
-        lines.push(Line::from(Span::styled("Description:", label_style)));
-        let wrap_width = area.width.saturating_sub(2) as usize;
-        for wrapped_line in wrap_text(description, wrap_width) {
-            lines.push(Line::from(Span::styled(
-                format!("  {wrapped_line}"),
-                value_style,
-            )));
-        }
-        lines.push(Line::from(""));
-    }
+    push_wrapped_section(&mut lines, "Description:", description, wrap_width);
 
-    lines.push(Line::from(Span::styled("Install all:", label_style)));
+    lines.push(Line::from(Span::styled("Install all:", LABEL_STYLE)));
     lines.push(Line::from(Span::styled(
         format!("  ion add {owner_repo}"),
-        dim_style,
+        DIM_STYLE,
     )));
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, area);
+}
+
+/// Append a labeled wrapped-text section to `lines` if text is non-empty.
+fn push_wrapped_section<'a>(lines: &mut Vec<Line<'a>>, label: &'a str, text: &str, wrap_width: usize) {
+    if text.is_empty() {
+        return;
+    }
+    lines.push(Line::from(Span::styled(label, LABEL_STYLE)));
+    for wrapped_line in wrap_text(text, wrap_width) {
+        lines.push(Line::from(Span::styled(
+            format!("  {wrapped_line}"),
+            VALUE_STYLE,
+        )));
+    }
+    lines.push(Line::from(""));
+}
+
+fn format_stars_compact(stars: Option<u64>) -> String {
+    match stars {
+        Some(n) => format!(" *{n}"),
+        None => String::new(),
+    }
+}
+
+fn registry_color(registry: &str) -> Color {
+    match registry {
+        "github" => Color::White,
+        "agent" => Color::Magenta,
+        _ => Color::Blue,
+    }
 }
 
 fn render_footer(frame: &mut Frame, area: Rect) {

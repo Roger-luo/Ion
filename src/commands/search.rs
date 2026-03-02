@@ -3,22 +3,25 @@ use std::io::IsTerminal;
 use crossterm::style::Stylize;
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
-    enrich_github_results, owner_repo_of, parallel_search, AgentSource,
-    GitHubSource, RegistrySource, SearchResult, SearchSource, SkillsShSource,
+    enrich_github_results, owner_repo_of, parallel_search, skill_dir_name,
+    AgentSource, GitHubSource, RegistrySource, SearchResult, SearchSource, SkillsShSource,
 };
 
 pub fn run(
     query: &str,
-    all: bool,
     agent: bool,
     interactive: bool,
     source_filter: Option<&str>,
     limit: usize,
 ) -> anyhow::Result<()> {
-    log::debug!("search starting: query={query:?}, all={all}, agent={agent}, interactive={interactive}, source={source_filter:?}, limit={limit}");
+    log::debug!("search starting: query={query:?}, agent={agent}, interactive={interactive}, source={source_filter:?}, limit={limit}");
     let config = GlobalConfig::load()?;
-    log::debug!("loaded config: {} registries, agent_command={:?}", config.registries.len(), config.search.agent_command);
-    let mut results = execute_search(&config, query, all, agent, source_filter, limit)?;
+    log::debug!(
+        "loaded config: {} registries, agent_command={:?}",
+        config.registries.len(),
+        config.search.agent_command
+    );
+    let mut results = execute_search(&config, query, agent, source_filter, limit)?;
 
     if results.is_empty() {
         log::debug!("no results found");
@@ -26,7 +29,10 @@ pub fn run(
         return Ok(());
     }
 
-    log::debug!("found {} total results, enriching GitHub results", results.len());
+    log::debug!(
+        "found {} total results, enriching GitHub results",
+        results.len()
+    );
     enrich_github_results(&mut results);
     print_results(&results);
 
@@ -40,7 +46,6 @@ pub fn run(
 fn execute_search(
     config: &GlobalConfig,
     query: &str,
-    all: bool,
     agent: bool,
     source_filter: Option<&str>,
     limit: usize,
@@ -51,18 +56,25 @@ fn execute_search(
     }
 
     let mut sources = build_sources(config);
-    log::debug!("built {} sources: {}", sources.len(), sources.iter().map(|s| s.name()).collect::<Vec<_>>().join(", "));
+    log::debug!(
+        "built {} sources: {}",
+        sources.len(),
+        sources
+            .iter()
+            .map(|s| s.name())
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     if agent
         && let Some(s) = build_agent_source(config)
     {
-        log::debug!("adding agent source with command template: {:?}", s.command_template);
+        log::debug!(
+            "adding agent source with command template: {:?}",
+            s.command_template
+        );
         sources.push(Box::new(s));
     }
 
-    // Always search all sources in parallel and merge results.
-    // This ensures skills.sh results are combined with GitHub results
-    // rather than one source hiding the other.
-    let _ = all; // flag kept for CLI compat but all sources always searched
     log::debug!("running parallel search across {} sources", sources.len());
     Ok(parallel_search(sources, query, limit))
 }
@@ -70,19 +82,21 @@ fn execute_search(
 fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {
     let mut sources: Vec<Box<dyn SearchSource + Send>> = Vec::new();
 
-    // Always include skills.sh as the primary source (first in cascade order)
     log::debug!("adding built-in skills.sh source");
     sources.push(Box::new(SkillsShSource));
 
     for (name, reg) in &config.registries {
-        // Skip skills.sh entries in config — we already have the built-in source
         if reg.url.contains("skills.sh") {
             continue;
         }
-        log::debug!("adding registry source: {name} (url={}, default={:?})", reg.url, reg.default);
+        log::debug!(
+            "adding registry source: {name} (url={}, default={:?})",
+            reg.url,
+            reg.default
+        );
         if reg.default == Some(true) {
             sources.insert(
-                1, // after skills.sh but before others
+                1,
                 Box::new(RegistrySource {
                     registry_name: name.clone(),
                     base_url: reg.url.clone(),
@@ -121,7 +135,9 @@ fn search_single_source(
             log::debug!("searching agent with command: {:?}", s.command_template);
             return Ok(s.search(query, limit)?);
         }
-        anyhow::bail!("No agent-command configured. Set it with: ion config set search.agent-command '<command>'");
+        anyhow::bail!(
+            "No agent-command configured. Set it with: ion config set search.agent-command '<command>'"
+        );
     }
     if name == "skills.sh" || name == "skills-sh" {
         log::debug!("searching skills.sh");
@@ -135,7 +151,10 @@ fn search_single_source(
         };
         return Ok(source.search(query, limit)?);
     }
-    anyhow::bail!("Unknown source '{name}'. Available: {}", available_sources(config));
+    anyhow::bail!(
+        "Unknown source '{name}'. Available: {}",
+        available_sources(config)
+    );
 }
 
 fn available_sources(config: &GlobalConfig) -> String {
@@ -147,52 +166,31 @@ fn available_sources(config: &GlobalConfig) -> String {
     names.join(", ")
 }
 
-/// A group of results sharing the same owner/repo.
-struct ResultGroup<'a> {
-    owner_repo: &'a str,
-    results: Vec<&'a SearchResult>,
-}
-
-/// Group results by owner/repo, preserving order of first occurrence.
-fn group_by_repo<'a>(results: &'a [SearchResult]) -> Vec<ResultGroup<'a>> {
-    let mut groups: Vec<ResultGroup<'a>> = Vec::new();
-    let mut index_map: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-
-    for r in results {
-        let key = owner_repo_of(&r.source);
-        if let Some(&idx) = index_map.get(key) {
-            groups[idx].results.push(r);
-        } else {
-            index_map.insert(key, groups.len());
-            groups.push(ResultGroup {
-                owner_repo: key,
-                results: vec![r],
-            });
-        }
-    }
-    groups
+fn terminal_width() -> usize {
+    crossterm::terminal::size()
+        .map(|(w, _)| w as usize)
+        .unwrap_or(80)
 }
 
 fn print_results(results: &[SearchResult]) {
     let color = std::io::stdout().is_terminal();
-    let mut current_registry = String::new();
 
     // Collect registries in order of first appearance
     let mut registries: Vec<&str> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for r in results {
-        if !registries.contains(&r.registry.as_str()) {
+        if seen.insert(r.registry.as_str()) {
             registries.push(&r.registry);
         }
     }
 
-    for registry in registries {
-        if !current_registry.is_empty() {
+    for (i, registry) in registries.iter().enumerate() {
+        if i > 0 {
             println!();
         }
-        current_registry = registry.to_string();
 
         let registry_results: Vec<&SearchResult> =
-            results.iter().filter(|r| r.registry == registry).collect();
+            results.iter().filter(|r| &r.registry == registry).collect();
         let count = registry_results.len();
         println!(
             " {} ({} result{})",
@@ -201,23 +199,55 @@ fn print_results(results: &[SearchResult]) {
             if count == 1 { "" } else { "s" }
         );
 
-        let registry_slice: Vec<SearchResult> =
-            registry_results.into_iter().cloned().collect();
-        let groups = group_by_repo(&registry_slice);
+        let groups = group_by_owner_repo_refs(&registry_results);
 
-        let mut first_in_group = true;
-        for group in &groups {
-            if !first_in_group {
+        for (gi, (owner_repo, group)) in groups.iter().enumerate() {
+            if gi > 0 {
                 println!();
             }
-            first_in_group = false;
 
-            if group.results.len() == 1 {
-                print_single_result(group.results[0], color);
+            if group.len() == 1 {
+                print_single_result(group[0], color);
             } else {
-                print_repo_group(group, color);
+                print_repo_group(owner_repo, group, color);
             }
         }
+    }
+}
+
+/// Group references to results by owner/repo, preserving first-occurrence order.
+fn group_by_owner_repo_refs<'a>(
+    results: &[&'a SearchResult],
+) -> Vec<(String, Vec<&'a SearchResult>)> {
+    let mut groups: Vec<(String, Vec<&'a SearchResult>)> = Vec::new();
+    let mut key_to_idx: std::collections::HashMap<&str, usize> =
+        std::collections::HashMap::new();
+
+    for r in results {
+        let key = owner_repo_of(&r.source);
+        if let Some(&idx) = key_to_idx.get(key) {
+            groups[idx].1.push(r);
+        } else {
+            key_to_idx.insert(key, groups.len());
+            groups.push((key.to_string(), vec![r]));
+        }
+    }
+    groups
+}
+
+fn format_stars(stars: Option<u64>) -> String {
+    match stars {
+        Some(n) => format!("  * {n}"),
+        None => String::new(),
+    }
+}
+
+fn print_install_line(source: &str, color: bool) {
+    let line = format!("ion add {source}");
+    if color {
+        println!("    {}", line.grey());
+    } else {
+        println!("    {line}");
     }
 }
 
@@ -227,49 +257,36 @@ fn print_single_result(r: &SearchResult, color: bool) {
         return;
     }
 
-    // Line 1: name + stars
-    let stars = match r.stars {
-        Some(n) => format!("  * {n}"),
-        None => String::new(),
-    };
+    let stars = format_stars(r.stars);
     if color {
-        print!("  {}{}", r.name.clone().white().bold(), stars.white().bold());
+        print!(
+            "  {}{}",
+            r.name.clone().white().bold(),
+            stars.white().bold()
+        );
     } else {
         print!("  {}{}", r.name, stars);
     }
     println!();
 
-    // Line 2-3: description
     let desc = r.skill_description.as_deref().unwrap_or(&r.description);
     if !desc.is_empty() {
-        let indent = 4;
-        let max_width = crossterm::terminal::size()
-            .map(|(w, _)| w as usize)
-            .unwrap_or(80);
-        let usable = max_width.saturating_sub(indent).max(20);
-        print_wrapped(desc, indent, usable, 2, color);
+        let usable = terminal_width().saturating_sub(4).max(20);
+        print_wrapped(desc, 4, usable, 2, color);
     }
 
-    // Line 3: install command
-    if color {
-        println!("    {}", format!("ion add {}", r.source).grey());
-    } else {
-        println!("    ion add {}", r.source);
-    }
+    print_install_line(&r.source, color);
 }
 
-fn print_repo_group(group: &ResultGroup, color: bool) {
-    let r0 = group.results[0];
-    let skill_count = group.results.len();
+fn print_repo_group(owner_repo: &str, group: &[&SearchResult], color: bool) {
+    let r0 = group[0];
+    let skill_count = group.len();
+    let width = terminal_width();
 
-    // Line 1: owner/repo  * stars  (N skills)
-    let stars = match r0.stars {
-        Some(n) => format!("  * {n}"),
-        None => String::new(),
-    };
+    let stars = format_stars(r0.stars);
     let heading = format!(
         "{}{}  ({} skill{})",
-        group.owner_repo,
+        owner_repo,
         stars,
         skill_count,
         if skill_count == 1 { "" } else { "s" }
@@ -280,43 +297,20 @@ fn print_repo_group(group: &ResultGroup, color: bool) {
         println!("  {heading}");
     }
 
-    // Line 2: repo description
     if !r0.description.is_empty() {
-        let indent = 4;
-        let max_width = crossterm::terminal::size()
-            .map(|(w, _)| w as usize)
-            .unwrap_or(80);
-        let usable = max_width.saturating_sub(indent).max(20);
-        print_wrapped(&r0.description, indent, usable, 2, color);
+        let usable = width.saturating_sub(4).max(20);
+        print_wrapped(&r0.description, 4, usable, 2, color);
     }
 
-    // Line 3: comma-separated skill names
-    let skill_names: Vec<&str> = group
-        .results
-        .iter()
-        .map(|r| {
-            // Extract skill directory name from source: "owner/repo/path/skill" → "skill"
-            let after_repo = r.source.strip_prefix(group.owner_repo).unwrap_or(&r.source);
-            let after_repo = after_repo.strip_prefix('/').unwrap_or(after_repo);
-            after_repo.rsplit('/').next().unwrap_or(after_repo)
-        })
-        .collect();
-    let max_width = crossterm::terminal::size()
-        .map(|(w, _)| w as usize)
-        .unwrap_or(80);
-    let skills_line = truncate_list(&skill_names, max_width.saturating_sub(4));
+    let skill_names: Vec<&str> = group.iter().map(|r| skill_dir_name(&r.source)).collect();
+    let skills_line = truncate_list(&skill_names, width.saturating_sub(4));
     if color {
         println!("    {}", skills_line.cyan());
     } else {
         println!("    {skills_line}");
     }
 
-    // Line 4: install command (whole repo)
-    if color {
-        println!("    {}", format!("ion add {}", group.owner_repo).grey());
-    } else {
-        println!("    ion add {}", group.owner_repo);
-    }
+    print_install_line(owner_repo, color);
 }
 
 /// Join names with ", " and truncate with "..." if it exceeds `max_width`.
@@ -360,7 +354,6 @@ fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, colo
         };
 
         if color {
-            use crossterm::style::Stylize;
             println!("{prefix}{}", display.cyan());
         } else {
             println!("{prefix}{display}");
@@ -403,7 +396,6 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
         Ok(())
     })?;
 
-    // Handle install (after terminal is restored)
     if app.should_install
         && let Some(source) = app.selected_install_source()
     {
