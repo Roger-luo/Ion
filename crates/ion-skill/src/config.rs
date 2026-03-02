@@ -66,11 +66,7 @@ impl GlobalConfig {
     /// Load global config from a specific path.
     /// Returns Default if the file doesn't exist.
     pub fn load_from(path: &Path) -> Result<Self> {
-        match std::fs::read_to_string(path) {
-            Ok(content) => toml::from_str(&content).map_err(Error::TomlParse),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(Error::Io(e)),
-        }
+        crate::load_toml_or_default(path)
     }
 
     /// Merge global targets with project targets. Project wins on key collision.

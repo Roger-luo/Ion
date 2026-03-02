@@ -14,3 +14,14 @@ pub mod source;
 pub use error::Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Load a TOML file and deserialize it. Returns `T::default()` if the file doesn't exist.
+pub fn load_toml_or_default<T: serde::de::DeserializeOwned + Default>(
+    path: &std::path::Path,
+) -> Result<T> {
+    match std::fs::read_to_string(path) {
+        Ok(content) => toml::from_str(&content).map_err(Error::TomlParse),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(T::default()),
+        Err(e) => Err(Error::Io(e)),
+    }
+}

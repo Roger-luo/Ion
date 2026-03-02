@@ -26,11 +26,7 @@ pub struct Lockfile {
 
 impl Lockfile {
     pub fn from_file(path: &Path) -> Result<Self> {
-        match std::fs::read_to_string(path) {
-            Ok(content) => toml::from_str(&content).map_err(Error::TomlParse),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(Error::Io(e)),
-        }
+        crate::load_toml_or_default(path)
     }
 
     pub fn write_to(&self, path: &Path) -> Result<()> {
