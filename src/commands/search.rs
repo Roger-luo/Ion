@@ -1,3 +1,6 @@
+use std::io::IsTerminal;
+
+use crossterm::style::Stylize;
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
     cascade_search, enrich_github_results, parallel_search, AgentSource, GitHubSource,
@@ -131,7 +134,10 @@ fn available_sources(config: &GlobalConfig) -> String {
 }
 
 fn print_results(results: &[SearchResult]) {
+    let color = std::io::stdout().is_terminal();
     let mut current_registry = String::new();
+    let mut first_in_group = true;
+
     for r in results {
         if r.registry != current_registry {
             if !current_registry.is_empty() {
@@ -145,53 +151,160 @@ fn print_results(results: &[SearchResult]) {
                 if count == 1 { "" } else { "s" }
             );
             current_registry = r.registry.clone();
+            first_in_group = true;
         }
+
+        if !first_in_group {
+            println!();
+        }
+        first_in_group = false;
+
         if r.source.is_empty() {
+            // Agent results: just show the description
             println!("  {}", r.description);
+            continue;
+        }
+
+        // Line 1: name + stars
+        let stars = match r.stars {
+            Some(n) => format!("  * {n}"),
+            None => String::new(),
+        };
+        if color {
+            print!("  {}{}", r.name.clone().white().bold(), stars.white().bold());
         } else {
-            let stars = match r.stars {
-                Some(n) => format!("* {n}"),
-                None => String::new(),
-            };
-            println!("  {:<30} {:>6}  {}", r.name, stars, r.source);
-            if !r.description.is_empty() {
-                println!("    {}", r.description);
-            }
-            if let Some(ref skill_desc) = r.skill_description {
-                println!("    Skill: {skill_desc}");
-            }
+            print!("  {}{}", r.name, stars);
+        }
+        println!();
+
+        // Line 2-3: description (prefer skill_description over repo description)
+        let desc = r.skill_description.as_deref().unwrap_or(&r.description);
+        if !desc.is_empty() {
+            let indent = 4;
+            let max_width = crossterm::terminal::size()
+                .map(|(w, _)| w as usize)
+                .unwrap_or(80);
+            let usable = max_width.saturating_sub(indent).max(20);
+            print_wrapped(desc, indent, usable, 2, color);
+        }
+
+        // Line 3: install command
+        if color {
+            println!("    {}", format!("ion add {}", r.source).grey());
+        } else {
+            println!("    ion add {}", r.source);
         }
     }
 }
 
+fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, color: bool) {
+    let prefix: String = " ".repeat(indent);
+    let mut lines_printed = 0;
+    let mut remaining = text;
+
+    while !remaining.is_empty() && lines_printed < max_lines {
+        let is_last_line = lines_printed + 1 == max_lines;
+        let chunk_len = if remaining.len() <= width {
+            remaining.len()
+        } else if is_last_line {
+            // Last allowed line: reserve 3 chars for "..."
+            let limit = width.saturating_sub(3);
+            // Break at last space within limit, or hard-break
+            remaining[..limit]
+                .rfind(' ')
+                .unwrap_or(limit)
+        } else {
+            // Break at last space within width, or hard-break
+            remaining[..width]
+                .rfind(' ')
+                .map(|pos| pos + 1) // include the space in current chunk, skip it
+                .unwrap_or(width)
+        };
+
+        let chunk = &remaining[..chunk_len];
+        let leftover = remaining[chunk_len..].trim_start();
+
+        let line = if is_last_line && !leftover.is_empty() {
+            format!("{}...", chunk.trim_end())
+        } else {
+            chunk.trim_end().to_string()
+        };
+
+        if color {
+            println!("{prefix}{}", line.cyan());
+        } else {
+            println!("{prefix}{line}");
+        }
+
+        remaining = leftover;
+        lines_printed += 1;
+    }
+}
+
 fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
-    let installable: Vec<&SearchResult> = results.iter().filter(|r| !r.source.is_empty()).collect();
+    use std::io;
+
+    use crossterm::event::{self, Event};
+    use crossterm::execute;
+    use crossterm::terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    };
+    use ratatui::Terminal;
+    use ratatui::backend::CrosstermBackend;
+
+    use crate::tui::search_app::SearchApp;
+    use crate::tui::search_event::handle_search_key;
+    use crate::tui::search_ui::render_search;
+
+    let installable: Vec<SearchResult> = results
+        .iter()
+        .filter(|r| !r.source.is_empty())
+        .cloned()
+        .collect();
     if installable.is_empty() {
         println!("No installable results to select from.");
         return Ok(());
     }
 
-    let items: Vec<String> = installable
-        .iter()
-        .map(|r| format!("{} — {}", r.name, r.description))
-        .collect();
+    let mut app = SearchApp::new(installable);
 
-    let selection = dialoguer::Select::new()
-        .with_prompt("Select a skill to install")
-        .items(&items)
-        .default(0)
-        .interact_opt()?;
+    // Setup terminal
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-    if let Some(idx) = selection {
-        let chosen = installable[idx];
-        log::debug!("user selected: {} (source={})", chosen.name, chosen.source);
-        println!("\nInstalling '{}'...", chosen.name);
-        let status = std::process::Command::new("ion")
-            .arg("add")
-            .arg(&chosen.source)
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("ion add failed");
+    // Main loop
+    loop {
+        terminal.draw(|frame| render_search(frame, &mut app))?;
+
+        if let Event::Key(key) = event::read()? {
+            handle_search_key(&mut app, key)?;
+        }
+
+        if app.should_quit || app.should_install {
+            break;
+        }
+    }
+
+    // Restore terminal
+    disable_raw_mode()?;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
+    terminal.show_cursor()?;
+
+    // Handle install
+    if app.should_install {
+        if let Some(chosen) = app.selected_result() {
+            log::debug!("user selected: {} (source={})", chosen.name, chosen.source);
+            println!("\nInstalling '{}'...", chosen.name);
+            let status = std::process::Command::new("ion")
+                .arg("add")
+                .arg(&chosen.source)
+                .status()?;
+            if !status.success() {
+                anyhow::bail!("ion add failed");
+            }
         }
     }
 
