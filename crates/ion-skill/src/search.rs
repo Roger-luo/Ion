@@ -56,6 +56,7 @@ impl SearchSource for RegistrySource {
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
         let url = format!("{}/search", self.base_url.trim_end_matches('/'));
+        log::debug!("registry '{}': GET {} (q={query}, limit={limit})", self.registry_name, url);
         let response = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
@@ -69,7 +70,10 @@ impl SearchSource for RegistrySource {
         let body = response
             .text()
             .map_err(|e| crate::Error::Http(format!("{}: {e}", self.registry_name)))?;
-        parse_registry_response(&body, &self.registry_name, limit)
+        log::debug!("registry '{}': received {} bytes", self.registry_name, body.len());
+        let results = parse_registry_response(&body, &self.registry_name, limit)?;
+        log::debug!("registry '{}': parsed {} results", self.registry_name, results.len());
+        Ok(results)
     }
 }
 
@@ -111,6 +115,9 @@ impl SearchSource for GitHubSource {
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
         let github_query = format!("{query} topic:ai-skills");
+        log::debug!("github: searching repositories (q={github_query:?}, per_page={limit})");
+        let has_token = std::env::var("GITHUB_TOKEN").is_ok();
+        log::debug!("github: GITHUB_TOKEN={}", if has_token { "set" } else { "unset" });
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_secs(10))
             .build()
@@ -131,7 +138,10 @@ impl SearchSource for GitHubSource {
         let body = response
             .text()
             .map_err(|e| crate::Error::Http(format!("GitHub: {e}")))?;
-        parse_github_response(&body, limit)
+        log::debug!("github: received {} bytes", body.len());
+        let results = parse_github_response(&body, limit)?;
+        log::debug!("github: parsed {} results", results.len());
+        Ok(results)
     }
 }
 
@@ -179,17 +189,23 @@ impl SearchSource for AgentSource {
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
         let escaped = format!("'{}'", query.replace('\'', "'\\''"));
         let command = self.command_template.replace("{query}", &escaped);
+        log::debug!("agent: executing command: {command}");
         let output = std::process::Command::new("sh")
             .arg("-c")
             .arg(&command)
             .output()
             .map_err(|e| crate::Error::Search(format!("Failed to run agent command: {e}")))?;
+        log::debug!("agent: exit status={}", output.status);
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
+            log::debug!("agent: stderr={stderr}");
             return Err(crate::Error::Search(format!("Agent command failed: {stderr}")));
         }
         let stdout = String::from_utf8_lossy(&output.stdout);
-        Ok(parse_agent_output(&stdout, limit))
+        log::debug!("agent: stdout={} bytes", stdout.len());
+        let results = parse_agent_output(&stdout, limit);
+        log::debug!("agent: parsed {} results", results.len());
+        Ok(results)
     }
 }
 
@@ -201,10 +217,17 @@ pub fn cascade_search(
     limit: usize,
 ) -> Vec<SearchResult> {
     for source in &sources {
+        log::debug!("cascade: trying source '{}'", source.name());
         match source.search(query, limit) {
-            Ok(results) if !results.is_empty() => return results,
-            Ok(_) => {}
+            Ok(results) if !results.is_empty() => {
+                log::debug!("cascade: source '{}' returned {} results, stopping", source.name(), results.len());
+                return results;
+            }
+            Ok(_) => {
+                log::debug!("cascade: source '{}' returned 0 results, continuing", source.name());
+            }
             Err(e) => {
+                log::debug!("cascade: source '{}' failed: {e}", source.name());
                 eprintln!("Warning: {} search failed: {e}", source.name());
             }
         }
@@ -219,15 +242,21 @@ pub fn parallel_search(
     query: &str,
     limit: usize,
 ) -> Vec<SearchResult> {
+    log::debug!("parallel: spawning {} search threads", sources.len());
     let query = query.to_string();
     let handles: Vec<_> = sources
         .into_iter()
         .map(|source| {
             let q = query.clone();
             std::thread::spawn(move || {
+                log::debug!("parallel: thread searching '{}'", source.name());
                 match source.search(&q, limit) {
-                    Ok(results) => results,
+                    Ok(results) => {
+                        log::debug!("parallel: '{}' returned {} results", source.name(), results.len());
+                        results
+                    }
                     Err(e) => {
+                        log::debug!("parallel: '{}' failed: {e}", source.name());
                         eprintln!("Warning: {} search failed: {e}", source.name());
                         vec![]
                     }
@@ -243,6 +272,7 @@ pub fn parallel_search(
             Err(_) => eprintln!("Warning: a search thread panicked"),
         }
     }
+    log::debug!("parallel: merged {} total results", all_results.len());
     all_results
 }
 

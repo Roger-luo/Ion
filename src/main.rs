@@ -62,6 +62,9 @@ enum Commands {
         /// Max results per source
         #[arg(long, default_value = "10")]
         limit: usize,
+        /// Enable verbose debug logging
+        #[arg(long, short)]
+        verbose: bool,
     },
     /// Manage ion configuration
     Config {
@@ -80,7 +83,12 @@ fn main() {
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
         Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
-        Commands::Search { query, all, agent, interactive, source, limit } => {
+        Commands::Search { query, all, agent, interactive, source, limit, verbose } => {
+            if verbose {
+                env_logger::Builder::new()
+                    .filter_level(log::LevelFilter::Debug)
+                    .init();
+            }
             commands::search::run(&query, all, agent, interactive, source.as_deref(), limit)
         }
         Commands::Config { action } => commands::config::run(action),
