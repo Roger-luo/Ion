@@ -23,7 +23,7 @@ enum Commands {
     },
     /// Remove a skill from the project
     Remove {
-        /// Name of the skill to remove
+        /// Skill name or source (e.g. brainstorming, obra/superpowers)
         name: String,
     },
     /// Install all skills from Ion.toml
