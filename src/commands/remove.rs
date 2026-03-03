@@ -6,7 +6,7 @@ use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
 
-pub fn run(name: &str) -> anyhow::Result<()> {
+pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let manifest = ctx.manifest()?;
 
@@ -26,6 +26,25 @@ pub fn run(name: &str) -> anyhow::Result<()> {
         }
         matches
     };
+
+    // Confirm before removing
+    println!("Will remove {} skill(s):", skills_to_remove.len());
+    for skill_name in &skills_to_remove {
+        println!("  - {skill_name}");
+    }
+
+    if !yes {
+        use std::io::Write;
+        print!("Proceed? [y/N] ");
+        std::io::stdout().flush()?;
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer)?;
+        if !answer.trim().eq_ignore_ascii_case("y")
+            && !answer.trim().eq_ignore_ascii_case("yes")
+        {
+            anyhow::bail!("Aborted.");
+        }
+    }
 
     let merged_options = ctx.merged_options(&manifest);
     let mut lockfile = ctx.lockfile()?;

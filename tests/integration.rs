@@ -60,7 +60,7 @@ fn add_and_remove_local_skill() {
 
     // ion remove
     let output = ion_cmd()
-        .args(["remove", "test-skill"])
+        .args(["remove", "test-skill", "-y"])
         .current_dir(project.path())
         .output()
         .unwrap();

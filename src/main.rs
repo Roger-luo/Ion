@@ -25,6 +25,9 @@ enum Commands {
     Remove {
         /// Skill name or source (e.g. brainstorming, obra/superpowers)
         name: String,
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Install all skills from Ion.toml
     Install,
@@ -116,7 +119,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::Add { source, rev } => commands::add::run(&source, rev.as_deref()),
-        Commands::Remove { name } => commands::remove::run(&name),
+        Commands::Remove { name, yes } => commands::remove::run(&name, yes),
         Commands::Install => commands::install::run(),
         Commands::List => commands::list::run(),
         Commands::Info { skill } => commands::info::run(&skill),
