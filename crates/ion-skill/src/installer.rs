@@ -10,10 +10,24 @@ use crate::{Error, Result, git};
 
 /// Where ion stores cloned repositories persistently.
 pub fn data_dir() -> PathBuf {
-    dirs::data_dir()
+    let dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("ion")
-        .join("repos")
+        .join("repos");
+
+    // One-time migration from old cache location
+    if !dir.exists() {
+        if let Some(old) = dirs::cache_dir().map(|d| d.join("ion").join("repos")) {
+            if old.exists() {
+                if let Some(parent) = dir.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::rename(&old, &dir);
+            }
+        }
+    }
+
+    dir
 }
 
 /// Manages skill installation and uninstallation for a project.
