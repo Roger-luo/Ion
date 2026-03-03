@@ -64,6 +64,11 @@ enum Commands {
         #[arg(long, short)]
         verbose: bool,
     },
+    /// Link a local skill directory into the project
+    Link {
+        /// Path to the local skill directory containing SKILL.md
+        path: String,
+    },
     /// Validate local skill definitions
     Validate {
         /// Optional path to a SKILL.md file or skill/workspace directory
@@ -109,6 +114,7 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
+        Commands::Link { path } => commands::link::run(&path),
         Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Config { action } => commands::config::run(action),

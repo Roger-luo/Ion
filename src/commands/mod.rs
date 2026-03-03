@@ -1,6 +1,7 @@
 pub mod add;
 pub mod config;
 pub mod info;
+pub mod link;
 pub mod new;
 pub mod install;
 pub mod list;
