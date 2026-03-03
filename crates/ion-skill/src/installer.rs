@@ -99,7 +99,9 @@ impl<'a> SkillInstaller<'a> {
 
     pub fn uninstall(&self, name: &str) -> Result<()> {
         let agents_dir = self.project_dir.join(".agents").join("skills").join(name);
-        if agents_dir.exists() {
+        if agents_dir.is_symlink() {
+            std::fs::remove_file(&agents_dir).map_err(Error::Io)?;
+        } else if agents_dir.exists() {
             std::fs::remove_dir_all(&agents_dir).map_err(Error::Io)?;
         }
 
@@ -144,7 +146,7 @@ impl<'a> SkillInstaller<'a> {
 
     fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
         let agents_target = self.project_dir.join(".agents").join("skills").join(name);
-        copy_skill_dir(skill_dir, &agents_target)?;
+        create_skill_symlink(skill_dir, &agents_target)?;
 
         let canonical = self.project_dir.join(".agents").join("skills").join(name);
         for target_path in self.options.targets.values() {
@@ -246,35 +248,6 @@ fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
     }
 }
 
-/// Copy a skill directory to a target location (overwriting if it exists).
-fn copy_skill_dir(src: &Path, dst: &Path) -> Result<()> {
-    if dst.exists() {
-        std::fs::remove_dir_all(dst).map_err(Error::Io)?;
-    }
-    if let Some(parent) = dst.parent() {
-        std::fs::create_dir_all(parent).map_err(Error::Io)?;
-    }
-    copy_dir_recursive(src, dst)
-}
-
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
-    std::fs::create_dir_all(dst).map_err(Error::Io)?;
-    for entry in std::fs::read_dir(src).map_err(Error::Io)? {
-        let entry = entry.map_err(Error::Io)?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
-        if src_path.file_name().is_some_and(|n| n == ".git") {
-            continue;
-        }
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            std::fs::copy(&src_path, &dst_path).map_err(Error::Io)?;
-        }
-    }
-    Ok(())
-}
-
 /// Create a relative symlink from `link` pointing to `original`.
 fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
     // Remove existing file/dir/symlink at the link location
@@ -345,36 +318,6 @@ mod tests {
     }
 
     #[test]
-    fn copy_skill_dir_works() {
-        let src = tempfile::tempdir().unwrap();
-        std::fs::write(src.path().join("SKILL.md"), "---\nname: test\ndescription: Test.\n---\nBody").unwrap();
-        std::fs::create_dir(src.path().join("scripts")).unwrap();
-        std::fs::write(src.path().join("scripts").join("run.sh"), "#!/bin/bash").unwrap();
-
-        let dst_dir = tempfile::tempdir().unwrap();
-        let dst = dst_dir.path().join("test-skill");
-        copy_skill_dir(src.path(), &dst).unwrap();
-
-        assert!(dst.join("SKILL.md").exists());
-        assert!(dst.join("scripts").join("run.sh").exists());
-    }
-
-    #[test]
-    fn copy_skill_dir_skips_git() {
-        let src = tempfile::tempdir().unwrap();
-        std::fs::write(src.path().join("SKILL.md"), "content").unwrap();
-        std::fs::create_dir(src.path().join(".git")).unwrap();
-        std::fs::write(src.path().join(".git").join("HEAD"), "ref").unwrap();
-
-        let dst_dir = tempfile::tempdir().unwrap();
-        let dst = dst_dir.path().join("out");
-        copy_skill_dir(src.path(), &dst).unwrap();
-
-        assert!(dst.join("SKILL.md").exists());
-        assert!(!dst.join(".git").exists());
-    }
-
-    #[test]
     fn uninstall_removes_dirs() {
         let project = tempfile::tempdir().unwrap();
         let agents = project.path().join(".agents").join("skills").join("test");
@@ -427,11 +370,11 @@ mod tests {
         let installer = SkillInstaller::new(project.path(), &options);
         let _locked = installer.install("sym-test", &source).unwrap();
 
-        // Canonical copy is a real directory
+        // Canonical is now a symlink to the source
         let canonical = project.path().join(".agents/skills/sym-test");
         assert!(canonical.exists());
         assert!(canonical.is_dir());
-        assert!(!canonical.is_symlink());
+        assert!(canonical.is_symlink());
 
         // Target is a symlink
         let target = project.path().join(".claude/skills/sym-test");
@@ -458,10 +401,9 @@ mod tests {
         let installer = SkillInstaller::new(project.path(), &options);
         let locked = installer.install("local-test", &source).unwrap();
         assert_eq!(locked.name, "local-test");
-        assert!(project
-            .path()
-            .join(".agents/skills/local-test/SKILL.md")
-            .exists());
+        let agents_skill = project.path().join(".agents/skills/local-test");
+        assert!(agents_skill.is_symlink());
+        assert!(agents_skill.join("SKILL.md").exists());
     }
 
     #[test]
