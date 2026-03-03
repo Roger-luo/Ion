@@ -77,6 +77,9 @@ enum Commands {
         /// Also run `cargo init --bin` to scaffold a Rust CLI project
         #[arg(long)]
         bin: bool,
+        /// Create a multi-skill collection with a skills/ directory
+        #[arg(long)]
+        collection: bool,
         /// Overwrite existing files
         #[arg(long)]
         force: bool,
@@ -106,7 +109,7 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
-        Commands::New { path, bin, force } => commands::new::run(path.as_deref(), bin, false, force),
+        Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Config { action } => commands::config::run(action),
     };
