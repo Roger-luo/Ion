@@ -54,6 +54,19 @@ Describe what this skill does and when to use it.
 ```
 "#;
 
+const COLLECTION_README_TEMPLATE: &str = r#"# {title}
+
+A collection of skills for AI agents.
+
+## Skills
+
+Add skills with:
+
+```bash
+ion new --path skills/<skill-name>
+```
+"#;
+
 fn titleize(slug: &str) -> String {
     slug.split('-')
         .map(|word| {
@@ -86,6 +99,10 @@ pub fn run(path: Option<&str>, bin: bool, collection: bool, force: bool) -> anyh
 
     if !target_dir.exists() {
         std::fs::create_dir_all(&target_dir)?;
+    }
+
+    if collection {
+        return run_collection(&target_dir, force);
     }
 
     let skill_md_path = target_dir.join("SKILL.md");
@@ -129,6 +146,39 @@ pub fn run(path: Option<&str>, bin: bool, collection: bool, force: bool) -> anyh
     std::fs::write(&skill_md_path, content)?;
 
     println!("Created SKILL.md in {}", target_dir.display());
+    Ok(())
+}
+
+fn run_collection(target_dir: &std::path::Path, force: bool) -> anyhow::Result<()> {
+    let readme_path = target_dir.join("README.md");
+
+    if readme_path.exists() && !force {
+        anyhow::bail!(
+            "README.md already exists in {}. Use --force to overwrite.",
+            target_dir.display()
+        );
+    }
+
+    std::fs::create_dir_all(target_dir.join("skills"))?;
+
+    let dir_name = target_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("my-skills");
+    let name = {
+        let s = slugify(dir_name);
+        if s.is_empty() {
+            "my-skills".to_string()
+        } else {
+            s
+        }
+    };
+    let title = titleize(&name);
+
+    let content = COLLECTION_README_TEMPLATE.replace("{title}", &title);
+    std::fs::write(&readme_path, content)?;
+
+    println!("Created skill collection in {}", target_dir.display());
     Ok(())
 }
 
