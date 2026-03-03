@@ -1,6 +1,7 @@
 use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
 use ion_skill::manifest_writer;
+use ion_skill::registry::Registry;
 use ion_skill::source::{SkillSource, SourceType};
 
 use crate::context::ProjectContext;
@@ -149,6 +150,9 @@ fn install_collection(
         lockfile.upsert(locked);
     }
 
+    // Register in global registry (once for the base source)
+    register_in_registry(base_source, &ctx.project_dir)?;
+
     lockfile.write_to(&ctx.lockfile_path)?;
     println!("  Updated ion.toml");
     println!("  Updated ion.lock");
@@ -176,6 +180,9 @@ fn finish_single_install(
         println!("  Updated .gitignore");
     }
 
+    // Register in global registry for git-based sources
+    register_in_registry(source, &ctx.project_dir)?;
+
     manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
     println!("  Updated ion.toml");
 
@@ -185,6 +192,19 @@ fn finish_single_install(
     println!("  Updated ion.lock");
 
     println!("Done!");
+    Ok(())
+}
+
+fn register_in_registry(source: &SkillSource, project_dir: &std::path::Path) -> anyhow::Result<()> {
+    if matches!(source.source_type, SourceType::Github | SourceType::Git) {
+        if let Ok(url) = source.git_url() {
+            let repo_hash = format!("{:x}", hash_simple(&url));
+            let project_str = project_dir.display().to_string();
+            let mut registry = Registry::load()?;
+            registry.register(&repo_hash, &url, &project_str);
+            registry.save()?;
+        }
+    }
     Ok(())
 }
 

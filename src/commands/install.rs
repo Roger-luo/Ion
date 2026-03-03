@@ -1,6 +1,7 @@
 use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
 use ion_skill::manifest::Manifest;
+use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
@@ -52,6 +53,17 @@ pub fn run() -> anyhow::Result<()> {
         if source.source_type != SourceType::Path {
             let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
             ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
+        }
+
+        // Register in global registry for git-based sources
+        if matches!(source.source_type, SourceType::Github | SourceType::Git) {
+            if let Ok(url) = source.git_url() {
+                let repo_hash = format!("{:x}", hash_simple(&url));
+                let project_str = ctx.project_dir.display().to_string();
+                let mut registry = Registry::load()?;
+                registry.register(&repo_hash, &url, &project_str);
+                registry.save()?;
+            }
         }
 
         lockfile.upsert(locked);
