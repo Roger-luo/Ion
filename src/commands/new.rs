@@ -67,7 +67,11 @@ fn titleize(slug: &str) -> String {
         .join(" ")
 }
 
-pub fn run(path: Option<&str>, bin: bool, force: bool) -> anyhow::Result<()> {
+pub fn run(path: Option<&str>, bin: bool, collection: bool, force: bool) -> anyhow::Result<()> {
+    if collection && bin {
+        anyhow::bail!("Cannot combine --collection with --bin");
+    }
+
     let target_dir = match path {
         Some(p) => {
             let p = PathBuf::from(p);

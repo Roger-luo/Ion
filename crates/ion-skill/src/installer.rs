@@ -5,6 +5,7 @@ use crate::manifest::ManifestOptions;
 use crate::skill::SkillMetadata;
 use crate::source::{SkillSource, SourceType};
 use crate::validate;
+use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
 
 /// Where ion caches cloned repositories.
@@ -70,6 +71,30 @@ impl<'a> SkillInstaller<'a> {
 
         self.deploy(name, &skill_dir)?;
         self.build_locked_entry(name, source, &meta, &skill_dir)
+    }
+
+    /// Fetch a source and discover all skills within it.
+    /// Returns a list of (skill_name, skill_path_within_repo) pairs.
+    /// Used for multi-skill collection repos that have no root SKILL.md.
+    pub fn discover_skills(source: &SkillSource) -> Result<Vec<(String, String)>> {
+        let repo_dir = fetch_skill_base(source)?;
+        let skill_files = discover_skill_files(&repo_dir)
+            .map_err(|e| Error::Source(format!("Failed to discover skills: {e}")))?;
+
+        let mut results = Vec::new();
+        for skill_md in skill_files {
+            let skill_dir = skill_md.parent().unwrap();
+            let rel_path = skill_dir
+                .strip_prefix(&repo_dir)
+                .map_err(|_| Error::Source("Failed to compute relative path".to_string()))?;
+            let name = skill_dir
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            results.push((name, rel_path.to_string_lossy().to_string()));
+        }
+        Ok(results)
     }
 
     pub fn uninstall(&self, name: &str) -> Result<()> {
@@ -166,8 +191,9 @@ impl<'a> SkillInstaller<'a> {
     }
 }
 
-/// Fetch a skill source to a local directory. Returns the path to the skill directory.
-fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
+/// Fetch a source to its cached repo directory (for git sources) or local path.
+/// Does NOT resolve the skill path within the repo.
+fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
     match source.source_type {
         SourceType::Github | SourceType::Git => {
             let url = source.git_url()?;
@@ -180,23 +206,7 @@ fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
                 git::checkout(&repo_dir, rev)?;
             }
 
-            match &source.path {
-                Some(path) => {
-                    let skill_dir = repo_dir.join(path);
-                    if skill_dir.exists() {
-                        return Ok(skill_dir);
-                    }
-                    // Fallback: try skills/<path> (common convention)
-                    let fallback_dir = repo_dir.join("skills").join(path);
-                    if fallback_dir.exists() {
-                        return Ok(fallback_dir);
-                    }
-                    Err(Error::Source(format!(
-                        "Skill path '{path}' not found in repository (also tried 'skills/{path}')"
-                    )))
-                }
-                None => Ok(repo_dir),
-            }
+            Ok(repo_dir)
         }
         SourceType::Path => {
             let path = PathBuf::from(&source.source);
@@ -210,6 +220,29 @@ fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
         SourceType::Http => {
             Err(Error::Source("HTTP source not yet implemented".to_string()))
         }
+    }
+}
+
+/// Fetch a skill source to a local directory. Returns the path to the skill directory.
+fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
+    let base_dir = fetch_skill_base(source)?;
+
+    match (&source.source_type, &source.path) {
+        (SourceType::Github | SourceType::Git, Some(path)) => {
+            let skill_dir = base_dir.join(path);
+            if skill_dir.exists() {
+                return Ok(skill_dir);
+            }
+            // Fallback: try skills/<path> (common convention)
+            let fallback_dir = base_dir.join("skills").join(path);
+            if fallback_dir.exists() {
+                return Ok(fallback_dir);
+            }
+            Err(Error::Source(format!(
+                "Skill path '{path}' not found in repository (also tried 'skills/{path}')"
+            )))
+        }
+        _ => Ok(base_dir),
     }
 }
 

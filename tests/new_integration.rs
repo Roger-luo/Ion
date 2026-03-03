@@ -5,19 +5,19 @@ fn ion_cmd() -> Command {
 }
 
 #[test]
-fn init_help_is_exposed() {
-    let output = ion_cmd().args(["init", "--help"]).output().unwrap();
+fn new_help_is_exposed() {
+    let output = ion_cmd().args(["new", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
-    assert!(stdout.contains("Initialize a new skill"));
+    assert!(stdout.contains("Create a new skill"));
 }
 
 #[test]
-fn init_creates_skill_md_in_current_dir() {
+fn new_creates_skill_md_in_current_dir() {
     let dir = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["init"])
+        .args(["new"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -36,12 +36,12 @@ fn init_creates_skill_md_in_current_dir() {
 }
 
 #[test]
-fn init_with_path_creates_skill_md_in_specified_dir() {
+fn new_with_path_creates_skill_md_in_specified_dir() {
     let base = tempfile::tempdir().unwrap();
     let target = base.path().join("my-new-skill");
 
     let output = ion_cmd()
-        .args(["init", "--path", target.to_str().unwrap()])
+        .args(["new", "--path", target.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -57,12 +57,12 @@ fn init_with_path_creates_skill_md_in_specified_dir() {
 }
 
 #[test]
-fn init_errors_if_skill_md_exists() {
+fn new_errors_if_skill_md_exists() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("SKILL.md"), "existing content").unwrap();
 
     let output = ion_cmd()
-        .args(["init"])
+        .args(["new"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -77,12 +77,12 @@ fn init_errors_if_skill_md_exists() {
 }
 
 #[test]
-fn init_force_overwrites_existing_skill_md() {
+fn new_force_overwrites_existing_skill_md() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("SKILL.md"), "old content").unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--force"])
+        .args(["new", "--force"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -97,13 +97,13 @@ fn init_force_overwrites_existing_skill_md() {
 }
 
 #[test]
-fn init_bin_creates_cargo_project_and_skill_md() {
+fn new_bin_creates_cargo_project_and_skill_md() {
     let base = tempfile::tempdir().unwrap();
     let target = base.path().join("my-bin-skill");
     std::fs::create_dir(&target).unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--bin", "--path", target.to_str().unwrap()])
+        .args(["new", "--bin", "--path", target.to_str().unwrap()])
         .output()
         .unwrap();
 

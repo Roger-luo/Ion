@@ -69,15 +69,15 @@ enum Commands {
         /// Optional path to a SKILL.md file or skill/workspace directory
         path: Option<String>,
     },
-    /// Initialize a new skill project
-    Init {
+    /// Create a new skill or skill collection
+    New {
         /// Target directory (default: current directory)
         #[arg(long)]
         path: Option<String>,
         /// Also run `cargo init --bin` to scaffold a Rust CLI project
         #[arg(long)]
         bin: bool,
-        /// Overwrite existing SKILL.md
+        /// Overwrite existing files
         #[arg(long)]
         force: bool,
     },
@@ -106,7 +106,7 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
-        Commands::Init { path, bin, force } => commands::init::run(path.as_deref(), bin, force),
+        Commands::New { path, bin, force } => commands::new::run(path.as_deref(), bin, false, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Config { action } => commands::config::run(action),
     };

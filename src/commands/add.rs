@@ -15,11 +15,47 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
         source.rev = Some(r.to_string());
     }
 
-    let name = skill_name_from_source(&source);
-    println!("Adding skill '{name}' from {source_str}...");
-
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
+
+    // If the source has no path (i.e. points to a whole repo), check if it's
+    // a multi-skill collection. Try to install as a single skill first; if there
+    // is no root SKILL.md, discover and install all skills in the repo.
+    if source.path.is_none() {
+        let name = skill_name_from_source(&source);
+        println!("Adding skill '{name}' from {source_str}...");
+
+        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+        match installer.install(&name, &source) {
+            Ok(locked) => {
+                return finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked);
+            }
+            Err(SkillError::ValidationWarning { report, .. }) => {
+                print_validation_report(&name, &report);
+                if !confirm_install_on_warnings()? {
+                    anyhow::bail!("Installation cancelled due to validation warnings.");
+                }
+                let locked = installer.install_with_options(
+                    &name,
+                    &source,
+                    InstallValidationOptions {
+                        skip_validation: false,
+                        allow_warnings: true,
+                    },
+                )?;
+                return finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked);
+            }
+            Err(SkillError::InvalidSkill(msg)) if msg.contains("No SKILL.md found") => {
+                // Not a single-skill repo — try as a multi-skill collection
+                return install_collection(&ctx, &merged_options, &source, source_str);
+            }
+            Err(err) => return Err(err.into()),
+        }
+    }
+
+    // Source has a path — install a single skill directly
+    let name = skill_name_from_source(&source);
+    println!("Adding skill '{name}' from {source_str}...");
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     let locked = match installer.install(&name, &source) {
@@ -41,12 +77,93 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
         }
         Err(err) => return Err(err.into()),
     };
+
+    finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked)
+}
+
+fn install_collection(
+    ctx: &ProjectContext,
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    base_source: &SkillSource,
+    source_str: &str,
+) -> anyhow::Result<()> {
+    let skills = SkillInstaller::discover_skills(base_source)?;
+    if skills.is_empty() {
+        anyhow::bail!("No skills found in repository '{source_str}'");
+    }
+
+    println!(
+        "Found {} skill(s) in collection '{source_str}':",
+        skills.len()
+    );
+    for (name, path) in &skills {
+        println!("  {name} ({path})");
+    }
+    println!();
+
+    let installer = SkillInstaller::new(&ctx.project_dir, merged_options);
+    let mut lockfile = ctx.lockfile()?;
+
+    for (name, path) in &skills {
+        let mut skill_source = base_source.clone();
+        skill_source.path = Some(path.clone());
+
+        println!("  Installing '{name}'...");
+        let locked = match installer.install(name, &skill_source) {
+            Ok(locked) => locked,
+            Err(SkillError::ValidationWarning { report, .. }) => {
+                print_validation_report(name, &report);
+                if !confirm_install_on_warnings()? {
+                    println!("  Skipping '{name}' due to validation warnings.");
+                    continue;
+                }
+                installer.install_with_options(
+                    name,
+                    &skill_source,
+                    InstallValidationOptions {
+                        skip_validation: false,
+                        allow_warnings: true,
+                    },
+                )?
+            }
+            Err(SkillError::ValidationFailed { report, .. }) => {
+                print_validation_report(name, &report);
+                println!("  Skipping '{name}' due to validation errors.");
+                continue;
+            }
+            Err(err) => return Err(err.into()),
+        };
+
+        println!("    Installed to .agents/skills/{name}/");
+        for target_name in merged_options.targets.keys() {
+            println!("    Linked to {target_name}");
+        }
+
+        manifest_writer::add_skill(&ctx.manifest_path, name, &skill_source)?;
+        lockfile.upsert(locked);
+    }
+
+    lockfile.write_to(&ctx.lockfile_path)?;
+    println!("  Updated ion.toml");
+    println!("  Updated ion.lock");
+    println!("Done!");
+    Ok(())
+}
+
+fn finish_single_install(
+    ctx: &ProjectContext,
+    _installer: &SkillInstaller,
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    name: &str,
+    source: &SkillSource,
+    locked: ion_skill::lockfile::LockedSkill,
+) -> anyhow::Result<()> {
     println!("  Installed to .agents/skills/{name}/");
     for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");
     }
 
-    manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
+    manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
     println!("  Updated ion.toml");
 
     let mut lockfile = ctx.lockfile()?;
