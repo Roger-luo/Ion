@@ -1,20 +1,22 @@
 use ion_skill::manifest::Manifest;
 
 use crate::context::ProjectContext;
+use crate::style::Paint;
 
 pub fn run() -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
+    let p = Paint::new(&ctx.global_config);
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
     let lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
-        println!("No skills declared in ion.toml.");
+        println!("No skills declared in Ion.toml.");
         return Ok(());
     }
 
-    println!("Skills ({}):", manifest.skills.len());
+    println!("Skills ({}):", p.bold(&manifest.skills.len().to_string()));
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
         let locked = lockfile.find(name);
@@ -33,13 +35,18 @@ pub fn run() -> anyhow::Result<()> {
             .join(name)
             .exists();
         let status = if installed {
-            "installed"
+            p.success("installed")
         } else {
-            "not installed"
+            p.warn("not installed")
         };
 
-        println!("  {name} v{version_str} ({commit_str}) [{status}]");
-        println!("    source: {}", source.source);
+        println!("  {} {} {} [{}]",
+            p.bold(name),
+            p.dim(&format!("v{version_str}")),
+            p.dim(&format!("({commit_str})")),
+            status
+        );
+        println!("    source: {}", p.info(&source.source));
     }
     Ok(())
 }

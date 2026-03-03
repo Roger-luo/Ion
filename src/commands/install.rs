@@ -6,9 +6,11 @@ use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
+use crate::style::Paint;
 
 pub fn run() -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
+    let p = Paint::new(&ctx.global_config);
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
@@ -21,12 +23,12 @@ pub fn run() -> anyhow::Result<()> {
 
     let merged_options = ctx.merged_options(&manifest);
 
-    println!("Installing {} skill(s)...", manifest.skills.len());
+    println!("Installing {} skill(s)...", p.bold(&manifest.skills.len().to_string()));
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     for (name, entry) in &manifest.skills {
         let source = Manifest::resolve_entry(entry)?;
-        println!("  Installing '{name}'...");
+        println!("  Installing {}...", p.bold(&format!("'{name}'")));
         let locked = match installer.install(name, &source) {
             Ok(locked) => locked,
             Err(SkillError::ValidationWarning { report, .. }) => {
@@ -70,8 +72,8 @@ pub fn run() -> anyhow::Result<()> {
     }
 
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("Updated Ion.lock");
-    println!("Done!");
+    println!("Updated {}", p.dim("Ion.lock"));
+    println!("{}", p.success("Done!"));
 
     Ok(())
 }

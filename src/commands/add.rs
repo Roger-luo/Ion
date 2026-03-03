@@ -6,9 +6,11 @@ use ion_skill::source::{SkillSource, SourceType};
 
 use crate::context::ProjectContext;
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
+use crate::style::Paint;
 
 pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
+    let p = Paint::new(&ctx.global_config);
 
     let expanded = ctx.global_config.resolve_source(source_str);
     let mut source = SkillSource::infer(&expanded)?;
@@ -24,12 +26,12 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     // is no root SKILL.md, discover and install all skills in the repo.
     if source.path.is_none() {
         let name = skill_name_from_source(&source);
-        println!("Adding skill '{name}' from {source_str}...");
+        println!("Adding skill {} from {}...", p.bold(&format!("'{name}'")), p.info(source_str));
 
         let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
         match installer.install(&name, &source) {
             Ok(locked) => {
-                return finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked);
+                return finish_single_install(&ctx, &p, &merged_options, &name, &source, locked);
             }
             Err(SkillError::ValidationWarning { report, .. }) => {
                 print_validation_report(&name, &report);
@@ -44,11 +46,11 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
                         allow_warnings: true,
                     },
                 )?;
-                return finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked);
+                return finish_single_install(&ctx, &p, &merged_options, &name, &source, locked);
             }
             Err(SkillError::InvalidSkill(msg)) if msg.contains("No SKILL.md found") => {
                 // Not a single-skill repo — try as a multi-skill collection
-                return install_collection(&ctx, &merged_options, &source, source_str);
+                return install_collection(&ctx, &p, &merged_options, &source, source_str);
             }
             Err(err) => return Err(err.into()),
         }
@@ -56,7 +58,7 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
 
     // Source has a path — install a single skill directly
     let name = skill_name_from_source(&source);
-    println!("Adding skill '{name}' from {source_str}...");
+    println!("Adding skill {} from {}...", p.bold(&format!("'{name}'")), p.info(source_str));
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     let locked = match installer.install(&name, &source) {
@@ -79,11 +81,12 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
         Err(err) => return Err(err.into()),
     };
 
-    finish_single_install(&ctx, &installer, &merged_options, &name, &source, locked)
+    finish_single_install(&ctx, &p, &merged_options, &name, &source, locked)
 }
 
 fn install_collection(
     ctx: &ProjectContext,
+    p: &Paint,
     merged_options: &ion_skill::manifest::ManifestOptions,
     base_source: &SkillSource,
     source_str: &str,
@@ -94,11 +97,12 @@ fn install_collection(
     }
 
     println!(
-        "Found {} skill(s) in collection '{source_str}':",
-        skills.len()
+        "Found {} skill(s) in collection {}:",
+        p.bold(&skills.len().to_string()),
+        p.info(source_str)
     );
     for (name, path) in &skills {
-        println!("  {name} ({path})");
+        println!("  {} {}", p.bold(name), p.dim(&format!("({path})")));
     }
     println!();
 
@@ -109,7 +113,7 @@ fn install_collection(
         let mut skill_source = base_source.clone();
         skill_source.path = Some(path.clone());
 
-        println!("  Installing '{name}'...");
+        println!("  Installing {}...", p.bold(&format!("'{name}'")));
         let locked = match installer.install(name, &skill_source) {
             Ok(locked) => locked,
             Err(SkillError::ValidationWarning { report, .. }) => {
@@ -135,9 +139,9 @@ fn install_collection(
             Err(err) => return Err(err.into()),
         };
 
-        println!("    Installed to .agents/skills/{name}/");
+        println!("    Installed to {}", p.info(&format!(".agents/skills/{name}/")));
         for target_name in merged_options.targets.keys() {
-            println!("    Linked to {target_name}");
+            println!("    Linked to {}", p.info(target_name));
         }
 
         // Add per-skill gitignore entries for remote skills
@@ -154,46 +158,46 @@ fn install_collection(
     register_in_registry(base_source, &ctx.project_dir)?;
 
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated Ion.toml");
-    println!("  Updated Ion.lock");
-    println!("Done!");
-    crate::commands::init::print_no_targets_hint(merged_options);
+    println!("  Updated {}", p.dim("Ion.toml"));
+    println!("  Updated {}", p.dim("Ion.lock"));
+    println!("{}", p.success("Done!"));
+    crate::commands::init::print_no_targets_hint(merged_options, p);
     Ok(())
 }
 
 fn finish_single_install(
     ctx: &ProjectContext,
-    _installer: &SkillInstaller,
+    p: &Paint,
     merged_options: &ion_skill::manifest::ManifestOptions,
     name: &str,
     source: &SkillSource,
     locked: ion_skill::lockfile::LockedSkill,
 ) -> anyhow::Result<()> {
-    println!("  Installed to .agents/skills/{name}/");
+    println!("  Installed to {}", p.info(&format!(".agents/skills/{name}/")));
     for target_name in merged_options.targets.keys() {
-        println!("  Linked to {target_name}");
+        println!("  Linked to {}", p.info(target_name));
     }
 
     // Add per-skill gitignore entries for remote skills only
     if source.source_type != SourceType::Path {
         let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
         ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
-        println!("  Updated .gitignore");
+        println!("  Updated {}", p.dim(".gitignore"));
     }
 
     // Register in global registry for git-based sources
     register_in_registry(source, &ctx.project_dir)?;
 
     manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
-    println!("  Updated Ion.toml");
+    println!("  Updated {}", p.dim("Ion.toml"));
 
     let mut lockfile = ctx.lockfile()?;
     lockfile.upsert(locked);
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated Ion.lock");
+    println!("  Updated {}", p.dim("Ion.lock"));
 
-    println!("Done!");
-    crate::commands::init::print_no_targets_hint(merged_options);
+    println!("{}", p.success("Done!"));
+    crate::commands::init::print_no_targets_hint(merged_options, p);
     Ok(())
 }
 

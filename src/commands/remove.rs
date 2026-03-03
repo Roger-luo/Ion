@@ -5,9 +5,11 @@ use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
+use crate::style::Paint;
 
 pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
+    let p = Paint::new(&ctx.global_config);
     let manifest = ctx.manifest()?;
 
     // If the argument matches a skill name exactly, remove that single skill.
@@ -28,9 +30,9 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     };
 
     // Confirm before removing
-    println!("Will remove {} skill(s):", skills_to_remove.len());
+    println!("Will remove {} skill(s):", p.bold(&skills_to_remove.len().to_string()));
     for skill_name in &skills_to_remove {
-        println!("  - {skill_name}");
+        println!("  - {}", p.bold(skill_name));
     }
 
     if !yes {
@@ -52,13 +54,13 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     for skill_name in &skills_to_remove {
         let entry = &manifest.skills[skill_name];
 
-        println!("Removing skill '{skill_name}'...");
+        println!("Removing skill {}...", p.bold(&format!("'{skill_name}'")));
 
         SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
-        println!("  Removed from .agents/skills/{skill_name}/");
+        println!("  Removed from {}", p.info(&format!(".agents/skills/{skill_name}/")));
 
         ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
-        println!("  Updated .gitignore");
+        println!("  Updated {}", p.dim(".gitignore"));
 
         // Unregister from global registry for git-based sources
         if let Ok(source) = Manifest::resolve_entry(entry)
@@ -77,9 +79,9 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     }
 
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated Ion.toml");
-    println!("  Updated Ion.lock");
-    println!("Done!");
+    println!("  Updated {}", p.dim("Ion.toml"));
+    println!("  Updated {}", p.dim("Ion.lock"));
+    println!("{}", p.success("Done!"));
     Ok(())
 }
 

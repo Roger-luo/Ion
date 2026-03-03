@@ -130,16 +130,17 @@ fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<BTreeMap<Str
 }
 
 /// Print a hint if no targets are configured, suggesting `ion init`.
-pub fn print_no_targets_hint(merged_options: &ion_skill::manifest::ManifestOptions) {
+pub fn print_no_targets_hint(merged_options: &ion_skill::manifest::ManifestOptions, p: &crate::style::Paint) {
     if merged_options.targets.is_empty() {
         println!();
-        println!("  hint: skills are only installed to .agents/skills/ (the default location)");
-        println!("        To also install to .claude/skills/ or other tools, run: ion init");
+        println!("  {}: skills are only installed to .agents/skills/ (the default location)", p.warn("hint"));
+        println!("        To also install to .claude/skills/ or other tools, run: {}", p.bold("ion init"));
     }
 }
 
 pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
+    let p = crate::style::Paint::new(&ctx.global_config);
 
     // Handle legacy lowercase files
     rename_legacy_files(&ctx.project_dir)?;
@@ -168,11 +169,11 @@ pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
     manifest_writer::write_targets(&ctx.manifest_path, &resolved)?;
 
     if resolved.is_empty() {
-        println!("Created Ion.toml");
+        println!("{} Ion.toml", p.success("Created"));
     } else {
-        println!("Created Ion.toml with {} target(s):", resolved.len());
+        println!("{} Ion.toml with {} target(s):", p.success("Created"), p.bold(&resolved.len().to_string()));
         for (name, path) in &resolved {
-            println!("  {name} → {path}");
+            println!("  {} → {}", p.bold(name), p.info(path));
         }
     }
 
