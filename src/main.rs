@@ -26,7 +26,7 @@ enum Commands {
         /// Name of the skill to remove
         name: String,
     },
-    /// Install all skills from ion.toml
+    /// Install all skills from Ion.toml
     Install,
     /// List installed skills
     List,
@@ -95,6 +95,15 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Initialize Ion.toml with agent tool targets
+    Init {
+        /// Configure specific targets (e.g. claude, cursor, or name:path)
+        #[arg(long, short = 't')]
+        target: Vec<String>,
+        /// Overwrite existing [options.targets] without prompting
+        #[arg(long)]
+        force: bool,
+    },
     /// Manage ion configuration
     Config {
         #[command(subcommand)]
@@ -124,6 +133,7 @@ fn main() {
         Commands::Link { path } => commands::link::run(&path),
         Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
+        Commands::Init { target, force } => commands::init::run(&target, force),
         Commands::Config { action } => commands::config::run(action),
     };
 

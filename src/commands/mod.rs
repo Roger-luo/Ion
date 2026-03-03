@@ -2,6 +2,7 @@ pub mod add;
 pub mod config;
 pub mod gc;
 pub mod info;
+pub mod init;
 pub mod link;
 pub mod new;
 pub mod install;
