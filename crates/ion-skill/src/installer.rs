@@ -8,9 +8,9 @@ use crate::validate;
 use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
 
-/// Where ion caches cloned repositories.
-fn cache_dir() -> PathBuf {
-    dirs::cache_dir()
+/// Where ion stores cloned repositories persistently.
+pub fn data_dir() -> PathBuf {
+    dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("ion")
         .join("repos")
@@ -198,7 +198,7 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
         SourceType::Github | SourceType::Git => {
             let url = source.git_url()?;
             let repo_hash = format!("{:x}", hash_simple(&url));
-            let repo_dir = cache_dir().join(&repo_hash);
+            let repo_dir = data_dir().join(&repo_hash);
 
             git::clone_or_fetch(&url, &repo_dir)?;
 
@@ -317,7 +317,7 @@ fn find_repo_root(path: &Path) -> PathBuf {
     }
 }
 
-fn hash_simple(s: &str) -> u64 {
+pub fn hash_simple(s: &str) -> u64 {
     use std::hash::{DefaultHasher, Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     s.hash(&mut hasher);
