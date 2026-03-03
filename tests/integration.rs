@@ -201,4 +201,5 @@ fn help_shows_all_commands() {
     assert!(stdout.contains("list"));
     assert!(stdout.contains("info"));
     assert!(stdout.contains("validate"));
+    assert!(stdout.contains("init"));
 }
