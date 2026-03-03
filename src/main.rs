@@ -64,6 +64,12 @@ enum Commands {
         #[arg(long, short)]
         verbose: bool,
     },
+    /// Garbage collect stale skill repos from global storage
+    Gc {
+        /// Show what would be cleaned without deleting
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Link a local skill directory into the project
     Link {
         /// Path to the local skill directory containing SKILL.md
@@ -114,6 +120,7 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
+        Commands::Gc { dry_run } => commands::gc::run(dry_run),
         Commands::Link { path } => commands::link::run(&path),
         Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
