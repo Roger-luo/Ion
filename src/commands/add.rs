@@ -198,14 +198,14 @@ fn finish_single_install(
 }
 
 fn register_in_registry(source: &SkillSource, project_dir: &std::path::Path) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git) {
-        if let Ok(url) = source.git_url() {
-            let repo_hash = format!("{:x}", hash_simple(&url));
-            let project_str = project_dir.display().to_string();
-            let mut registry = Registry::load()?;
-            registry.register(&repo_hash, &url, &project_str);
-            registry.save()?;
-        }
+    if matches!(source.source_type, SourceType::Github | SourceType::Git)
+        && let Ok(url) = source.git_url()
+    {
+        let repo_hash = format!("{:x}", hash_simple(&url));
+        let project_str = project_dir.display().to_string();
+        let mut registry = Registry::load()?;
+        registry.register(&repo_hash, &url, &project_str);
+        registry.save()?;
     }
     Ok(())
 }

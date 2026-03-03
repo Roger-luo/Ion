@@ -11,7 +11,7 @@ pub fn run(name: &str) -> anyhow::Result<()> {
     let manifest = ctx.manifest()?;
 
     let entry = manifest.skills.get(name).ok_or_else(|| {
-        anyhow::anyhow!("Skill '{name}' not found in ion.toml")
+        anyhow::anyhow!("Skill '{name}' not found in Ion.toml")
     })?;
 
     let merged_options = ctx.merged_options(&manifest);
@@ -25,25 +25,24 @@ pub fn run(name: &str) -> anyhow::Result<()> {
     println!("  Updated .gitignore");
 
     // Unregister from global registry for git-based sources
-    if let Ok(source) = Manifest::resolve_entry(entry) {
-        if matches!(source.source_type, SourceType::Github | SourceType::Git) {
-            if let Ok(url) = source.git_url() {
-                let repo_hash = format!("{:x}", hash_simple(&url));
-                let project_str = ctx.project_dir.display().to_string();
-                let mut registry = Registry::load()?;
-                registry.unregister(&repo_hash, &project_str);
-                registry.save()?;
-            }
-        }
+    if let Ok(source) = Manifest::resolve_entry(entry)
+        && matches!(source.source_type, SourceType::Github | SourceType::Git)
+        && let Ok(url) = source.git_url()
+    {
+        let repo_hash = format!("{:x}", hash_simple(&url));
+        let project_str = ctx.project_dir.display().to_string();
+        let mut registry = Registry::load()?;
+        registry.unregister(&repo_hash, &project_str);
+        registry.save()?;
     }
 
     manifest_writer::remove_skill(&ctx.manifest_path, name)?;
-    println!("  Updated ion.toml");
+    println!("  Updated Ion.toml");
 
     let mut lockfile = ctx.lockfile()?;
     lockfile.remove(name);
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated ion.lock");
+    println!("  Updated Ion.lock");
 
     println!("Done!");
     Ok(())

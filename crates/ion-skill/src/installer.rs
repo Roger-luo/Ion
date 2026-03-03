@@ -16,15 +16,14 @@ pub fn data_dir() -> PathBuf {
         .join("repos");
 
     // One-time migration from old cache location
-    if !dir.exists() {
-        if let Some(old) = dirs::cache_dir().map(|d| d.join("ion").join("repos")) {
-            if old.exists() {
-                if let Some(parent) = dir.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::rename(&old, &dir);
-            }
+    if !dir.exists()
+        && let Some(old) = dirs::cache_dir().map(|d| d.join("ion").join("repos"))
+        && old.exists()
+    {
+        if let Some(parent) = dir.parent() {
+            let _ = std::fs::create_dir_all(parent);
         }
+        let _ = std::fs::rename(&old, &dir);
     }
 
     dir

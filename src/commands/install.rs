@@ -15,7 +15,7 @@ pub fn run() -> anyhow::Result<()> {
     let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
-        println!("No skills declared in ion.toml.");
+        println!("No skills declared in Ion.toml.");
         return Ok(());
     }
 
@@ -56,21 +56,21 @@ pub fn run() -> anyhow::Result<()> {
         }
 
         // Register in global registry for git-based sources
-        if matches!(source.source_type, SourceType::Github | SourceType::Git) {
-            if let Ok(url) = source.git_url() {
-                let repo_hash = format!("{:x}", hash_simple(&url));
-                let project_str = ctx.project_dir.display().to_string();
-                let mut registry = Registry::load()?;
-                registry.register(&repo_hash, &url, &project_str);
-                registry.save()?;
-            }
+        if matches!(source.source_type, SourceType::Github | SourceType::Git)
+            && let Ok(url) = source.git_url()
+        {
+            let repo_hash = format!("{:x}", hash_simple(&url));
+            let project_str = ctx.project_dir.display().to_string();
+            let mut registry = Registry::load()?;
+            registry.register(&repo_hash, &url, &project_str);
+            registry.save()?;
         }
 
         lockfile.upsert(locked);
     }
 
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("Updated ion.lock");
+    println!("Updated Ion.lock");
     println!("Done!");
 
     Ok(())
