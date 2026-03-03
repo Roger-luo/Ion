@@ -5,7 +5,7 @@ use toml_edit::{DocumentMut, Item, Table, value};
 use crate::source::{SkillSource, SourceType};
 use crate::{Error, Result};
 
-/// Add a skill entry to an ion.toml string. Returns the updated TOML string.
+/// Add a skill entry to an Ion.toml string. Returns the updated TOML string.
 pub fn add_skill(manifest_path: &Path, name: &str, source: &SkillSource) -> Result<String> {
     let content =
         std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
@@ -26,7 +26,7 @@ pub fn add_skill(manifest_path: &Path, name: &str, source: &SkillSource) -> Resu
     Ok(result)
 }
 
-/// Remove a skill entry from an ion.toml file. Returns the updated TOML string.
+/// Remove a skill entry from an Ion.toml file. Returns the updated TOML string.
 pub fn remove_skill(manifest_path: &Path, name: &str) -> Result<String> {
     let content = std::fs::read_to_string(manifest_path).map_err(Error::Io)?;
     let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
@@ -42,6 +42,39 @@ pub fn remove_skill(manifest_path: &Path, name: &str) -> Result<String> {
     }
 
     skills.remove(name);
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
+/// Write target entries to an Ion.toml file's [options.targets] section.
+/// Creates the file with a [skills] section if it doesn't exist.
+/// Preserves all existing content.
+pub fn write_targets(
+    manifest_path: &Path,
+    targets: &std::collections::BTreeMap<String, String>,
+) -> Result<String> {
+    let content = std::fs::read_to_string(manifest_path)
+        .unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("skills") {
+        doc["skills"] = Item::Table(Table::new());
+    }
+
+    if !doc.contains_key("options") {
+        doc["options"] = Item::Table(Table::new());
+    }
+    let options = doc["options"]
+        .as_table_mut()
+        .ok_or_else(|| Error::Manifest("[options] is not a table".to_string()))?;
+
+    options["targets"] = Item::Table(Table::new());
+    let targets_table = options["targets"].as_table_mut().unwrap();
+    for (k, v) in targets {
+        targets_table[k.as_str()] = value(v.as_str());
+    }
 
     let result = doc.to_string();
     std::fs::write(manifest_path, &result).map_err(Error::Io)?;
@@ -103,7 +136,7 @@ mod tests {
     #[test]
     fn add_skill_to_empty_manifest() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ion.toml");
+        let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
         let result = add_skill(
@@ -120,7 +153,7 @@ mod tests {
     #[test]
     fn add_skill_with_rev() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ion.toml");
+        let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
         let mut source = SkillSource::infer("org/my-skill").unwrap();
@@ -134,7 +167,7 @@ mod tests {
     #[test]
     fn remove_skill_from_manifest() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ion.toml");
+        let path = dir.path().join("Ion.toml");
         std::fs::write(
             &path,
             "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
@@ -148,9 +181,58 @@ mod tests {
     #[test]
     fn remove_nonexistent_skill_is_error() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ion.toml");
+        let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
         assert!(remove_skill(&path, "nonexistent").is_err());
+    }
+
+    #[test]
+    fn write_targets_to_empty_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        let targets = std::collections::BTreeMap::from([
+            ("claude".to_string(), ".claude/skills".to_string()),
+        ]);
+        write_targets(&path, &targets).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[skills]"), "existing content preserved");
+        assert!(content.contains("[options]"));
+        assert!(content.contains("claude"));
+        assert!(content.contains(".claude/skills"));
+    }
+
+    #[test]
+    fn write_targets_preserves_existing_skills() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n").unwrap();
+
+        let targets = std::collections::BTreeMap::from([
+            ("claude".to_string(), ".claude/skills".to_string()),
+        ]);
+        write_targets(&path, &targets).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("brainstorming"));
+        assert!(content.contains("claude"));
+    }
+
+    #[test]
+    fn write_targets_to_new_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+
+        let targets = std::collections::BTreeMap::from([
+            ("claude".to_string(), ".claude/skills".to_string()),
+        ]);
+        write_targets(&path, &targets).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[skills]"));
+        assert!(content.contains("claude"));
     }
 }
