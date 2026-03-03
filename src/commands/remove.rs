@@ -10,15 +10,15 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let manifest = ctx.manifest()?;
 
-    // If the argument matches a skill name directly, remove that single skill.
-    // Otherwise, treat it as a source prefix and remove all matching skills.
+    // If the argument matches a skill name exactly, remove that single skill.
+    // Otherwise, fuzzy-match against skill names and source strings.
     let skills_to_remove: Vec<String> = if manifest.skills.contains_key(name) {
         vec![name.to_string()]
     } else {
         let matches: Vec<String> = manifest
             .skills
             .iter()
-            .filter(|(_, entry)| source_matches(entry, name))
+            .filter(|(skill_name, entry)| skill_matches(skill_name, entry, name))
             .map(|(skill_name, _)| skill_name.clone())
             .collect();
         if matches.is_empty() {
@@ -83,15 +83,12 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Check if a skill entry's source matches or starts with the given query.
-/// Supports matching by repo (e.g. "obra/superpowers") or full path
-/// (e.g. "obra/superpowers/skills/brainstorming").
-fn source_matches(entry: &ion_skill::manifest::SkillEntry, query: &str) -> bool {
+/// Check if a skill matches the query by name or source.
+/// Matches if the query appears anywhere in the skill name or source string.
+fn skill_matches(skill_name: &str, entry: &ion_skill::manifest::SkillEntry, query: &str) -> bool {
     let source_str = match entry {
         ion_skill::manifest::SkillEntry::Shorthand(s) => s.as_str(),
         ion_skill::manifest::SkillEntry::Full { source, .. } => source.as_str(),
     };
-    // Match if the entry source string equals or starts with the query
-    // e.g. query "obra/superpowers" matches "obra/superpowers/skills/brainstorming"
-    source_str == query || source_str.starts_with(&format!("{query}/"))
+    skill_name.contains(query) || source_str.contains(query)
 }
