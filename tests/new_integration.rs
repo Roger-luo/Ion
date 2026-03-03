@@ -118,3 +118,101 @@ fn new_bin_creates_cargo_project_and_skill_md() {
     let content = std::fs::read_to_string(target.join("SKILL.md")).unwrap();
     assert!(content.contains("name: my-bin-skill"));
 }
+
+#[test]
+fn new_collection_creates_skills_dir_and_readme() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["new", "--collection"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
+
+    assert!(dir.path().join("skills").is_dir(), "skills/ directory should be created");
+    assert!(dir.path().join("README.md").exists(), "README.md should be created");
+
+    let readme = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
+    assert!(readme.contains("collection of skills"));
+    assert!(readme.contains("ion new"));
+}
+
+#[test]
+fn new_collection_with_path_creates_in_specified_dir() {
+    let base = tempfile::tempdir().unwrap();
+    let target = base.path().join("my-collection");
+
+    let output = ion_cmd()
+        .args(["new", "--collection", "--path", target.to_str().unwrap()])
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
+
+    assert!(target.join("skills").is_dir());
+    assert!(target.join("README.md").exists());
+
+    let readme = std::fs::read_to_string(target.join("README.md")).unwrap();
+    assert!(readme.contains("My Collection"));
+}
+
+#[test]
+fn new_collection_errors_if_readme_exists() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("README.md"), "existing readme").unwrap();
+
+    let output = ion_cmd()
+        .args(["new", "--collection"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("already exists"));
+    assert!(stderr.contains("--force"));
+
+    let content = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
+    assert_eq!(content, "existing readme");
+}
+
+#[test]
+fn new_collection_force_overwrites_readme() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("README.md"), "old readme").unwrap();
+
+    let output = ion_cmd()
+        .args(["new", "--collection", "--force"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
+
+    let content = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
+    assert!(content.contains("collection of skills"));
+    assert!(!content.contains("old readme"));
+}
+
+#[test]
+fn new_collection_and_bin_errors() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["new", "--collection", "--bin"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Cannot combine"));
+}
