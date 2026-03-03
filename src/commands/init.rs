@@ -129,6 +129,15 @@ fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<BTreeMap<Str
     Ok(targets)
 }
 
+/// Print a hint if no targets are configured, suggesting `ion init`.
+pub fn print_no_targets_hint(merged_options: &ion_skill::manifest::ManifestOptions) {
+    if merged_options.targets.is_empty() {
+        println!();
+        println!("  hint: skills are only installed to .agents/skills/ (the default location)");
+        println!("        To also install to .claude/skills/ or other tools, run: ion init");
+    }
+}
+
 pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
 

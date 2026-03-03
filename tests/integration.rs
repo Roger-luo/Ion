@@ -377,3 +377,30 @@ fn init_errors_when_both_legacy_and_new_exist() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Both ion.toml and Ion.toml"));
 }
+
+#[test]
+fn link_shows_hint_when_no_targets_configured() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create a local skill to link
+    let skill_dir = project.path().join("my-skill");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: my-skill\ndescription: A test skill.\n---\nA test skill.\n",
+    ).unwrap();
+
+    let output = ion_cmd()
+        .args(["link", skill_dir.to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+    assert!(
+        stdout.contains("ion init"),
+        "should show hint about ion init when no targets configured. stdout: {stdout}"
+    );
+}

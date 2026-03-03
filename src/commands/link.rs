@@ -56,13 +56,14 @@ pub fn run(path: &str) -> anyhow::Result<()> {
     // No gitignore entries for local skills — they should be tracked in git
 
     manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
-    println!("  Updated ion.toml");
+    println!("  Updated Ion.toml");
 
     let mut lockfile = ctx.lockfile()?;
     lockfile.upsert(locked);
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated ion.lock");
+    println!("  Updated Ion.lock");
 
     println!("Done!");
+    crate::commands::init::print_no_targets_hint(&merged_options);
     Ok(())
 }

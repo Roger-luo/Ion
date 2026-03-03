@@ -154,9 +154,10 @@ fn install_collection(
     register_in_registry(base_source, &ctx.project_dir)?;
 
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated ion.toml");
-    println!("  Updated ion.lock");
+    println!("  Updated Ion.toml");
+    println!("  Updated Ion.lock");
     println!("Done!");
+    crate::commands::init::print_no_targets_hint(merged_options);
     Ok(())
 }
 
@@ -184,14 +185,15 @@ fn finish_single_install(
     register_in_registry(source, &ctx.project_dir)?;
 
     manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
-    println!("  Updated ion.toml");
+    println!("  Updated Ion.toml");
 
     let mut lockfile = ctx.lockfile()?;
     lockfile.upsert(locked);
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated ion.lock");
+    println!("  Updated Ion.lock");
 
     println!("Done!");
+    crate::commands::init::print_no_targets_hint(merged_options);
     Ok(())
 }
 
