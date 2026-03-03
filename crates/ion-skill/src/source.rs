@@ -67,10 +67,10 @@ impl SkillSource {
                 rev: None,
                 version: None,
             }),
-            3 => Ok(Self {
+            3.. => Ok(Self {
                 source_type: SourceType::Github,
                 source: format!("{}/{}", segments[0], segments[1]),
-                path: Some(segments[2].to_string()),
+                path: Some(segments[2..].join("/")),
                 rev: None,
                 version: None,
             }),
@@ -152,6 +152,14 @@ mod tests {
     fn infer_local_current_dir_path() {
         let s = SkillSource::infer("./my-skill").unwrap();
         assert_eq!(s.source_type, SourceType::Path);
+    }
+
+    #[test]
+    fn infer_github_four_segments() {
+        let s = SkillSource::infer("obra/superpowers/skills/brainstorming").unwrap();
+        assert_eq!(s.source_type, SourceType::Github);
+        assert_eq!(s.source, "obra/superpowers");
+        assert_eq!(s.path.as_deref(), Some("skills/brainstorming"));
     }
 
     #[test]
