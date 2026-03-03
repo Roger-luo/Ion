@@ -81,9 +81,52 @@ fn rename_legacy_files(project_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn select_targets_interactive(_project_dir: &Path) -> anyhow::Result<BTreeMap<String, String>> {
-    // Placeholder — implemented in next task
-    Ok(BTreeMap::new())
+fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<BTreeMap<String, String>> {
+    use std::io::Write;
+
+    let detected = detect_targets(project_dir);
+    if !detected.is_empty() {
+        let names: Vec<&str> = detected.iter().map(|(n, _)| *n).collect();
+        println!("Detected: {}", names.join(", "));
+        println!();
+    }
+
+    println!("Which tools do you use? (comma-separated, or press Enter for detected)");
+    for (name, _, path) in KNOWN_TARGETS {
+        let marker = if detected.iter().any(|(n, _)| n == name) {
+            "*"
+        } else {
+            " "
+        };
+        println!("  [{marker}] {name} ({path})");
+    }
+    print!("> ");
+    std::io::stdout().flush()?;
+
+    let mut answer = String::new();
+    std::io::stdin().read_line(&mut answer)?;
+    let answer = answer.trim();
+
+    let mut targets = BTreeMap::new();
+
+    if answer.is_empty() {
+        // Accept detected defaults
+        for (name, path) in &detected {
+            targets.insert(name.to_string(), path.to_string());
+        }
+    } else {
+        // Parse comma-separated list
+        for item in answer.split(',') {
+            let item = item.trim();
+            if item.is_empty() {
+                continue;
+            }
+            let (name, path) = parse_target_flag(item)?;
+            targets.insert(name, path);
+        }
+    }
+
+    Ok(targets)
 }
 
 pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
