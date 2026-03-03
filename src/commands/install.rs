@@ -1,6 +1,7 @@
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest::Manifest;
+use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
@@ -46,44 +47,19 @@ pub fn run() -> anyhow::Result<()> {
             }
             Err(err) => return Err(err.into()),
         };
+
+        // Add per-skill gitignore entries for remote skills only
+        if source.source_type != SourceType::Path {
+            let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
+            ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
+        }
+
         lockfile.upsert(locked);
     }
 
     lockfile.write_to(&ctx.lockfile_path)?;
     println!("Updated ion.lock");
     println!("Done!");
-
-    // Check gitignore for managed directories
-    let mut managed_dirs = vec![".agents/".to_string()];
-    for path in merged_options.targets.values() {
-        let top_level = path.split('/').next().unwrap_or(path);
-        let entry = format!("{top_level}/");
-        if !managed_dirs.contains(&entry) {
-            managed_dirs.push(entry);
-        }
-    }
-
-    let dir_refs: Vec<&str> = managed_dirs.iter().map(|s| s.as_str()).collect();
-    let missing =
-        ion_skill::gitignore::find_missing_gitignore_entries(&ctx.project_dir, &dir_refs)?;
-
-    if !missing.is_empty() {
-        println!("\nThese directories are not in .gitignore:");
-        for dir in &missing {
-            println!("  {dir}");
-        }
-        print!("\nAdd them? [Y/n] (press Enter for yes) ");
-        std::io::Write::flush(&mut std::io::stdout())?;
-
-        let mut answer = String::new();
-        std::io::stdin().read_line(&mut answer)?;
-
-        if answer.trim().is_empty() || answer.trim().eq_ignore_ascii_case("y") {
-            let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
-            ion_skill::gitignore::append_to_gitignore(&ctx.project_dir, &refs)?;
-            println!("Updated .gitignore");
-        }
-    }
 
     Ok(())
 }

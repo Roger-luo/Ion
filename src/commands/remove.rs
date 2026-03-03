@@ -18,6 +18,9 @@ pub fn run(name: &str) -> anyhow::Result<()> {
     SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(name)?;
     println!("  Removed from .agents/skills/{name}/");
 
+    ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, name)?;
+    println!("  Updated .gitignore");
+
     manifest_writer::remove_skill(&ctx.manifest_path, name)?;
     println!("  Updated ion.toml");
 

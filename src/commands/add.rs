@@ -1,7 +1,7 @@
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest_writer;
-use ion_skill::source::SkillSource;
+use ion_skill::source::{SkillSource, SourceType};
 
 use crate::context::ProjectContext;
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
@@ -139,6 +139,12 @@ fn install_collection(
             println!("    Linked to {target_name}");
         }
 
+        // Add per-skill gitignore entries for remote skills
+        if skill_source.source_type != SourceType::Path {
+            let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
+            ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
+        }
+
         manifest_writer::add_skill(&ctx.manifest_path, name, &skill_source)?;
         lockfile.upsert(locked);
     }
@@ -161,6 +167,13 @@ fn finish_single_install(
     println!("  Installed to .agents/skills/{name}/");
     for target_name in merged_options.targets.keys() {
         println!("  Linked to {target_name}");
+    }
+
+    // Add per-skill gitignore entries for remote skills only
+    if source.source_type != SourceType::Path {
+        let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
+        ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
+        println!("  Updated .gitignore");
     }
 
     manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
