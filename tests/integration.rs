@@ -35,8 +35,8 @@ fn add_and_remove_local_skill() {
         .path()
         .join(".agents/skills/test-skill/SKILL.md")
         .exists());
-    assert!(project.path().join("ion.toml").exists());
-    assert!(project.path().join("ion.lock").exists());
+    assert!(project.path().join("Ion.toml").exists());
+    assert!(project.path().join("Ion.lock").exists());
 
     // ion list
     let output = ion_cmd()
@@ -84,7 +84,7 @@ fn install_from_manifest() {
 
     // Use new [options.targets] format
     std::fs::write(
-        project.path().join("ion.toml"),
+        project.path().join("Ion.toml"),
         format!(
             "[skills]\nmanifest-skill = {{ type = \"path\", source = \"{}\" }}\n\n[options.targets]\nclaude = \".claude/skills\"\n",
             skill_path.display()
@@ -158,7 +158,7 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
     .unwrap();
 
     std::fs::write(
-        project.path().join("ion.toml"),
+        project.path().join("Ion.toml"),
         format!(
             "[skills]\nwarning-manifest-skill = {{ type = \"path\", source = \"{}\" }}\n",
             skill_path.display()
@@ -202,4 +202,97 @@ fn help_shows_all_commands() {
     assert!(stdout.contains("info"));
     assert!(stdout.contains("validate"));
     assert!(stdout.contains("init"));
+}
+
+#[test]
+fn init_creates_manifest_with_target_flag() {
+    let project = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("[skills]"));
+    assert!(manifest.contains("claude"));
+    assert!(manifest.contains(".claude/skills"));
+}
+
+#[test]
+fn init_with_custom_target_path() {
+    let project = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude:.claude/commands/skills"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains(".claude/commands/skills"));
+}
+
+#[test]
+fn init_preserves_existing_skills() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+    ).unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("brainstorming"), "existing skills preserved");
+    assert!(manifest.contains("claude"), "target added");
+}
+
+#[test]
+fn init_errors_when_targets_exist_without_force() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[options]\n[options.targets]\nclaude = \".claude/skills\"\n",
+    ).unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "cursor"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(!output.status.success(), "should fail without --force");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("already") || stderr.contains("--force"));
+}
+
+#[test]
+fn init_force_overwrites_existing_targets() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[options]\n[options.targets]\nclaude = \".claude/skills\"\n",
+    ).unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "cursor", "--force"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("cursor"));
 }
