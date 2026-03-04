@@ -102,6 +102,37 @@ fn collect_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
     Ok(())
 }
 
+/// Get the default branch name for a repo by checking `origin/HEAD` or falling back
+/// to `symbolic-ref HEAD`.
+pub fn default_branch(repo_path: &Path) -> Result<String> {
+    // Try origin/HEAD first (works for cloned repos)
+    let output = Command::new("git")
+        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| Error::Git(format!("Failed to run git symbolic-ref: {e}")))?;
+
+    if output.status.success() {
+        let full_ref = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if let Some(branch) = full_ref.strip_prefix("refs/remotes/origin/") {
+            return Ok(branch.to_string());
+        }
+    }
+
+    // Fallback: local HEAD's branch name
+    let output = Command::new("git")
+        .args(["symbolic-ref", "--short", "HEAD"])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| Error::Git(format!("Failed to run git symbolic-ref: {e}")))?;
+
+    if output.status.success() {
+        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
+    }
+
+    Err(Error::Git("Could not determine default branch".to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -116,6 +147,16 @@ mod tests {
         let sum2 = checksum_dir(dir.path()).unwrap();
         assert_eq!(sum1, sum2);
         assert!(sum1.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn default_branch_of_fresh_repo() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        std::process::Command::new("git").args(["init"]).current_dir(repo).output().unwrap();
+        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "init"]).current_dir(repo).output().unwrap();
+        let branch = default_branch(repo).unwrap();
+        assert!(branch == "main" || branch == "master", "got: {branch}");
     }
 
     #[test]
