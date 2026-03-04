@@ -202,6 +202,9 @@ impl<'a> SkillInstaller<'a> {
             version: meta.version().map(|s| s.to_string()),
             commit,
             checksum,
+            binary: None,
+            binary_version: None,
+            binary_checksum: None,
         })
     }
 }

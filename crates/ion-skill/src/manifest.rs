@@ -20,6 +20,8 @@ pub enum SkillEntry {
         rev: Option<String>,
         #[serde(default)]
         path: Option<String>,
+        #[serde(default)]
+        binary: Option<String>,
     },
 }
 
@@ -89,6 +91,7 @@ impl Manifest {
                 version,
                 rev,
                 path,
+                binary,
             } => {
                 let mut resolved = if let Some(st) = source_type {
                     SkillSource {
@@ -111,6 +114,7 @@ impl Manifest {
                 if path.is_some() {
                     resolved.path = path.clone();
                 }
+                resolved.binary = binary.clone();
                 Ok(resolved)
             }
         }
@@ -219,6 +223,16 @@ mod tests {
             Some(".claude/skills".to_string())
         );
         assert_eq!(manifest.options.get_value("targets.nonexistent"), None);
+    }
+
+    #[test]
+    fn parse_binary_skill_entry() {
+        let toml_str = "[skills]\nmytool = { type = \"binary\", source = \"owner/mytool\", binary = \"mytool\" }\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+        assert_eq!(source.source_type, SourceType::Binary);
+        assert_eq!(source.source, "owner/mytool");
+        assert_eq!(source.binary.as_deref(), Some("mytool"));
     }
 
     #[test]

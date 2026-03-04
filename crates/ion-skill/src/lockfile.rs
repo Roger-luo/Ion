@@ -16,6 +16,12 @@ pub struct LockedSkill {
     pub commit: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub checksum: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binary_checksum: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -78,7 +84,7 @@ checksum = "sha256:deadbeef"
     #[test]
     fn roundtrip_lockfile() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("ion.lock");
+        let path = dir.path().join("Ion.lock");
 
         let mut lockfile = Lockfile::default();
         lockfile.upsert(LockedSkill {
@@ -88,6 +94,9 @@ checksum = "sha256:deadbeef"
             version: Some("1.0".to_string()),
             commit: Some("abc123".to_string()),
             checksum: Some("sha256:deadbeef".to_string()),
+            binary: None,
+            binary_version: None,
+            binary_checksum: None,
         });
 
         lockfile.write_to(&path).unwrap();
@@ -102,10 +111,12 @@ checksum = "sha256:deadbeef"
         lockfile.upsert(LockedSkill {
             name: "s".to_string(), source: "a".to_string(), path: None,
             version: None, commit: Some("old".to_string()), checksum: None,
+            binary: None, binary_version: None, binary_checksum: None,
         });
         lockfile.upsert(LockedSkill {
             name: "s".to_string(), source: "a".to_string(), path: None,
             version: None, commit: Some("new".to_string()), checksum: None,
+            binary: None, binary_version: None, binary_checksum: None,
         });
         assert_eq!(lockfile.skills.len(), 1);
         assert_eq!(lockfile.skills[0].commit.as_deref(), Some("new"));
@@ -117,14 +128,40 @@ checksum = "sha256:deadbeef"
         lockfile.upsert(LockedSkill {
             name: "a".to_string(), source: "x".to_string(), path: None,
             version: None, commit: None, checksum: None,
+            binary: None, binary_version: None, binary_checksum: None,
         });
         lockfile.remove("a");
         assert!(lockfile.skills.is_empty());
     }
 
     #[test]
+    fn roundtrip_binary_locked_skill() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.lock");
+
+        let mut lockfile = Lockfile::default();
+        lockfile.upsert(LockedSkill {
+            name: "mytool".to_string(),
+            source: "https://github.com/owner/mytool.git".to_string(),
+            path: None,
+            version: Some("1.2.0".to_string()),
+            commit: None,
+            checksum: None,
+            binary: Some("mytool".to_string()),
+            binary_version: Some("1.2.0".to_string()),
+            binary_checksum: Some("sha256:abc123".to_string()),
+        });
+
+        lockfile.write_to(&path).unwrap();
+        let loaded = Lockfile::from_file(&path).unwrap();
+        assert_eq!(loaded.skills[0].binary.as_deref(), Some("mytool"));
+        assert_eq!(loaded.skills[0].binary_version.as_deref(), Some("1.2.0"));
+        assert_eq!(loaded.skills[0].binary_checksum.as_deref(), Some("sha256:abc123"));
+    }
+
+    #[test]
     fn from_missing_file_returns_empty() {
-        let lockfile = Lockfile::from_file(Path::new("/nonexistent/ion.lock")).unwrap();
+        let lockfile = Lockfile::from_file(Path::new("/nonexistent/Ion.lock")).unwrap();
         assert!(lockfile.skills.is_empty());
     }
 }
