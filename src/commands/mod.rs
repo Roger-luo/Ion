@@ -9,6 +9,7 @@ pub mod install;
 pub mod list;
 pub mod migrate;
 pub mod remove;
+pub mod run;
 pub mod search;
 pub mod validation;
 pub mod validate;
