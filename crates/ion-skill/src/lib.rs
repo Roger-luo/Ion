@@ -12,6 +12,7 @@ pub mod registry;
 pub mod search;
 pub mod skill;
 pub mod source;
+pub mod update;
 pub mod validate;
 
 pub use error::Error;

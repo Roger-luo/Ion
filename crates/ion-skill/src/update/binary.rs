@@ -1,0 +1,1 @@
+// BinaryUpdater implementation — next task
