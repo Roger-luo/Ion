@@ -53,6 +53,27 @@ impl<'a> SkillInstaller<'a> {
         self.install_with_options(name, source, InstallValidationOptions::default())
     }
 
+    /// Fetch and validate a skill without deploying it.
+    /// Returns the validation report on success (even if it has warnings).
+    /// Returns `Error::ValidationFailed` if there are errors,
+    /// or `Error::InvalidSkill` if there's no SKILL.md.
+    pub fn validate(&self, _name: &str, source: &SkillSource) -> Result<validate::ValidationReport> {
+        let skill_dir = self.fetch(source)?;
+        let (meta, body) = self.validate_spec(&skill_dir, source)?;
+        let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
+
+        if report.error_count > 0 {
+            return Err(Error::ValidationFailed {
+                error_count: report.error_count,
+                warning_count: report.warning_count,
+                info_count: report.info_count,
+                report,
+            });
+        }
+
+        Ok(report)
+    }
+
     pub fn install_with_options(
         &self,
         name: &str,
