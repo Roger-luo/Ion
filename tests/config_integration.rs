@@ -20,7 +20,7 @@ fn config_set_and_get_global() {
 #[test]
 fn config_set_and_get_project() {
     let dir = tempfile::tempdir().unwrap();
-    let manifest_path = dir.path().join("ion.toml");
+    let manifest_path = dir.path().join("Ion.toml");
     std::fs::write(&manifest_path, "[skills]\n").unwrap();
 
     let output = ion_cmd()
@@ -47,7 +47,7 @@ fn config_list_no_project() {
         .output()
         .unwrap();
 
-    // Should fail — no ion.toml
+    // Should fail — no Ion.toml
     assert!(!output.status.success());
 }
 

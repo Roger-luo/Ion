@@ -48,7 +48,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
     let sections = app.current_sections();
 
     if app.tab == Tab::Project && !app.has_project {
-        let msg = Paragraph::new("No ion.toml found in current directory.")
+        let msg = Paragraph::new("No Ion.toml found in current directory.")
             .style(Style::default().fg(Color::DarkGray))
             .block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
         frame.render_widget(msg, area);

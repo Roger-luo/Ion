@@ -105,11 +105,11 @@ pub fn run(from: Option<&str>, dry_run: bool) -> anyhow::Result<()> {
 
     println!();
     println!(
-        "Written ion.toml with {} skills.",
+        "Written Ion.toml with {} skills.",
         locked.len()
     );
     println!(
-        "Written ion.lock with {} locked entries.",
+        "Written Ion.lock with {} locked entries.",
         locked.len()
     );
 

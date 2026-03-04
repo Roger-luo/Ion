@@ -64,7 +64,7 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
         }
         KeyCode::Char('a') => {
             if app.tab == Tab::Project && !app.has_project {
-                app.status_message = Some("No ion.toml in current directory.".to_string());
+                app.status_message = Some("No Ion.toml in current directory.".to_string());
                 return Ok(());
             }
             app.input_buffer.clear();

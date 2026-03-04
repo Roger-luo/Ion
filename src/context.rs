@@ -16,8 +16,8 @@ pub struct ProjectContext {
 impl ProjectContext {
     pub fn load() -> anyhow::Result<Self> {
         let project_dir = std::env::current_dir()?;
-        let manifest_path = project_dir.join("ion.toml");
-        let lockfile_path = project_dir.join("ion.lock");
+        let manifest_path = project_dir.join("Ion.toml");
+        let lockfile_path = project_dir.join("Ion.lock");
         let global_config = GlobalConfig::load()?;
         Ok(Self {
             project_dir,
@@ -52,7 +52,7 @@ impl ProjectContext {
 
     pub fn require_manifest(&self) -> anyhow::Result<()> {
         if !self.manifest_path.exists() {
-            anyhow::bail!("No ion.toml found in current directory");
+            anyhow::bail!("No Ion.toml found in current directory");
         }
         Ok(())
     }

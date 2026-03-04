@@ -8,7 +8,7 @@ pub enum ConfigAction {
     Get {
         /// Key in dot notation (e.g., targets.claude)
         key: String,
-        /// Read from project config (ion.toml) instead of global
+        /// Read from project config (Ion.toml) instead of global
         #[arg(long)]
         project: bool,
     },
@@ -18,13 +18,13 @@ pub enum ConfigAction {
         key: String,
         /// Value to set
         value: String,
-        /// Write to project config (ion.toml) instead of global
+        /// Write to project config (Ion.toml) instead of global
         #[arg(long)]
         project: bool,
     },
     /// List all config values
     List {
-        /// Show project config (ion.toml) instead of global
+        /// Show project config (Ion.toml) instead of global
         #[arg(long)]
         project: bool,
     },

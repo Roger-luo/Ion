@@ -160,12 +160,22 @@ impl SkillChecker for SuspiciousFileChecker {
             {
                 use std::os::unix::fs::PermissionsExt;
                 if (meta.permissions().mode() & 0o111) != 0 && !in_scripts {
-                    findings.push(Finding {
-                        severity: Severity::Error,
-                        checker: self.name().to_string(),
-                        message: format!("Executable file outside scripts/: {rel_str}"),
-                        detail: None,
-                    });
+                    // Script extensions are already flagged above as warnings;
+                    // only flag truly unexpected executables (binaries without
+                    // a known script extension) as errors.
+                    let is_script_ext = path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| ["sh", "py", "rb", "js", "ts", "pl", "php"].contains(&e.to_ascii_lowercase().as_str()))
+                        .unwrap_or(false);
+                    if !is_script_ext {
+                        findings.push(Finding {
+                            severity: Severity::Error,
+                            checker: self.name().to_string(),
+                            message: format!("Executable file outside scripts/: {rel_str}"),
+                            detail: None,
+                        });
+                    }
                 }
             }
         }
@@ -234,5 +244,38 @@ mod tests {
         let findings = checker.check(root.path(), &dummy_meta(), "body");
 
         assert!(findings.iter().any(|f| f.severity == Severity::Warning));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn executable_script_outside_scripts_is_warning_not_error() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let js_path = root.path().join("render-graphs.js");
+        std::fs::write(&js_path, "#!/usr/bin/env node\n").unwrap();
+        std::fs::set_permissions(&js_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let checker = SuspiciousFileChecker;
+        let findings = checker.check(root.path(), &dummy_meta(), "body");
+
+        // Should have a warning for script extension, but no error for execute bit
+        assert!(findings.iter().any(|f| f.severity == Severity::Warning));
+        assert!(!findings.iter().any(|f| f.severity == Severity::Error));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn executable_binary_outside_scripts_is_error() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let bin_path = root.path().join("sneaky");
+        std::fs::write(&bin_path, b"\x7fELF").unwrap();
+        std::fs::set_permissions(&bin_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let checker = SuspiciousFileChecker;
+        let findings = checker.check(root.path(), &dummy_meta(), "body");
+
+        // No extension → executable bit flagged as error
+        assert!(findings.iter().any(|f| f.severity == Severity::Error));
     }
 }

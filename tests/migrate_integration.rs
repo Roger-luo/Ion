@@ -67,8 +67,8 @@ fn migrate_from_lockfile_dry_run() {
     );
     assert!(stdout.contains("skills-lock.json"));
     assert!(stdout.contains("Dry run"));
-    assert!(!project.path().join("ion.toml").exists());
-    assert!(!project.path().join("ion.lock").exists());
+    assert!(!project.path().join("Ion.toml").exists());
+    assert!(!project.path().join("Ion.lock").exists());
 }
 
 #[test]
@@ -190,8 +190,8 @@ fn migrate_with_local_git_repo() {
         output.status.success(),
         "migrate failed: stdout={stdout}\nstderr={stderr}"
     );
-    assert!(project.path().join("ion.toml").exists());
-    assert!(project.path().join("ion.lock").exists());
+    assert!(project.path().join("Ion.toml").exists());
+    assert!(project.path().join("Ion.lock").exists());
     assert!(project
         .path()
         .join(".agents/skills/my-skill/SKILL.md")

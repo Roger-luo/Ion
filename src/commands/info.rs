@@ -34,7 +34,7 @@ fn show_info_from_installed(project_dir: &std::path::Path, name: &str) -> anyhow
         .join("SKILL.md");
 
     if !skill_md.exists() {
-        anyhow::bail!("Skill '{name}' is in ion.toml but not installed. Run `ion install`.");
+        anyhow::bail!("Skill '{name}' is in Ion.toml but not installed. Run `ion install`.");
     }
 
     let (meta, _body) = SkillMetadata::from_file(&skill_md)?;

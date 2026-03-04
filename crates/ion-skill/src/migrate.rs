@@ -186,8 +186,8 @@ pub fn migrate(
         return Ok(Vec::new());
     }
 
-    let manifest_path = project_dir.join("ion.toml");
-    let lockfile_path = project_dir.join("ion.lock");
+    let manifest_path = project_dir.join("Ion.toml");
+    let lockfile_path = project_dir.join("Ion.lock");
 
     let mut lockfile = Lockfile::from_file(&lockfile_path)?;
     let mut locked_skills = Vec::new();
