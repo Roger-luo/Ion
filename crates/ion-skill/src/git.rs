@@ -133,6 +133,25 @@ pub fn default_branch(repo_path: &Path) -> Result<String> {
     Err(Error::Git("Could not determine default branch".to_string()))
 }
 
+/// Reset the working tree to the remote's default branch HEAD.
+/// Call this after `clone_or_fetch()` to advance to the latest commit.
+pub fn reset_to_remote_head(repo_path: &Path) -> Result<()> {
+    let branch = default_branch(repo_path)?;
+    let remote_ref = format!("origin/{branch}");
+
+    let output = Command::new("git")
+        .args(["reset", "--hard", &remote_ref])
+        .current_dir(repo_path)
+        .output()
+        .map_err(|e| Error::Git(format!("Failed to run git reset: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(Error::Git(format!("git reset --hard {remote_ref} failed: {stderr}")));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +187,27 @@ mod tests {
         std::fs::write(dir.path().join("a.txt"), "changed").unwrap();
         let sum2 = checksum_dir(dir.path()).unwrap();
         assert_ne!(sum1, sum2);
+    }
+
+    #[test]
+    fn reset_to_remote_head_after_clone() {
+        let tmp = tempfile::tempdir().unwrap();
+
+        let upstream = tmp.path().join("upstream");
+        std::fs::create_dir(&upstream).unwrap();
+        std::process::Command::new("git").args(["init"]).current_dir(&upstream).output().unwrap();
+        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "first"]).current_dir(&upstream).output().unwrap();
+
+        let clone_dir = tmp.path().join("clone");
+        clone_or_fetch(&upstream.display().to_string(), &clone_dir).unwrap();
+        let commit1 = head_commit(&clone_dir).unwrap();
+
+        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "second"]).current_dir(&upstream).output().unwrap();
+
+        clone_or_fetch(&upstream.display().to_string(), &clone_dir).unwrap();
+        reset_to_remote_head(&clone_dir).unwrap();
+        let commit2 = head_commit(&clone_dir).unwrap();
+
+        assert_ne!(commit1, commit2, "HEAD should have advanced");
     }
 }
