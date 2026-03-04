@@ -59,6 +59,11 @@ impl<'a> SkillInstaller<'a> {
         source: &SkillSource,
         validation: InstallValidationOptions,
     ) -> Result<LockedSkill> {
+        // Binary sources use a different pipeline
+        if source.source_type == SourceType::Binary {
+            return self.install_binary(name, source);
+        }
+
         let skill_dir = self.fetch(source)?;
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
 
@@ -168,6 +173,38 @@ impl<'a> SkillInstaller<'a> {
         }
 
         Ok(())
+    }
+
+    fn install_binary(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
+        use crate::binary;
+
+        let binary_name = source.binary.as_deref().unwrap_or(name);
+        let skill_dir = self.project_dir.join(".agents").join("skills").join(name);
+
+        let result = binary::install_binary_from_github(
+            &source.source,
+            binary_name,
+            source.rev.as_deref(),
+            &skill_dir,
+        )?;
+
+        // Validate the generated/bundled SKILL.md
+        let (meta, _body) = self.validate_spec(&skill_dir, source)?;
+
+        // Deploy symlinks to targets
+        self.deploy(name, &skill_dir)?;
+
+        Ok(LockedSkill {
+            name: name.to_string(),
+            source: format!("https://github.com/{}.git", source.source),
+            path: source.path.clone(),
+            version: meta.version().map(|v| v.to_string()),
+            commit: None,
+            checksum: None,
+            binary: Some(binary_name.to_string()),
+            binary_version: Some(result.version),
+            binary_checksum: Some(result.binary_checksum),
+        })
     }
 
     fn build_locked_entry(
