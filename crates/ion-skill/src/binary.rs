@@ -313,6 +313,11 @@ pub fn find_bundled_skill_md(extract_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Check if a binary is already installed at the given version.
+pub fn is_binary_installed(name: &str, version: &str) -> bool {
+    binary_path(name, version).exists()
+}
+
 #[derive(Debug)]
 pub struct BinaryInstallResult {
     pub version: String,
@@ -329,6 +334,28 @@ pub fn install_binary_from_github(
     let platform = Platform::detect();
     let release = fetch_github_release(repo, rev)?;
     let version = parse_version_from_tag(&release.tag_name).to_string();
+
+    // Check if already installed at this version
+    if is_binary_installed(binary_name, &version) {
+        let installed_binary = binary_path(binary_name, &version);
+        let checksum = file_checksum(&installed_binary)?;
+
+        // Still need to ensure SKILL.md exists
+        fs::create_dir_all(skill_dir)
+            .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+        if !skill_dir.join("SKILL.md").exists() {
+            let skill_md_content = generate_skill_md(&installed_binary)?;
+            fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+                .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+        }
+
+        return Ok(BinaryInstallResult {
+            version,
+            binary_checksum: checksum,
+        });
+    }
+
     let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
 
     let asset_name = platform
@@ -596,5 +623,22 @@ fi
         let extracted = extract_tar_gz(&archive_path, &extract_dir).unwrap();
         assert!(!extracted.is_empty());
         assert!(extract_dir.join("test.txt").exists());
+    }
+
+    #[test]
+    fn test_is_binary_installed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_root = tmp.path().join("bin");
+        let fake_binary = tmp.path().join("mytool");
+        fs::write(&fake_binary, "#!/bin/sh\necho hello").unwrap();
+
+        // Not installed yet
+        assert!(!bin_root.join("mytool").join("1.0.0").join("mytool").exists());
+
+        // Install it
+        install_binary_file(&fake_binary, "mytool", "1.0.0", &bin_root).unwrap();
+
+        // Now it should exist
+        assert!(bin_root.join("mytool").join("1.0.0").join("mytool").exists());
     }
 }
