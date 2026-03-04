@@ -105,10 +105,6 @@ pub fn binary_path(name: &str, version: &str) -> PathBuf {
     bin_dir().join(name).join(version).join(name)
 }
 
-pub fn current_binary_path(name: &str) -> PathBuf {
-    bin_dir().join(name).join("current").join(name)
-}
-
 #[derive(Debug, Deserialize)]
 pub struct GitHubRelease {
     pub tag_name: String,
@@ -248,7 +244,8 @@ pub fn install_binary_file(
     }
     let current_link = bin_root.join(name).join("current");
     if current_link.exists() || current_link.is_symlink() {
-        let _ = fs::remove_file(&current_link);
+        fs::remove_file(&current_link)
+            .map_err(|e| crate::Error::Other(format!("Failed to remove stale current link: {}", e)))?;
     }
     #[cfg(unix)]
     std::os::unix::fs::symlink(version, &current_link)

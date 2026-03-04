@@ -28,6 +28,15 @@ pub fn run(source_str: &str, rev: Option<&str>, bin: bool) -> anyhow::Result<()>
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
 
+    // Binary skills always install as a single skill — no collection fallback
+    if bin {
+        let name = skill_name_from_source(&source);
+        println!("Adding binary skill {} from {}...", p.bold(&format!("'{name}'")), p.info(source_str));
+        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+        let locked = installer.install(&name, &source)?;
+        return finish_single_install(&ctx, &p, &merged_options, &name, &source, locked);
+    }
+
     // If the source has no path (i.e. points to a whole repo), check if it's
     // a multi-skill collection. Try to install as a single skill first; if there
     // is no root SKILL.md, discover and install all skills in the repo.

@@ -189,7 +189,18 @@ impl<'a> SkillInstaller<'a> {
         )?;
 
         // Validate the generated/bundled SKILL.md
-        let (meta, _body) = self.validate_spec(&skill_dir, source)?;
+        let (meta, body) = self.validate_spec(&skill_dir, source)?;
+
+        // Run full security validation (same as regular install path)
+        let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
+        if report.error_count > 0 {
+            return Err(Error::ValidationFailed {
+                error_count: report.error_count,
+                warning_count: report.warning_count,
+                info_count: report.info_count,
+                report,
+            });
+        }
 
         // Deploy symlinks to targets
         self.deploy(name, &skill_dir)?;
