@@ -264,6 +264,125 @@ pub fn file_checksum(path: &Path) -> crate::Result<String> {
     Ok(format!("sha256:{:x}", hash))
 }
 
+/// Run `<binary> skill` and capture the SKILL.md output from stdout.
+pub fn generate_skill_md(binary_path: &Path) -> crate::Result<String> {
+    use std::process::Command;
+    let output = Command::new(binary_path)
+        .arg("skill")
+        .output()
+        .map_err(|e| {
+            crate::Error::Other(format!(
+                "Failed to run '{} skill': {}",
+                binary_path.display(),
+                e
+            ))
+        })?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(crate::Error::Other(format!(
+            "'{}' skill command failed (exit {}): {}",
+            binary_path.display(),
+            output.status,
+            stderr.trim()
+        )));
+    }
+    let stdout = String::from_utf8(output.stdout)
+        .map_err(|e| crate::Error::Other(format!("Invalid UTF-8 in skill output: {}", e)))?;
+    if stdout.trim().is_empty() {
+        return Err(crate::Error::Other(format!(
+            "'{}' skill command produced no output",
+            binary_path.display()
+        )));
+    }
+    Ok(stdout)
+}
+
+/// Look for a SKILL.md in an extracted archive directory.
+pub fn find_bundled_skill_md(extract_dir: &Path) -> Option<PathBuf> {
+    let direct = extract_dir.join("SKILL.md");
+    if direct.is_file() {
+        return Some(direct);
+    }
+    if let Ok(entries) = fs::read_dir(extract_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let nested = entry.path().join("SKILL.md");
+                if nested.is_file() {
+                    return Some(nested);
+                }
+            }
+        }
+    }
+    None
+}
+
+#[derive(Debug)]
+pub struct BinaryInstallResult {
+    pub version: String,
+    pub binary_checksum: String,
+}
+
+/// Full binary skill installation from GitHub Releases.
+pub fn install_binary_from_github(
+    repo: &str,
+    binary_name: &str,
+    rev: Option<&str>,
+    skill_dir: &Path,
+) -> crate::Result<BinaryInstallResult> {
+    let platform = Platform::detect();
+    let release = fetch_github_release(repo, rev)?;
+    let version = parse_version_from_tag(&release.tag_name).to_string();
+    let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
+
+    let asset_name = platform
+        .match_asset(binary_name, &asset_names)
+        .ok_or_else(|| {
+            crate::Error::Other(format!(
+                "No matching release asset for platform {} in {:?}",
+                platform.target_triple(),
+                asset_names
+            ))
+        })?;
+    let asset = release
+        .assets
+        .iter()
+        .find(|a| a.name == asset_name)
+        .unwrap();
+
+    let tmp_dir = tempfile::tempdir()
+        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
+    let archive_path = tmp_dir.path().join(&asset_name);
+    download_file(&asset.browser_download_url, &archive_path)?;
+
+    let extract_dir = tmp_dir.path().join("extracted");
+    extract_tar_gz(&archive_path, &extract_dir)?;
+
+    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
+    let bin_root = bin_dir();
+    install_binary_file(&found_binary, binary_name, &version, &bin_root)?;
+
+    let installed_binary = binary_path(binary_name, &version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
+        fs::read_to_string(&bundled)
+            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
+    } else {
+        generate_skill_md(&installed_binary)?
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    Ok(BinaryInstallResult {
+        version,
+        binary_checksum: checksum,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -386,6 +505,28 @@ mod tests {
     }
 
     #[test]
+    fn test_find_bundled_skill_md_direct() {
+        let tmp = tempfile::tempdir().unwrap();
+        fs::write(tmp.path().join("SKILL.md"), "---\nname: test\n---").unwrap();
+        assert!(find_bundled_skill_md(tmp.path()).is_some());
+    }
+
+    #[test]
+    fn test_find_bundled_skill_md_in_subdir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let subdir = tmp.path().join("mytool-1.0");
+        fs::create_dir(&subdir).unwrap();
+        fs::write(subdir.join("SKILL.md"), "---\nname: test\n---").unwrap();
+        assert!(find_bundled_skill_md(tmp.path()).is_some());
+    }
+
+    #[test]
+    fn test_find_bundled_skill_md_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        assert!(find_bundled_skill_md(tmp.path()).is_none());
+    }
+
+    #[test]
     fn test_file_checksum() {
         let tmp = tempfile::tempdir().unwrap();
         let file = tmp.path().join("test");
@@ -393,6 +534,42 @@ mod tests {
         let checksum = file_checksum(&file).unwrap();
         assert!(checksum.starts_with("sha256:"));
         assert!(checksum.len() > 10);
+    }
+
+    #[test]
+    fn test_generate_skill_md_from_binary() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_path = tmp.path().join("mytool");
+        #[cfg(unix)]
+        {
+            fs::write(
+                &bin_path,
+                r#"#!/bin/sh
+if [ "$1" = "skill" ]; then
+    cat <<'EOF'
+---
+name: mytool
+description: A test tool that does useful things for testing purposes. Invoke with ion run mytool.
+metadata:
+  binary: mytool
+  version: 1.0.0
+---
+# MyTool
+Use ion run mytool to run this tool.
+EOF
+else
+    echo "unknown command"
+    exit 1
+fi
+"#,
+            )
+            .unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
+            let skill_md = generate_skill_md(&bin_path).unwrap();
+            assert!(skill_md.contains("name: mytool"));
+            assert!(skill_md.contains("description:"));
+        }
     }
 
     #[test]
