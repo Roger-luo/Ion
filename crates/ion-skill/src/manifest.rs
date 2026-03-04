@@ -97,6 +97,7 @@ impl Manifest {
                         path: path.clone(),
                         rev: None,
                         version: None,
+                        binary: None,
                     }
                 } else {
                     SkillSource::infer(source)?

@@ -83,7 +83,7 @@ pub fn write_targets(
 
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
-    let needs_table = source.rev.is_some() || source.version.is_some() || source.path.is_some();
+    let needs_table = source.rev.is_some() || source.version.is_some() || source.path.is_some() || source.binary.is_some();
 
     if !needs_table {
         let display = match (&source.source_type, &source.path) {
@@ -106,6 +106,9 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         SourceType::Path => {
             table.insert("type", "path".into());
         }
+        SourceType::Binary => {
+            table.insert("type", "binary".into());
+        }
     }
 
     let source_str = match (&source.source_type, &source.path) {
@@ -124,6 +127,9 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         && source.source_type != SourceType::Github
     {
         table.insert("path", p.as_str().into());
+    }
+    if let Some(ref b) = source.binary {
+        table.insert("binary", b.as_str().into());
     }
 
     value(table)

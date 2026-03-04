@@ -10,6 +10,7 @@ pub enum SourceType {
     Git,
     Http,
     Path,
+    Binary,
 }
 
 /// A fully resolved skill source.
@@ -20,6 +21,7 @@ pub struct SkillSource {
     pub path: Option<String>,
     pub rev: Option<String>,
     pub version: Option<String>,
+    pub binary: Option<String>,
 }
 
 impl SkillSource {
@@ -36,6 +38,7 @@ impl SkillSource {
                 path: None,
                 rev: None,
                 version: None,
+                binary: None,
             });
         }
 
@@ -54,6 +57,7 @@ impl SkillSource {
                 path: None,
                 rev: None,
                 version: None,
+                binary: None,
             });
         }
 
@@ -66,6 +70,7 @@ impl SkillSource {
                 path: None,
                 rev: None,
                 version: None,
+                binary: None,
             }),
             3.. => Ok(Self {
                 source_type: SourceType::Github,
@@ -73,6 +78,7 @@ impl SkillSource {
                 path: Some(segments[2..].join("/")),
                 rev: None,
                 version: None,
+                binary: None,
             }),
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
@@ -172,6 +178,20 @@ mod tests {
     fn git_url_github_shorthand() {
         let s = SkillSource::infer("org/repo").unwrap();
         assert_eq!(s.git_url().unwrap(), "https://github.com/org/repo.git");
+    }
+
+    #[test]
+    fn test_binary_source_type_serializes() {
+        let source = SkillSource {
+            source_type: SourceType::Binary,
+            source: "owner/mytool".to_string(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: Some("mytool".to_string()),
+        };
+        assert_eq!(source.source_type, SourceType::Binary);
+        assert_eq!(source.binary.as_deref(), Some("mytool"));
     }
 
     #[test]

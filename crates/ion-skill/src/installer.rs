@@ -184,7 +184,7 @@ impl<'a> SkillInstaller<'a> {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (commit, checksum)
             }
-            SourceType::Path | SourceType::Http => {
+            SourceType::Path | SourceType::Http | SourceType::Binary => {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (None, checksum)
             }
@@ -234,6 +234,9 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
         }
         SourceType::Http => {
             Err(Error::Source("HTTP source not yet implemented".to_string()))
+        }
+        SourceType::Binary => {
+            Err(Error::Source("Binary source uses dedicated installer".to_string()))
         }
     }
 }
@@ -321,6 +324,7 @@ mod tests {
             path: None,
             rev: None,
             version: None,
+            binary: None,
         }
     }
 
@@ -374,6 +378,7 @@ mod tests {
             path: None,
             rev: None,
             version: None,
+            binary: None,
         };
 
         let mut targets = std::collections::BTreeMap::new();
