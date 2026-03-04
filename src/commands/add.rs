@@ -8,7 +8,7 @@ use crate::context::ProjectContext;
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
 use crate::style::Paint;
 
-pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
+pub fn run(source_str: &str, rev: Option<&str>, bin: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
 
@@ -16,6 +16,13 @@ pub fn run(source_str: &str, rev: Option<&str>) -> anyhow::Result<()> {
     let mut source = SkillSource::infer(&expanded)?;
     if let Some(r) = rev {
         source.rev = Some(r.to_string());
+    }
+
+    if bin {
+        source.source_type = SourceType::Binary;
+        if source.binary.is_none() {
+            source.binary = Some(skill_name_from_source(&source));
+        }
     }
 
     let manifest = ctx.manifest_or_empty()?;

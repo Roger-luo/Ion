@@ -21,6 +21,9 @@ enum Commands {
         /// Pin to a specific git ref (branch, tag, or commit SHA)
         #[arg(long)]
         rev: Option<String>,
+        /// Install as a binary CLI skill from GitHub Releases
+        #[arg(long)]
+        bin: bool,
     },
     /// Remove a skill from the project
     Remove {
@@ -108,6 +111,14 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Run a binary skill
+    Run {
+        /// Name of the binary skill to run
+        name: String,
+        /// Arguments to pass to the binary
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
     /// Manage ion configuration
     Config {
         #[command(subcommand)]
@@ -119,7 +130,7 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Add { source, rev } => commands::add::run(&source, rev.as_deref()),
+        Commands::Add { source, rev, bin } => commands::add::run(&source, rev.as_deref(), bin),
         Commands::Remove { name, yes } => commands::remove::run(&name, yes),
         Commands::Install => commands::install::run(),
         Commands::List => commands::list::run(),
@@ -138,6 +149,7 @@ fn main() {
         Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Init { target, force } => commands::init::run(&target, force),
+        Commands::Run { name, args } => commands::run::run(&name, &args),
         Commands::Config { action } => commands::config::run(action),
     };
 
