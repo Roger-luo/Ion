@@ -11,5 +11,6 @@ pub mod migrate;
 pub mod remove;
 pub mod run;
 pub mod search;
+pub mod update;
 pub mod validation;
 pub mod validate;

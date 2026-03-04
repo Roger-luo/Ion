@@ -119,6 +119,11 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    /// Update binary skills to their latest versions
+    Update {
+        /// Update only a specific skill (default: update all binary skills)
+        name: Option<String>,
+    },
     /// Manage ion configuration
     Config {
         #[command(subcommand)]
@@ -150,6 +155,7 @@ fn main() {
         Commands::Validate { path } => commands::validate::run(path.as_deref()),
         Commands::Init { target, force } => commands::init::run(&target, force),
         Commands::Run { name, args } => commands::run::run(&name, &args),
+        Commands::Update { name } => commands::update::run(name.as_deref()),
         Commands::Config { action } => commands::config::run(action),
     };
 
