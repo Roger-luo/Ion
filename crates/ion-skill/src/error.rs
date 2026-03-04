@@ -32,6 +32,9 @@ pub enum Error {
     #[error("HTTP error: {0}")]
     Http(String),
 
+    #[error("{0}")]
+    Other(String),
+
     #[error(
         "Validation failed: {error_count} error(s), {warning_count} warning(s), {info_count} info finding(s)"
     )]

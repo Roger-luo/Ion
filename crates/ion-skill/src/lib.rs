@@ -1,3 +1,4 @@
+pub mod binary;
 pub mod config;
 pub mod error;
 pub mod git;
