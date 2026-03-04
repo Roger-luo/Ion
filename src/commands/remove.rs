@@ -74,6 +74,16 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
             registry.save()?;
         }
 
+        // Clean up binary files if this is a binary skill
+        if let Some(locked) = lockfile.find(skill_name) {
+            if let Some(ref binary_name) = locked.binary {
+                if let Some(ref version) = locked.binary_version {
+                    ion_skill::binary::remove_binary_version(binary_name, version)?;
+                    println!("  Removed binary {} v{}", p.info(binary_name), p.dim(version));
+                }
+            }
+        }
+
         manifest_writer::remove_skill(&ctx.manifest_path, skill_name)?;
         lockfile.remove(skill_name);
     }
