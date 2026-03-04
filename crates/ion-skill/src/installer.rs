@@ -183,7 +183,7 @@ impl<'a> SkillInstaller<'a> {
         Ok((meta, body))
     }
 
-    fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
+    pub fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
         let agents_target = self.project_dir.join(".agents").join("skills").join(name);
         create_skill_symlink(skill_dir, &agents_target)?;
 
