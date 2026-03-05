@@ -54,6 +54,56 @@ Describe what this skill does and when to use it.
 ```
 "#;
 
+const BIN_SKILL_TEMPLATE: &str = r#"---
+name: {name}
+description: A CLI tool that provides agent capabilities. Invoke with `ion run {name}`.
+metadata:
+  binary: {name}
+  version: 0.1.0
+---
+
+# {title}
+
+## Overview
+
+Describe what this tool does. The agent invokes this via `ion run {name} [args]`.
+
+## Usage
+
+```bash
+ion run {name} [command] [options]
+```
+"#;
+
+const BIN_MAIN_TEMPLATE: &str = r#"use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(name = "{name}", version, about = "{description}")]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Output the SKILL.md for this tool (used by Ion during install)
+    Skill,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match cli.command {
+        Some(Commands::Skill) => print_skill(),
+        None => println!("Hello from {name}! Use --help for usage info."),
+    }
+}
+
+fn print_skill() {
+    print!(include_str!("../SKILL.md"));
+}
+"#;
+
 const COLLECTION_README_TEMPLATE: &str = r#"# {title}
 
 A collection of skills for AI agents.
@@ -114,18 +164,6 @@ pub fn run(path: Option<&str>, bin: bool, collection: bool, force: bool) -> anyh
         );
     }
 
-    if bin {
-        let status = std::process::Command::new("cargo")
-            .args(["init", "--bin"])
-            .current_dir(&target_dir)
-            .status()
-            .map_err(|e| anyhow::anyhow!("Failed to run cargo: {e}. Is the Rust toolchain installed?"))?;
-
-        if !status.success() {
-            anyhow::bail!("cargo init --bin failed");
-        }
-    }
-
     let dir_name = target_dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -139,6 +177,46 @@ pub fn run(path: Option<&str>, bin: bool, collection: bool, force: bool) -> anyh
         }
     };
     let title = titleize(&name);
+
+    if bin {
+        let status = std::process::Command::new("cargo")
+            .args(["init", "--bin"])
+            .current_dir(&target_dir)
+            .status()
+            .map_err(|e| anyhow::anyhow!("Failed to run cargo: {e}. Is the Rust toolchain installed?"))?;
+
+        if !status.success() {
+            anyhow::bail!("cargo init --bin failed");
+        }
+
+        // Add clap dependency to Cargo.toml
+        let cargo_toml_path = target_dir.join("Cargo.toml");
+        let cargo_content = std::fs::read_to_string(&cargo_toml_path)?;
+        if !cargo_content.contains("clap") {
+            let updated = cargo_content.replace(
+                "[dependencies]",
+                "[dependencies]\nclap = { version = \"4\", features = [\"derive\"] }",
+            );
+            std::fs::write(&cargo_toml_path, updated)?;
+        }
+
+        // Write main.rs with skill subcommand
+        let main_content = BIN_MAIN_TEMPLATE
+            .replace("{name}", &name)
+            .replace("{description}", &format!("A CLI tool: {}", titleize(&name)));
+        std::fs::write(target_dir.join("src/main.rs"), main_content)?;
+
+        // Write binary-specific SKILL.md
+        let skill_content = BIN_SKILL_TEMPLATE
+            .replace("{name}", &name)
+            .replace("{title}", &title);
+        std::fs::write(&skill_md_path, skill_content)?;
+
+        println!("Created binary skill project in {}", target_dir.display());
+        println!("  cargo build    — compile the binary");
+        println!("  cargo run -- skill  — test the skill subcommand");
+        return Ok(());
+    }
 
     let content = DEFAULT_TEMPLATE
         .replace("{name}", &name)
