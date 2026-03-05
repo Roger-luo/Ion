@@ -313,6 +313,69 @@ pub fn find_bundled_skill_md(extract_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Result of validating an installed binary.
+#[derive(Debug)]
+pub struct BinaryValidation {
+    pub is_executable: bool,
+    pub version_output: Option<String>,
+    pub has_skill_command: bool,
+}
+
+/// Validate that an installed binary is functional.
+///
+/// Checks executable permissions, tries `--version`, and checks for a `skill` subcommand.
+/// Returns an error only if the binary does not exist; other checks are best-effort.
+pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
+    use std::process::Command;
+
+    // 1. Check file exists
+    if !binary_path.exists() {
+        return Err(crate::Error::Other(format!(
+            "Binary not found at {}",
+            binary_path.display()
+        )));
+    }
+
+    // 2. Check if executable (unix only)
+    let is_executable = {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let meta = std::fs::metadata(binary_path)
+                .map_err(|e| crate::Error::Other(format!("Failed to read metadata: {}", e)))?;
+            meta.permissions().mode() & 0o111 != 0
+        }
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    };
+
+    // 3. Try --version (don't fail if it doesn't work)
+    let version_output = Command::new(binary_path)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // 4. Try `skill` subcommand — check if it produces output starting with `---`
+    let has_skill_command = Command::new(binary_path)
+        .arg("skill")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).starts_with("---"))
+        .unwrap_or(false);
+
+    Ok(BinaryValidation {
+        is_executable,
+        version_output,
+        has_skill_command,
+    })
+}
+
 /// Check if a binary is already installed at the given version.
 pub fn is_binary_installed(name: &str, version: &str) -> bool {
     binary_path(name, version).exists()
@@ -401,6 +464,19 @@ pub fn install_binary_from_github(
     fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
         .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
 
+    // Validate the installed binary (warnings only, don't fail)
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            eprintln!("Warning: Binary '{}' may not be executable", binary_name);
+        }
+        if !validation.has_skill_command {
+            eprintln!(
+                "Warning: Binary '{}' does not have a 'skill' subcommand",
+                binary_name
+            );
+        }
+    }
+
     Ok(BinaryInstallResult {
         version,
         binary_checksum: checksum,
@@ -479,6 +555,19 @@ pub fn install_binary_from_url(
 
     fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
         .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    // Validate the installed binary (warnings only, don't fail)
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            eprintln!("Warning: Binary '{}' may not be executable", binary_name);
+        }
+        if !validation.has_skill_command {
+            eprintln!(
+                "Warning: Binary '{}' does not have a 'skill' subcommand",
+                binary_name
+            );
+        }
+    }
 
     Ok(BinaryInstallResult {
         version: version.to_string(),
@@ -838,5 +927,59 @@ fi
             "1.0.0",
         );
         assert_eq!(url, "https://example.com/static/tool.tar.gz");
+    }
+
+    #[test]
+    fn test_validate_binary_with_skill_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_path = tmp.path().join("mytool");
+        #[cfg(unix)]
+        {
+            fs::write(
+                &bin_path,
+                r#"#!/bin/sh
+if [ "$1" = "--version" ]; then
+    echo "mytool 1.0.0"
+elif [ "$1" = "skill" ]; then
+    echo "---"
+    echo "name: mytool"
+    echo "description: Test tool."
+    echo "---"
+else
+    echo "unknown"
+fi
+"#,
+            )
+            .unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
+
+            let validation = validate_binary(&bin_path).unwrap();
+            assert!(validation.is_executable);
+            assert_eq!(validation.version_output.as_deref(), Some("mytool 1.0.0"));
+            assert!(validation.has_skill_command);
+        }
+    }
+
+    #[test]
+    fn test_validate_binary_without_skill_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_path = tmp.path().join("simpletool");
+        #[cfg(unix)]
+        {
+            fs::write(&bin_path, "#!/bin/sh\necho hello\n").unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
+
+            let validation = validate_binary(&bin_path).unwrap();
+            assert!(validation.is_executable);
+            assert!(!validation.has_skill_command);
+        }
+    }
+
+    #[test]
+    fn test_validate_binary_not_found() {
+        let result = validate_binary(std::path::Path::new("/nonexistent/binary"));
+        assert!(result.is_err());
     }
 }
