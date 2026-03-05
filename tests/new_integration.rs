@@ -115,8 +115,21 @@ fn new_bin_creates_cargo_project_and_skill_md() {
     assert!(target.join("Cargo.toml").exists());
     assert!(target.join("src/main.rs").exists());
 
-    let content = std::fs::read_to_string(target.join("SKILL.md")).unwrap();
-    assert!(content.contains("name: my-bin-skill"));
+    // SKILL.md should have binary metadata
+    let skill_content = std::fs::read_to_string(target.join("SKILL.md")).unwrap();
+    assert!(skill_content.contains("name: my-bin-skill"));
+    assert!(skill_content.contains("binary: my-bin-skill"), "SKILL.md should have binary metadata");
+    assert!(skill_content.contains("ion run my-bin-skill"), "SKILL.md should reference ion run");
+
+    // Cargo.toml should have clap dependency
+    let cargo_content = std::fs::read_to_string(target.join("Cargo.toml")).unwrap();
+    assert!(cargo_content.contains("clap"), "Cargo.toml should have clap dependency");
+
+    // src/main.rs should have skill subcommand
+    let main_content = std::fs::read_to_string(target.join("src/main.rs")).unwrap();
+    assert!(main_content.contains("Skill"), "main.rs should have Skill command variant");
+    assert!(main_content.contains("print_skill"), "main.rs should have print_skill function");
+    assert!(main_content.contains("include_str!"), "main.rs should include SKILL.md");
 }
 
 #[test]
