@@ -202,12 +202,27 @@ impl<'a> SkillInstaller<'a> {
         let binary_name = source.binary.as_deref().unwrap_or(name);
         let skill_dir = self.project_dir.join(".agents").join("skills").join(name);
 
-        let result = binary::install_binary_from_github(
-            &source.source,
-            binary_name,
-            source.rev.as_deref(),
-            &skill_dir,
-        )?;
+        let is_url = source.source.starts_with("http://") || source.source.starts_with("https://");
+
+        let result = if is_url {
+            // Generic URL source — version is required from source.rev
+            let version = source.rev.as_deref().ok_or_else(|| {
+                Error::Other(
+                    "Binary skills with URL sources require a version \
+                     (set rev = \"x.y.z\" in Ion.toml)"
+                        .to_string(),
+                )
+            })?;
+            binary::install_binary_from_url(&source.source, binary_name, version, &skill_dir)?
+        } else {
+            // GitHub shorthand (owner/repo)
+            binary::install_binary_from_github(
+                &source.source,
+                binary_name,
+                source.rev.as_deref(),
+                &skill_dir,
+            )?
+        };
 
         // Validate the generated/bundled SKILL.md
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
@@ -226,9 +241,15 @@ impl<'a> SkillInstaller<'a> {
         // Deploy symlinks to targets
         self.deploy(name, &skill_dir)?;
 
+        let locked_source = if is_url {
+            source.source.clone()
+        } else {
+            format!("https://github.com/{}.git", source.source)
+        };
+
         Ok(LockedSkill {
             name: name.to_string(),
-            source: format!("https://github.com/{}.git", source.source),
+            source: locked_source,
             path: source.path.clone(),
             version: meta.version().map(|v| v.to_string()),
             commit: None,
