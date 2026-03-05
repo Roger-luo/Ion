@@ -407,6 +407,85 @@ pub fn install_binary_from_github(
     })
 }
 
+/// Expand placeholders in a URL template using detected platform info.
+///
+/// Supported placeholders: `{version}`, `{target}`, `{os}`, `{arch}`, `{binary}`.
+pub fn expand_url_template(template: &str, binary_name: &str, version: &str) -> String {
+    let platform = Platform::detect();
+    template
+        .replace("{version}", version)
+        .replace("{binary}", binary_name)
+        .replace("{target}", &platform.target_triple())
+        .replace("{os}", &platform.os)
+        .replace("{arch}", &platform.arch)
+}
+
+/// Install a binary from a generic URL template.
+///
+/// The `url_template` may contain placeholders expanded by [`expand_url_template`].
+/// The archive is expected to be a `.tar.gz` file.
+pub fn install_binary_from_url(
+    url_template: &str,
+    binary_name: &str,
+    version: &str,
+    skill_dir: &Path,
+) -> crate::Result<BinaryInstallResult> {
+    // Check if already installed at this version
+    if is_binary_installed(binary_name, version) {
+        let installed_binary = binary_path(binary_name, version);
+        let checksum = file_checksum(&installed_binary)?;
+
+        fs::create_dir_all(skill_dir)
+            .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+        if !skill_dir.join("SKILL.md").exists() {
+            let skill_md_content = generate_skill_md(&installed_binary)?;
+            fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+                .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+        }
+
+        return Ok(BinaryInstallResult {
+            version: version.to_string(),
+            binary_checksum: checksum,
+        });
+    }
+
+    let url = expand_url_template(url_template, binary_name, version);
+
+    let tmp_dir = tempfile::tempdir()
+        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
+    let archive_path = tmp_dir.path().join(format!("{}.tar.gz", binary_name));
+    download_file(&url, &archive_path)?;
+
+    let extract_dir = tmp_dir.path().join("extracted");
+    extract_tar_gz(&archive_path, &extract_dir)?;
+
+    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
+    let bin_root = bin_dir();
+    install_binary_file(&found_binary, binary_name, version, &bin_root)?;
+
+    let installed_binary = binary_path(binary_name, version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
+        fs::read_to_string(&bundled)
+            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
+    } else {
+        generate_skill_md(&installed_binary)?
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    Ok(BinaryInstallResult {
+        version: version.to_string(),
+        binary_checksum: checksum,
+    })
+}
+
 /// Remove a specific version of a binary from storage.
 pub fn remove_binary_version(name: &str, version: &str) -> crate::Result<()> {
     let version_dir = bin_dir().join(name).join(version);
@@ -719,5 +798,45 @@ fi
         // Just verify the function doesn't crash
         let result = list_installed_binaries();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_expand_url_template() {
+        let url = expand_url_template(
+            "https://example.com/releases/{version}/tool-{target}.tar.gz",
+            "tool",
+            "1.2.0",
+        );
+        let platform = Platform::detect();
+        let expected = format!(
+            "https://example.com/releases/1.2.0/tool-{}.tar.gz",
+            platform.target_triple()
+        );
+        assert_eq!(url, expected);
+    }
+
+    #[test]
+    fn test_expand_url_template_all_placeholders() {
+        let platform = Platform::detect();
+        let url = expand_url_template(
+            "https://example.com/{binary}-{version}-{os}-{arch}-{target}.tar.gz",
+            "mytool",
+            "2.0.0",
+        );
+        assert!(url.contains("mytool"));
+        assert!(url.contains("2.0.0"));
+        assert!(url.contains(&platform.os));
+        assert!(url.contains(&platform.arch));
+        assert!(url.contains(&platform.target_triple()));
+    }
+
+    #[test]
+    fn test_expand_url_template_no_placeholders() {
+        let url = expand_url_template(
+            "https://example.com/static/tool.tar.gz",
+            "tool",
+            "1.0.0",
+        );
+        assert_eq!(url, "https://example.com/static/tool.tar.gz");
     }
 }
