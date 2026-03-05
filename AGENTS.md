@@ -35,6 +35,8 @@ cargo fmt                                # Format
 
 **Installation pipeline:** Resolve source → Fetch (git clone or download) → Validate → Install to target dirs → Write manifest + lockfile. Binary skills use a specialized path: download from GitHub Releases → extract → verify checksum.
 
+**Update system** (`ion-skill/src/update/`): `Updater` trait with `check()` / `apply()` methods, dispatched per source type. `GitUpdater` fetches latest from default branch and re-validates; `BinaryUpdater` checks GitHub Releases for newer versions. Pinned skills (with `rev` set) and path/HTTP skills are skipped.
+
 **Validation system** (`ion-skill/src/validate/`): Multiple checkers (security, structure, markdown, codeblock) producing `Finding` items with `Severity` levels, aggregated into `ValidationReport`.
 
 **Search system** (`ion-skill/src/search/`): Multiple backends (GitHub API, skills.sh registry, configured agent command). Interactive search uses a TUI built with ratatui/crossterm (`src/tui/`).
