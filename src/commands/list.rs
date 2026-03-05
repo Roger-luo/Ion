@@ -21,13 +21,24 @@ pub fn run() -> anyhow::Result<()> {
         let source = Manifest::resolve_entry(entry)?;
         let locked = lockfile.find(name);
 
-        let version_str = locked
-            .and_then(|l| l.version.as_deref())
-            .unwrap_or("unknown");
-        let commit_str = locked
-            .and_then(|l| l.commit.as_deref())
-            .map(|c| &c[..c.len().min(8)])
-            .unwrap_or("none");
+        let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
+
+        let version_str = if is_binary {
+            locked.and_then(|l| l.binary_version.as_deref()).unwrap_or("unknown")
+        } else {
+            locked.and_then(|l| l.version.as_deref()).unwrap_or("unknown")
+        };
+
+        let type_indicator = if is_binary {
+            format!(" {}", p.info("(binary)"))
+        } else {
+            let commit_str = locked
+                .and_then(|l| l.commit.as_deref())
+                .map(|c| &c[..c.len().min(8)])
+                .unwrap_or("none");
+            format!(" {}", p.dim(&format!("({commit_str})")))
+        };
+
         let installed = ctx
             .project_dir
             .join(".agents")
@@ -40,10 +51,10 @@ pub fn run() -> anyhow::Result<()> {
             p.warn("not installed")
         };
 
-        println!("  {} {} {} [{}]",
+        println!("  {} {}{} [{}]",
             p.bold(name),
             p.dim(&format!("v{version_str}")),
-            p.dim(&format!("({commit_str})")),
+            type_indicator,
             status
         );
         println!("    source: {}", p.info(&source.source));
