@@ -51,9 +51,14 @@ pub fn run() -> anyhow::Result<()> {
             p.warn("not installed")
         };
 
+        let display_version = if version_str.starts_with('v') {
+            version_str.to_string()
+        } else {
+            format!("v{version_str}")
+        };
         println!("  {} {}{} [{}]",
             p.bold(name),
-            p.dim(&format!("v{version_str}")),
+            p.dim(&display_version),
             type_indicator,
             status
         );

@@ -385,6 +385,7 @@ pub fn is_binary_installed(name: &str, version: &str) -> bool {
 pub struct BinaryInstallResult {
     pub version: String,
     pub binary_checksum: String,
+    pub warnings: Vec<String>,
 }
 
 /// Full binary skill installation from GitHub Releases.
@@ -417,6 +418,7 @@ pub fn install_binary_from_github(
         return Ok(BinaryInstallResult {
             version,
             binary_checksum: checksum,
+            warnings: Vec::new(),
         });
     }
 
@@ -447,7 +449,12 @@ pub fn install_binary_from_github(
         .assets
         .iter()
         .find(|a| a.name == asset_name)
-        .unwrap();
+        .ok_or_else(|| {
+            crate::Error::Other(format!(
+                "Asset '{}' not found in release (this is a bug — asset was matched but not found)",
+                asset_name
+            ))
+        })?;
 
     let tmp_dir = tempfile::tempdir()
         .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
@@ -478,21 +485,23 @@ pub fn install_binary_from_github(
         .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
 
     // Validate the installed binary (warnings only, don't fail)
+    let mut warnings = Vec::new();
     if let Ok(validation) = validate_binary(&installed_binary) {
         if !validation.is_executable {
-            eprintln!("Warning: Binary '{}' may not be executable", binary_name);
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
         }
         if !validation.has_skill_command {
-            eprintln!(
-                "Warning: Binary '{}' does not have a 'skill' subcommand",
+            warnings.push(format!(
+                "Binary '{}' does not have a 'skill' subcommand",
                 binary_name
-            );
+            ));
         }
     }
 
     Ok(BinaryInstallResult {
         version,
         binary_checksum: checksum,
+        warnings,
     })
 }
 
@@ -536,10 +545,17 @@ pub fn install_binary_from_url(
         return Ok(BinaryInstallResult {
             version: version.to_string(),
             binary_checksum: checksum,
+            warnings: Vec::new(),
         });
     }
 
     let url = expand_url_template(url_template, binary_name, version);
+
+    if !url.ends_with(".tar.gz") && !url.ends_with(".tgz") {
+        return Err(crate::Error::Other(format!(
+            "URL-based binary sources currently only support .tar.gz archives, got: {url}"
+        )));
+    }
 
     let tmp_dir = tempfile::tempdir()
         .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
@@ -570,21 +586,23 @@ pub fn install_binary_from_url(
         .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
 
     // Validate the installed binary (warnings only, don't fail)
+    let mut warnings = Vec::new();
     if let Ok(validation) = validate_binary(&installed_binary) {
         if !validation.is_executable {
-            eprintln!("Warning: Binary '{}' may not be executable", binary_name);
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
         }
         if !validation.has_skill_command {
-            eprintln!(
-                "Warning: Binary '{}' does not have a 'skill' subcommand",
+            warnings.push(format!(
+                "Binary '{}' does not have a 'skill' subcommand",
                 binary_name
-            );
+            ));
         }
     }
 
     Ok(BinaryInstallResult {
         version: version.to_string(),
         binary_checksum: checksum,
+        warnings,
     })
 }
 

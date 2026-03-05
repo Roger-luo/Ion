@@ -13,6 +13,11 @@ impl Updater for BinaryUpdater {
         skill: &LockedSkill,
         source: &SkillSource,
     ) -> crate::Result<Option<UpdateInfo>> {
+        if source.source.starts_with("http://") || source.source.starts_with("https://") {
+            // URL-based binary sources don't support automatic update checking
+            return Ok(None);
+        }
+
         let release = binary::fetch_github_release(&source.source, source.rev.as_deref())?;
         let latest_version = binary::parse_version_from_tag(&release.tag_name).to_string();
 
@@ -38,6 +43,11 @@ impl Updater for BinaryUpdater {
         source: &SkillSource,
         ctx: &UpdateContext,
     ) -> crate::Result<LockedSkill> {
+        if source.source.starts_with("http://") || source.source.starts_with("https://") {
+            // URL-based binary sources don't support automatic updates
+            return Ok(skill.clone());
+        }
+
         let binary_name = source.binary.as_deref().unwrap_or(&skill.name);
         let skill_dir = ctx
             .project_dir

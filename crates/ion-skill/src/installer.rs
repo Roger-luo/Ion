@@ -225,6 +225,11 @@ impl<'a> SkillInstaller<'a> {
             )?
         };
 
+        // Print any warnings from the binary installation
+        for warning in &result.warnings {
+            eprintln!("Warning: {}", warning);
+        }
+
         // Validate the generated/bundled SKILL.md
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
 
