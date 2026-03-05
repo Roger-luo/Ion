@@ -50,17 +50,17 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         }
 
         // Skip non-binary skills with rev set (pinned)
-        if source.source_type != SourceType::Binary {
-            if let Some(ref rev) = source.rev {
-                println!(
-                    "  {} {}  {}",
-                    p.dim("-"),
-                    p.bold(skill_name),
-                    p.dim(&format!("skipped (pinned to {})", rev))
-                );
-                skipped_count += 1;
-                continue;
-            }
+        if source.source_type != SourceType::Binary
+            && let Some(ref rev) = source.rev
+        {
+            println!(
+                "  {} {}  {}",
+                p.dim("-"),
+                p.bold(skill_name),
+                p.dim(&format!("skipped (pinned to {})", rev))
+            );
+            skipped_count += 1;
+            continue;
         }
 
         // Select updater based on source type
@@ -71,8 +71,10 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         };
 
         // Get or create locked skill
-        let locked = lockfile.find(skill_name).cloned().unwrap_or_else(|| {
-            LockedSkill {
+        let locked = lockfile
+            .find(skill_name)
+            .cloned()
+            .unwrap_or_else(|| LockedSkill {
                 name: skill_name.clone(),
                 source: source.source.clone(),
                 path: source.path.clone(),
@@ -82,8 +84,7 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
                 binary: None,
                 binary_version: None,
                 binary_checksum: None,
-            }
-        });
+            });
 
         // Check for update
         let info = match updater.check(&locked, source) {

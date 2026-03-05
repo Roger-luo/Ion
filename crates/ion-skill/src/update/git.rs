@@ -12,7 +12,11 @@ use super::{UpdateContext, UpdateInfo, Updater};
 pub struct GitUpdater;
 
 impl Updater for GitUpdater {
-    fn check(&self, skill: &LockedSkill, source: &SkillSource) -> crate::Result<Option<UpdateInfo>> {
+    fn check(
+        &self,
+        skill: &LockedSkill,
+        source: &SkillSource,
+    ) -> crate::Result<Option<UpdateInfo>> {
         let url = source.git_url()?;
         let repo_hash = format!("{:x}", hash_simple(&url));
         let repo_dir = data_dir().join(&repo_hash);

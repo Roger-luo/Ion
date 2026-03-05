@@ -8,7 +8,11 @@ use super::{UpdateContext, UpdateInfo, Updater};
 pub struct BinaryUpdater;
 
 impl Updater for BinaryUpdater {
-    fn check(&self, skill: &LockedSkill, source: &SkillSource) -> crate::Result<Option<UpdateInfo>> {
+    fn check(
+        &self,
+        skill: &LockedSkill,
+        source: &SkillSource,
+    ) -> crate::Result<Option<UpdateInfo>> {
         let release = binary::fetch_github_release(&source.source, source.rev.as_deref())?;
         let latest_version = binary::parse_version_from_tag(&release.tag_name).to_string();
 
@@ -49,10 +53,10 @@ impl Updater for BinaryUpdater {
         )?;
 
         // Clean up old version if different
-        if let Some(ref old_version) = skill.binary_version {
-            if *old_version != result.version {
-                let _ = binary::remove_binary_version(binary_name, old_version);
-            }
+        if let Some(ref old_version) = skill.binary_version
+            && *old_version != result.version
+        {
+            let _ = binary::remove_binary_version(binary_name, old_version);
         }
 
         // Build updated lock entry, preserving non-binary fields
