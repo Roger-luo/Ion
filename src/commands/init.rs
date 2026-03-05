@@ -11,15 +11,6 @@ const KNOWN_TARGETS: &[(&str, &str, &str)] = &[
     ("windsurf", ".windsurf", ".windsurf/skills"),
 ];
 
-/// Detect which known tool directories exist in the given project dir.
-fn detect_targets(project_dir: &Path) -> Vec<(&'static str, &'static str)> {
-    KNOWN_TARGETS
-        .iter()
-        .filter(|(_, dir, _)| project_dir.join(dir).is_dir())
-        .map(|(name, _, path)| (*name, *path))
-        .collect()
-}
-
 /// Parse a --target flag value. Accepts "name" (uses lookup) or "name:path".
 fn parse_target_flag(flag: &str) -> anyhow::Result<(String, String)> {
     if let Some((name, path)) = flag.split_once(':') {
@@ -82,51 +73,12 @@ fn rename_legacy_files(project_dir: &Path) -> anyhow::Result<()> {
 }
 
 fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<BTreeMap<String, String>> {
-    use std::io::Write;
+    use crate::tui::init_select::run_init_select;
 
-    let detected = detect_targets(project_dir);
-    if !detected.is_empty() {
-        let names: Vec<&str> = detected.iter().map(|(n, _)| *n).collect();
-        println!("Detected: {}", names.join(", "));
-        println!();
+    match run_init_select(project_dir)? {
+        Some(targets) => Ok(targets),
+        None => anyhow::bail!("Cancelled"),
     }
-
-    println!("Which tools do you use? (comma-separated, or press Enter for detected)");
-    for (name, _, path) in KNOWN_TARGETS {
-        let marker = if detected.iter().any(|(n, _)| n == name) {
-            "*"
-        } else {
-            " "
-        };
-        println!("  [{marker}] {name} ({path})");
-    }
-    print!("> ");
-    std::io::stdout().flush()?;
-
-    let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer)?;
-    let answer = answer.trim();
-
-    let mut targets = BTreeMap::new();
-
-    if answer.is_empty() {
-        // Accept detected defaults
-        for (name, path) in &detected {
-            targets.insert(name.to_string(), path.to_string());
-        }
-    } else {
-        // Parse comma-separated list
-        for item in answer.split(',') {
-            let item = item.trim();
-            if item.is_empty() {
-                continue;
-            }
-            let (name, path) = parse_target_flag(item)?;
-            targets.insert(name, path);
-        }
-    }
-
-    Ok(targets)
 }
 
 /// Print a hint if no targets are configured, suggesting `ion init`.
@@ -208,19 +160,4 @@ mod tests {
         assert!(parse_target_flag("foo:/absolute/path").is_err());
     }
 
-    #[test]
-    fn detect_targets_finds_existing_dirs() {
-        let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir(dir.path().join(".claude")).unwrap();
-        let detected = detect_targets(dir.path());
-        assert_eq!(detected.len(), 1);
-        assert_eq!(detected[0], ("claude", ".claude/skills"));
-    }
-
-    #[test]
-    fn detect_targets_empty_when_no_dirs() {
-        let dir = tempfile::tempdir().unwrap();
-        let detected = detect_targets(dir.path());
-        assert!(detected.is_empty());
-    }
 }

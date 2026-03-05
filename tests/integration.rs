@@ -298,22 +298,17 @@ fn init_force_overwrites_existing_targets() {
 }
 
 #[test]
-fn init_interactive_detects_and_creates_targets() {
+fn init_with_target_flag_creates_targets() {
     let project = tempfile::tempdir().unwrap();
     std::fs::create_dir(project.path().join(".claude")).unwrap();
 
-    let mut child = ion_cmd()
-        .args(["init"])
+    // The TUI interactive mode requires a real terminal, so we use --target flags.
+    // Detection and interactive selection are covered by unit tests in init_select.
+    let output = ion_cmd()
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .output()
         .unwrap();
-
-    // Send empty line to accept detected defaults
-    child.stdin.as_mut().unwrap().write_all(b"\n").unwrap();
-    let output = child.wait_with_output().unwrap();
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -321,7 +316,7 @@ fn init_interactive_detects_and_creates_targets() {
     assert!(project.path().join("Ion.toml").exists());
 
     let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
-    assert!(manifest.contains("claude"), "detected .claude dir should be configured");
+    assert!(manifest.contains("claude"), ".claude dir should be configured");
     assert!(manifest.contains(".claude/skills"));
 }
 
