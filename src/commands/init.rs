@@ -72,13 +72,10 @@ fn rename_legacy_files(project_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<BTreeMap<String, String>> {
+fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<Option<BTreeMap<String, String>>> {
     use crate::tui::init_select::run_init_select;
 
-    match run_init_select(project_dir)? {
-        Some(targets) => Ok(targets),
-        None => anyhow::bail!("Cancelled"),
-    }
+    run_init_select(project_dir)
 }
 
 /// Print a hint if no targets are configured, suggesting `ion init`.
@@ -114,7 +111,10 @@ pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
         }
         map
     } else {
-        select_targets_interactive(&ctx.project_dir)?
+        match select_targets_interactive(&ctx.project_dir)? {
+            Some(targets) => targets,
+            None => return Ok(()),
+        }
     };
 
     // Write targets to Ion.toml
