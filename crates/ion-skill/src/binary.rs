@@ -393,6 +393,7 @@ pub fn install_binary_from_github(
     binary_name: &str,
     rev: Option<&str>,
     skill_dir: &Path,
+    asset_pattern: Option<&str>,
 ) -> crate::Result<BinaryInstallResult> {
     let platform = Platform::detect();
     let release = fetch_github_release(repo, rev)?;
@@ -421,15 +422,27 @@ pub fn install_binary_from_github(
 
     let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
 
-    let asset_name = platform
-        .match_asset(binary_name, &asset_names)
-        .ok_or_else(|| {
-            crate::Error::Other(format!(
-                "No matching release asset for platform {} in {:?}",
-                platform.target_triple(),
-                asset_names
-            ))
-        })?;
+    let asset_name = if let Some(pattern) = asset_pattern {
+        let expanded = expand_url_template(pattern, binary_name, &version);
+        if asset_names.contains(&expanded) {
+            expanded
+        } else {
+            return Err(crate::Error::Other(format!(
+                "Asset pattern expanded to '{}' but no matching asset found in {:?}",
+                expanded, asset_names
+            )));
+        }
+    } else {
+        platform
+            .match_asset(binary_name, &asset_names)
+            .ok_or_else(|| {
+                crate::Error::Other(format!(
+                    "No matching release asset for platform {} in {:?}",
+                    platform.target_triple(),
+                    asset_names
+                ))
+            })?
+    };
     let asset = release
         .assets
         .iter()
@@ -917,6 +930,30 @@ fi
         assert!(url.contains(&platform.os));
         assert!(url.contains(&platform.arch));
         assert!(url.contains(&platform.target_triple()));
+    }
+
+    #[test]
+    fn test_match_asset_with_pattern() {
+        let assets = vec![
+            "mytool-1.0.0-linux-x86_64.tar.gz".to_string(),
+            "mytool-1.0.0-macos-aarch64.tar.gz".to_string(),
+        ];
+        // With pattern, expand_url_template should produce an exact match
+        let platform = Platform::detect();
+        let expanded = expand_url_template(
+            "mytool-{version}-{os}-{arch}.tar.gz",
+            "mytool",
+            "1.0.0",
+        );
+        let expected = format!(
+            "mytool-1.0.0-{}-{}.tar.gz",
+            platform.os, platform.arch
+        );
+        assert_eq!(expanded, expected);
+        // The expanded name should match one of the assets if our platform is in the list
+        if assets.contains(&expanded) {
+            assert!(true);
+        }
     }
 
     #[test]

@@ -22,6 +22,7 @@ pub struct SkillSource {
     pub rev: Option<String>,
     pub version: Option<String>,
     pub binary: Option<String>,
+    pub asset_pattern: Option<String>,
 }
 
 impl SkillSource {
@@ -39,6 +40,7 @@ impl SkillSource {
                 rev: None,
                 version: None,
                 binary: None,
+                asset_pattern: None,
             });
         }
 
@@ -58,6 +60,7 @@ impl SkillSource {
                 rev: None,
                 version: None,
                 binary: None,
+                asset_pattern: None,
             });
         }
 
@@ -71,6 +74,7 @@ impl SkillSource {
                 rev: None,
                 version: None,
                 binary: None,
+                asset_pattern: None,
             }),
             3.. => Ok(Self {
                 source_type: SourceType::Github,
@@ -79,6 +83,7 @@ impl SkillSource {
                 rev: None,
                 version: None,
                 binary: None,
+                asset_pattern: None,
             }),
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
@@ -189,6 +194,7 @@ mod tests {
             rev: None,
             version: None,
             binary: Some("mytool".to_string()),
+            asset_pattern: None,
         };
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.binary.as_deref(), Some("mytool"));

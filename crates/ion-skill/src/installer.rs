@@ -221,6 +221,7 @@ impl<'a> SkillInstaller<'a> {
                 binary_name,
                 source.rev.as_deref(),
                 &skill_dir,
+                source.asset_pattern.as_deref(),
             )?
         };
 
@@ -418,6 +419,7 @@ mod tests {
             rev: None,
             version: None,
             binary: None,
+            asset_pattern: None,
         }
     }
 
@@ -472,6 +474,7 @@ mod tests {
             rev: None,
             version: None,
             binary: None,
+            asset_pattern: None,
         };
 
         let mut targets = std::collections::BTreeMap::new();

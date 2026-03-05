@@ -162,6 +162,7 @@ mod tests {
             rev: None,
             version: None,
             binary: None,
+            asset_pattern: None,
         }
     }
 

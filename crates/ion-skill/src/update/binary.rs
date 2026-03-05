@@ -50,6 +50,7 @@ impl Updater for BinaryUpdater {
             binary_name,
             source.rev.as_deref(),
             &skill_dir,
+            source.asset_pattern.as_deref(),
         )?;
 
         // Clean up old version if different

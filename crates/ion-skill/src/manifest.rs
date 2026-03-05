@@ -22,6 +22,8 @@ pub enum SkillEntry {
         path: Option<String>,
         #[serde(default)]
         binary: Option<String>,
+        #[serde(default, alias = "asset-pattern")]
+        asset_pattern: Option<String>,
     },
 }
 
@@ -92,6 +94,7 @@ impl Manifest {
                 rev,
                 path,
                 binary,
+                asset_pattern,
             } => {
                 let mut resolved = if let Some(st) = source_type {
                     SkillSource {
@@ -101,6 +104,7 @@ impl Manifest {
                         rev: None,
                         version: None,
                         binary: None,
+                        asset_pattern: None,
                     }
                 } else {
                     SkillSource::infer(source)?
@@ -115,6 +119,7 @@ impl Manifest {
                     resolved.path = path.clone();
                 }
                 resolved.binary = binary.clone();
+                resolved.asset_pattern = asset_pattern.clone();
                 Ok(resolved)
             }
         }
@@ -233,6 +238,19 @@ mod tests {
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.source, "owner/mytool");
         assert_eq!(source.binary.as_deref(), Some("mytool"));
+    }
+
+    #[test]
+    fn parse_asset_pattern_manifest() {
+        let toml_str = r#"[skills]
+mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pattern = "mytool-{version}-{os}-{arch}.tar.gz" }
+"#;
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+        assert_eq!(
+            source.asset_pattern.as_deref(),
+            Some("mytool-{version}-{os}-{arch}.tar.gz")
+        );
     }
 
     #[test]
