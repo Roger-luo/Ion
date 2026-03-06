@@ -113,7 +113,7 @@ A collection of skills for AI agents.
 Add skills with:
 
 ```bash
-ion new --path skills/<skill-name>
+ion skill new --path skills/<skill-name>
 ```
 "#;
 

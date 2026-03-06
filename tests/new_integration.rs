@@ -6,7 +6,7 @@ fn ion_cmd() -> Command {
 
 #[test]
 fn new_help_is_exposed() {
-    let output = ion_cmd().args(["new", "--help"]).output().unwrap();
+    let output = ion_cmd().args(["skill", "new", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
     assert!(stdout.contains("Create a new skill"));
@@ -17,7 +17,7 @@ fn new_creates_skill_md_in_current_dir() {
     let dir = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["new"])
+        .args(["skill", "new"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -41,7 +41,7 @@ fn new_with_path_creates_skill_md_in_specified_dir() {
     let target = base.path().join("my-new-skill");
 
     let output = ion_cmd()
-        .args(["new", "--path", target.to_str().unwrap()])
+        .args(["skill", "new", "--path", target.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -62,7 +62,7 @@ fn new_errors_if_skill_md_exists() {
     std::fs::write(dir.path().join("SKILL.md"), "existing content").unwrap();
 
     let output = ion_cmd()
-        .args(["new"])
+        .args(["skill", "new"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -82,7 +82,7 @@ fn new_force_overwrites_existing_skill_md() {
     std::fs::write(dir.path().join("SKILL.md"), "old content").unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--force"])
+        .args(["skill", "new", "--force"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -103,7 +103,7 @@ fn new_bin_creates_cargo_project_and_skill_md() {
     std::fs::create_dir(&target).unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--bin", "--path", target.to_str().unwrap()])
+        .args(["skill", "new", "--bin", "--path", target.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -137,7 +137,7 @@ fn new_collection_creates_skills_dir_and_readme() {
     let dir = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--collection"])
+        .args(["skill", "new", "--collection"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -151,7 +151,7 @@ fn new_collection_creates_skills_dir_and_readme() {
 
     let readme = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
     assert!(readme.contains("collection of skills"));
-    assert!(readme.contains("ion new"));
+    assert!(readme.contains("ion skill new"));
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn new_collection_with_path_creates_in_specified_dir() {
     let target = base.path().join("my-collection");
 
     let output = ion_cmd()
-        .args(["new", "--collection", "--path", target.to_str().unwrap()])
+        .args(["skill", "new", "--collection", "--path", target.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -181,7 +181,7 @@ fn new_collection_errors_if_readme_exists() {
     std::fs::write(dir.path().join("README.md"), "existing readme").unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--collection"])
+        .args(["skill", "new", "--collection"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -201,7 +201,7 @@ fn new_collection_force_overwrites_readme() {
     std::fs::write(dir.path().join("README.md"), "old readme").unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--collection", "--force"])
+        .args(["skill", "new", "--collection", "--force"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -220,7 +220,7 @@ fn new_collection_and_bin_errors() {
     let dir = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["new", "--collection", "--bin"])
+        .args(["skill", "new", "--collection", "--bin"])
         .current_dir(dir.path())
         .output()
         .unwrap();

@@ -105,7 +105,7 @@ fn update_git_skill_pulls_latest_commit() {
 
     // 3. Run `ion install` to install the skill
     let output = ion_cmd()
-        .args(["install"])
+        .args(["add"])
         .current_dir(&project)
         .output()
         .unwrap();
@@ -182,7 +182,7 @@ fn update_skips_pinned_git_skill() {
 
     // 3. Run `ion install` to install from manifest
     let output = ion_cmd()
-        .args(["install"])
+        .args(["add"])
         .current_dir(&project)
         .output()
         .unwrap();
@@ -253,7 +253,7 @@ fn update_preserves_old_version_on_validation_failure() {
 
     // Install via `ion install`
     let output = ion_cmd()
-        .args(["install"])
+        .args(["add"])
         .current_dir(&project)
         .output()
         .unwrap();

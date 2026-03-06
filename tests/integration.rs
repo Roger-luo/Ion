@@ -38,9 +38,9 @@ fn add_and_remove_local_skill() {
     assert!(project.path().join("Ion.toml").exists());
     assert!(project.path().join("Ion.lock").exists());
 
-    // ion list
+    // ion skill list
     let output = ion_cmd()
-        .args(["list"])
+        .args(["skill", "list"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -48,9 +48,9 @@ fn add_and_remove_local_skill() {
     assert!(output.status.success());
     assert!(stdout.contains("test-skill"));
 
-    // ion info
+    // ion skill info
     let output = ion_cmd()
-        .args(["info", "test-skill"])
+        .args(["skill", "info", "test-skill"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -93,12 +93,12 @@ fn install_from_manifest() {
     .unwrap();
 
     let output = ion_cmd()
-        .args(["install"])
+        .args(["add"])
         .current_dir(project.path())
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "install failed: {stderr}");
+    assert!(output.status.success(), "add (install all) failed: {stderr}");
 
     // Canonical copy exists as real directory
     assert!(project.path().join(".agents/skills/manifest-skill/SKILL.md").exists());
@@ -167,7 +167,7 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
     .unwrap();
 
     let mut child = ion_cmd()
-        .args(["install"])
+        .args(["add"])
         .current_dir(project.path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -184,7 +184,11 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
         output.status.success(),
         "expected success: stdout={stdout}\nstderr={stderr}"
     );
-    assert!(stdout.contains("Install anyway? [y/N]"));
+    // Batch validation: non-TTY fallback prompts per warned skill
+    assert!(
+        stdout.contains("warning(s)? [Y/n]"),
+        "expected batch warning prompt: stdout={stdout}"
+    );
     assert!(project
         .path()
         .join(".agents/skills/warning-manifest-skill/SKILL.md")
@@ -197,11 +201,13 @@ fn help_shows_all_commands() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("add"));
     assert!(stdout.contains("remove"));
-    assert!(stdout.contains("install"));
-    assert!(stdout.contains("list"));
-    assert!(stdout.contains("info"));
-    assert!(stdout.contains("validate"));
-    assert!(stdout.contains("init"));
+    assert!(stdout.contains("search"));
+    assert!(stdout.contains("update"));
+    assert!(stdout.contains("run"));
+    assert!(stdout.contains("skill"));
+    assert!(stdout.contains("project"));
+    assert!(stdout.contains("cache"));
+    assert!(stdout.contains("config"));
 }
 
 #[test]
@@ -209,7 +215,7 @@ fn init_creates_manifest_with_target_flag() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "claude"])
+        .args(["project", "init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -229,7 +235,7 @@ fn init_with_custom_target_path() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "claude:.claude/commands/skills"])
+        .args(["project", "init", "--target", "claude:.claude/commands/skills"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -248,7 +254,7 @@ fn init_preserves_existing_skills() {
     ).unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "claude"])
+        .args(["project", "init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -268,7 +274,7 @@ fn init_errors_when_targets_exist_without_force() {
     ).unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "cursor"])
+        .args(["project", "init", "--target", "cursor"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -287,7 +293,7 @@ fn init_force_overwrites_existing_targets() {
     ).unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "cursor", "--force"])
+        .args(["project", "init", "--target", "cursor", "--force"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -305,7 +311,7 @@ fn init_with_target_flag_creates_targets() {
     // The TUI interactive mode requires a real terminal, so we use --target flags.
     // Detection and interactive selection are covered by unit tests in init_select.
     let output = ion_cmd()
-        .args(["init", "--target", "claude"])
+        .args(["project", "init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -333,7 +339,7 @@ fn init_renames_legacy_lowercase_files() {
     ).unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "claude"])
+        .args(["project", "init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -363,7 +369,7 @@ fn init_errors_when_both_legacy_and_new_exist() {
     std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
 
     let output = ion_cmd()
-        .args(["init", "--target", "claude"])
+        .args(["project", "init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -386,7 +392,7 @@ fn link_shows_hint_when_no_targets_configured() {
     ).unwrap();
 
     let output = ion_cmd()
-        .args(["link", skill_dir.to_str().unwrap()])
+        .args(["skill", "link", skill_dir.to_str().unwrap()])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -395,7 +401,7 @@ fn link_shows_hint_when_no_targets_configured() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
     assert!(
-        stdout.contains("ion init"),
-        "should show hint about ion init when no targets configured. stdout: {stdout}"
+        stdout.contains("ion project init"),
+        "should show hint about ion project init when no targets configured. stdout: {stdout}"
     );
 }
