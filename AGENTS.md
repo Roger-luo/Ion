@@ -26,7 +26,7 @@ cargo fmt                                # Format
 **Command pattern:** Each CLI command lives in `src/commands/<name>.rs` with a `pub fn run(...)` entry point. `main.rs` parses args via clap derive and dispatches to the appropriate command module.
 
 **Core data types** (in `ion-skill`):
-- `SkillSource` / `SourceType` — where a skill comes from (GitHub, Git, HTTP, Path, Binary)
+- `SkillSource` / `SourceType` — where a skill comes from (GitHub, Git, HTTP, Path, Binary, Local)
 - `SkillMetadata` — parsed from SKILL.md YAML frontmatter (name, description, compatibility, etc.)
 - `Manifest` — Ion.toml: project skill configuration with targets and skill entries
 - `Lockfile` / `LockedSkill` — Ion.lock: pinned versions with checksums
@@ -41,6 +41,19 @@ cargo fmt                                # Format
 
 **Search system** (`ion-skill/src/search/`): Multiple backends (GitHub API, skills.sh registry, configured agent command). Interactive search uses a TUI built with ratatui/crossterm (`src/tui/`).
 
+**Local skills:** `SourceType::Local` for project-specific skills. Created via `ion skill new` (with optional `--dir` flag), or ejected from remote via `ion skill eject`. Tracked in Ion.toml as `{ type = "local" }` with optional `forked-from`. Local skills skip fetch/validation/gitignore — they're managed by git directly. Config: `skills-dir` in `[options]` (default `.agents`).
+
+**Self-update system** (`src/commands/self_cmd.rs`): `ion self update` downloads pre-built binaries from GitHub Releases for the `Roger-luo/Ion` repo, using the same `binary.rs` infrastructure as skill binary installs. `ion self check` compares versions. `ion self info` shows version, build target, and exe path. Build target triple embedded via `build.rs`.
+
+**Search cache** (`ion-skill/src/search/cache.rs`): File-based JSON cache in `~/Library/Application Support/ion/search_cache/`, keyed by `(source_name, query)` hash. TTL from `cache.max-age-days` config (default 1 day). Agent source is never cached.
+
+## Command Structure
+
+Top-level: `add`, `remove`, `search`, `update`, `run`
+Subcommand groups: `skill` (new, validate, info, list, link, eject), `project` (init, migrate), `cache` (gc), `config`, `self` (update, check, info)
+
+`ion add` with no args runs install-all from Ion.toml. With a source arg, adds a single skill.
+
 ## Key Conventions
 
 - **Manifest files:** `Ion.toml` and `Ion.lock` (capitalized)
@@ -49,3 +62,10 @@ cargo fmt                                # Format
 - **Rust edition:** 2024
 - **Tests are primarily integration tests** in `/tests/`, using `tempfile` for isolated temp directories and invoking the compiled binary via `env!("CARGO_BIN_EXE_ion")`
 - **Colored output:** `style::Paint` helper respects config and terminal capabilities
+
+## Git & Release Conventions
+
+- **Conventional commits:** `feat:`, `fix:`, `docs:`, `test:`, `ci:`, `refactor:`, `perf:`, `build:`, `chore:`
+- **Linear history:** main branch must not contain merge commits — use rebase or squash merges
+- **Automated releases:** release-plz opens version bump PRs based on conventional commits. Merging creates a tag, which triggers GitHub Actions to build binaries for 4 targets (aarch64/x86_64 × macOS/Linux)
+- **Asset naming:** `ion-{version}-{target}.tar.gz` (e.g. `ion-0.2.0-aarch64-apple-darwin.tar.gz`)
