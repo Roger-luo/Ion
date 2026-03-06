@@ -208,6 +208,27 @@ fn help_shows_all_commands() {
     assert!(stdout.contains("project"));
     assert!(stdout.contains("cache"));
     assert!(stdout.contains("config"));
+    assert!(stdout.contains("self"));
+}
+
+#[test]
+fn self_info_shows_version_and_target() {
+    let output = ion_cmd().args(["self", "info"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success());
+    assert!(stdout.contains("ion "));
+    assert!(stdout.contains("target:"));
+    assert!(stdout.contains("exe:"));
+}
+
+#[test]
+fn self_help_shows_subcommands() {
+    let output = ion_cmd().args(["self", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success());
+    assert!(stdout.contains("check"));
+    assert!(stdout.contains("info"));
+    assert!(stdout.contains("update"));
 }
 
 #[test]
