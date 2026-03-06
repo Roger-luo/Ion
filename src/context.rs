@@ -47,6 +47,7 @@ impl ProjectContext {
         let merged_targets = self.global_config.resolve_targets(&manifest.options);
         ManifestOptions {
             targets: merged_targets,
+            skills_dir: manifest.options.skills_dir.clone(),
         }
     }
 

@@ -11,6 +11,7 @@ pub enum SourceType {
     Http,
     Path,
     Binary,
+    Local,
 }
 
 /// A fully resolved skill source.
@@ -23,6 +24,7 @@ pub struct SkillSource {
     pub version: Option<String>,
     pub binary: Option<String>,
     pub asset_pattern: Option<String>,
+    pub forked_from: Option<String>,
 }
 
 impl SkillSource {
@@ -41,6 +43,7 @@ impl SkillSource {
                 version: None,
                 binary: None,
                 asset_pattern: None,
+                forked_from: None,
             });
         }
 
@@ -61,6 +64,7 @@ impl SkillSource {
                 version: None,
                 binary: None,
                 asset_pattern: None,
+                forked_from: None,
             });
         }
 
@@ -75,6 +79,7 @@ impl SkillSource {
                 version: None,
                 binary: None,
                 asset_pattern: None,
+                forked_from: None,
             }),
             3.. => Ok(Self {
                 source_type: SourceType::Github,
@@ -84,6 +89,7 @@ impl SkillSource {
                 version: None,
                 binary: None,
                 asset_pattern: None,
+                forked_from: None,
             }),
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
@@ -195,6 +201,7 @@ mod tests {
             version: None,
             binary: Some("mytool".to_string()),
             asset_pattern: None,
+            forked_from: None,
         };
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.binary.as_deref(), Some("mytool"));
@@ -204,5 +211,22 @@ mod tests {
     fn git_url_path_is_error() {
         let s = SkillSource::infer("./local").unwrap();
         assert!(s.git_url().is_err());
+    }
+
+    #[test]
+    fn local_source_type_serializes() {
+        let source = SkillSource {
+            source_type: SourceType::Local,
+            source: "./my-skill".to_string(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: None,
+            asset_pattern: None,
+            forked_from: Some("org/original-skill".to_string()),
+        };
+        assert_eq!(source.source_type, SourceType::Local);
+        assert_eq!(source.forked_from.as_deref(), Some("org/original-skill"));
+        assert!(source.git_url().is_err());
     }
 }

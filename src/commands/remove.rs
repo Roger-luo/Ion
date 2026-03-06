@@ -53,17 +53,40 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
 
     for skill_name in &skills_to_remove {
         let entry = &manifest.skills[skill_name];
+        let entry_source = Manifest::resolve_entry(entry);
 
         println!("Removing skill {}...", p.bold(&format!("'{skill_name}'")));
 
-        SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
-        println!("  Removed from {}", p.info(&format!(".agents/skills/{skill_name}/")));
+        // For local skills, only remove symlinks — preserve the actual skill directory
+        if let Ok(ref source) = entry_source
+            && source.source_type == SourceType::Local
+        {
+            for target_path in merged_options.targets.values() {
+                let target_dir = ctx.project_dir.join(target_path).join(skill_name);
+                if target_dir.is_symlink() {
+                    std::fs::remove_file(&target_dir)?;
+                }
+            }
+            // Remove .agents symlink only if it IS a symlink (custom skills-dir)
+            let agents_dir = ctx.project_dir.join(".agents").join("skills").join(skill_name);
+            if agents_dir.is_symlink() {
+                std::fs::remove_file(&agents_dir)?;
+            }
+            println!("  Removed symlinks for {}", p.info(skill_name));
+            println!("  {}: local skill directory preserved", p.dim("note"));
+        } else {
+            SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
+            println!("  Removed from {}", p.info(&format!(".agents/skills/{skill_name}/")));
+        }
 
-        ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
-        println!("  Updated {}", p.dim(".gitignore"));
+        // Skip gitignore removal for local skills (they were never gitignored)
+        if !matches!(entry_source.as_ref().map(|s| &s.source_type), Ok(SourceType::Local)) {
+            ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
+            println!("  Updated {}", p.dim(".gitignore"));
+        }
 
         // Unregister from global registry for git-based sources
-        if let Ok(source) = Manifest::resolve_entry(entry)
+        if let Ok(ref source) = entry_source
             && matches!(source.source_type, SourceType::Github | SourceType::Git)
             && let Ok(url) = source.git_url()
         {
@@ -99,8 +122,8 @@ pub fn run(name: &str, yes: bool) -> anyhow::Result<()> {
 /// Matches if the query appears anywhere in the skill name or source string.
 fn skill_matches(skill_name: &str, entry: &ion_skill::manifest::SkillEntry, query: &str) -> bool {
     let source_str = match entry {
-        ion_skill::manifest::SkillEntry::Shorthand(s) => s.as_str(),
-        ion_skill::manifest::SkillEntry::Full { source, .. } => source.as_str(),
+        ion_skill::manifest::SkillEntry::Shorthand(s) => Some(s.as_str()),
+        ion_skill::manifest::SkillEntry::Full { source, .. } => source.as_deref(),
     };
-    skill_name.contains(query) || source_str.contains(query)
+    skill_name.contains(query) || source_str.is_some_and(|s| s.contains(query))
 }

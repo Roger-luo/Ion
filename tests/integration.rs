@@ -380,6 +380,223 @@ fn init_errors_when_both_legacy_and_new_exist() {
 }
 
 #[test]
+fn install_local_skill_ensures_symlinks() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create a local skill directory inside the project
+    let skill_dir = project.path().join(".agents/skills/my-local");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: my-local\ndescription: A local skill.\n---\n\n# Local\n\nDo local things.\n",
+    )
+    .unwrap();
+
+    // Write Ion.toml with a local skill entry and a target
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nmy-local = { type = \"local\" }\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    // Run ion add (install all from manifest)
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "add failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // The target symlink should exist (points at .agents/skills/my-local)
+    let target = project.path().join(".claude/skills/my-local");
+    assert!(
+        target.is_symlink(),
+        "target .claude/skills/my-local should be a symlink"
+    );
+
+    // Local skills should NOT have gitignore entries
+    let gitignore_path = project.path().join(".gitignore");
+    if gitignore_path.exists() {
+        let gitignore = std::fs::read_to_string(&gitignore_path).unwrap();
+        assert!(
+            !gitignore.contains("my-local"),
+            "gitignore should not contain my-local entry"
+        );
+    }
+}
+
+#[test]
+fn remove_local_skill_preserves_directory() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create a local skill directory
+    let skill_dir = project.path().join(".agents/skills/my-local");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: my-local\ndescription: A local skill.\n---\n\n# Local\n\nDo local things.\n",
+    )
+    .unwrap();
+
+    // Write Ion.toml with local skill entry
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nmy-local = { type = \"local\" }\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    // Write Ion.lock
+    std::fs::write(
+        project.path().join("Ion.lock"),
+        "version = 1\n\n[skills]\n",
+    )
+    .unwrap();
+
+    // Run ion remove
+    let output = ion_cmd()
+        .args(["remove", "my-local", "-y"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "remove failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // The .agents/skills/my-local directory should still exist (preserved for local skills)
+    assert!(
+        skill_dir.exists(),
+        ".agents/skills/my-local should be preserved after remove"
+    );
+
+    // Ion.toml should no longer contain my-local
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(
+        !manifest.contains("my-local"),
+        "Ion.toml should no longer contain my-local"
+    );
+}
+
+#[test]
+fn eject_converts_remote_to_local() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Simulate a previously installed github skill. Real installs create a
+    // symlink at .agents/skills/<name> pointing to the cached clone. We
+    // replicate that by creating the actual content in a separate temp dir
+    // and symlinking .agents/skills/<name> to it.
+    let cache_dir = tempfile::tempdir().unwrap();
+    let cached_skill = cache_dir.path().join("eject-skill");
+    std::fs::create_dir(&cached_skill).unwrap();
+    std::fs::write(
+        cached_skill.join("SKILL.md"),
+        "---\nname: eject-skill\ndescription: Skill to eject.\n---\n\n# Eject\n\nEjectable.\n",
+    )
+    .unwrap();
+
+    let agents_skills = project.path().join(".agents/skills");
+    std::fs::create_dir_all(&agents_skills).unwrap();
+    std::os::unix::fs::symlink(&cached_skill, agents_skills.join("eject-skill")).unwrap();
+
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\neject-skill = { type = \"github\", source = \"test-org/test-repo\", path = \"eject-skill\" }\n",
+    )
+    .unwrap();
+
+    // Eject the skill
+    let output = ion_cmd()
+        .args(["skill", "eject", "eject-skill"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "eject failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Ion.toml should now contain "local"
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(
+        manifest.contains("local"),
+        "Ion.toml should contain 'local' after eject. Got: {manifest}"
+    );
+
+    // The skill directory should exist and NOT be a symlink
+    let agents_skill = project.path().join(".agents/skills/eject-skill");
+    assert!(agents_skill.exists(), ".agents/skills/eject-skill should exist");
+    assert!(
+        !agents_skill.is_symlink(),
+        ".agents/skills/eject-skill should NOT be a symlink after eject"
+    );
+    assert!(
+        agents_skill.join("SKILL.md").exists(),
+        ".agents/skills/eject-skill/SKILL.md should exist"
+    );
+}
+
+#[test]
+fn eject_errors_for_local_skill() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create local skill directory
+    let skill_dir = project.path().join(".agents/skills/my-local");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: my-local\ndescription: A local skill.\n---\n\nLocal.\n",
+    )
+    .unwrap();
+
+    // Write Ion.toml with local type
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nmy-local = { type = \"local\" }\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["skill", "eject", "my-local"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        !output.status.success(),
+        "eject should fail for local skill"
+    );
+    assert!(
+        stderr.contains("already local"),
+        "stderr should contain 'already local'. Got: {stderr}"
+    );
+}
+
+#[test]
+fn skill_eject_help_is_exposed() {
+    let output = ion_cmd()
+        .args(["skill", "eject", "--help"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success(), "eject --help should succeed");
+    assert!(
+        stdout.contains("eject") || stdout.contains("Eject"),
+        "help output should mention eject. Got: {stdout}"
+    );
+}
+
+#[test]
 fn link_shows_hint_when_no_targets_configured() {
     let project = tempfile::tempdir().unwrap();
 

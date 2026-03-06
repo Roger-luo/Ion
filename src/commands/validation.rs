@@ -24,6 +24,17 @@ pub fn print_validation_report(skill_name: &str, report: &ValidationReport) {
     );
 }
 
+pub fn confirm_proceed_with_collection(count: usize) -> anyhow::Result<bool> {
+    print!("Install {count} skill(s)? [Y/n] ");
+    io::stdout().flush()?;
+
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer)?;
+    let answer = answer.trim();
+
+    Ok(answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes"))
+}
+
 pub fn confirm_install_on_warnings() -> anyhow::Result<bool> {
     print!("Install anyway? [y/N] ");
     io::stdout().flush()?;
@@ -37,17 +48,18 @@ pub fn confirm_install_on_warnings() -> anyhow::Result<bool> {
 
 /// Interactive multi-select for warned skills in a collection.
 /// Each entry is `(skill_name, warning_count)`. All are selected by default.
-/// Returns a `Vec<bool>` indicating which skills the user approved.
+/// Returns `Some(Vec<bool>)` indicating which skills the user approved,
+/// or `None` if the user cancelled (q/Esc).
 ///
 /// Falls back to sequential y/N prompts if stdin is not a terminal.
-pub fn select_warned_skills(skills: &[(String, usize)]) -> anyhow::Result<Vec<bool>> {
+pub fn select_warned_skills(skills: &[(String, usize)]) -> anyhow::Result<Option<Vec<bool>>> {
     if skills.is_empty() {
-        return Ok(vec![]);
+        return Ok(Some(vec![]));
     }
 
     // Non-interactive fallback
     if !io::stdin().is_terminal() {
-        return fallback_select(skills);
+        return fallback_select(skills).map(Some);
     }
 
     interactive_select(skills)
@@ -72,7 +84,8 @@ fn fallback_select(skills: &[(String, usize)]) -> anyhow::Result<Vec<bool>> {
 }
 
 /// Interactive crossterm-based multi-select.
-fn interactive_select(skills: &[(String, usize)]) -> anyhow::Result<Vec<bool>> {
+/// Returns `None` if the user quit (q/Esc/Ctrl+C).
+fn interactive_select(skills: &[(String, usize)]) -> anyhow::Result<Option<Vec<bool>>> {
     let mut selected = vec![true; skills.len()];
     let mut cursor_pos: usize = 0;
 
@@ -91,8 +104,12 @@ fn interactive_select(skills: &[(String, usize)]) -> anyhow::Result<Vec<bool>> {
     write!(stdout, "\r\n")?;
     stdout.flush()?;
 
-    result?;
-    Ok(selected)
+    let confirmed = result?;
+    if confirmed {
+        Ok(Some(selected))
+    } else {
+        Ok(None)
+    }
 }
 
 fn render_select(
@@ -111,7 +128,7 @@ fn render_select(
     // Header
     write!(
         stdout,
-        "Select which warned skills to install (↑↓ move, space toggle, enter confirm, a toggle all):\r\n"
+        "Select which warned skills to install (↑↓ move, space toggle, enter confirm, a toggle all, q/esc quit):\r\n"
     )?;
 
     for (i, (name, count)) in skills.iter().enumerate() {
@@ -128,12 +145,13 @@ fn render_select(
     Ok(())
 }
 
+/// Returns `true` if user confirmed (Enter), `false` if cancelled (q/Esc/Ctrl+C).
 fn run_select_loop(
     stdout: &mut io::Stdout,
     skills: &[(String, usize)],
     selected: &mut Vec<bool>,
     cursor_pos: &mut usize,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<bool> {
     let total_lines = skills.len() + 1; // header + items
 
     // Initial render
@@ -141,15 +159,15 @@ fn run_select_loop(
 
     loop {
         if let Event::Key(KeyEvent { code, modifiers, .. }) = event::read()? {
-            // Ctrl+C cancels — deselect everything
+            // Ctrl+C cancels
             if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
-                for s in selected.iter_mut() {
-                    *s = false;
-                }
-                return Ok(());
+                return Ok(false);
             }
 
             match code {
+                KeyCode::Esc | KeyCode::Char('q') => {
+                    return Ok(false);
+                }
                 KeyCode::Up | KeyCode::Char('k') => {
                     if *cursor_pos > 0 {
                         *cursor_pos -= 1;
@@ -170,7 +188,7 @@ fn run_select_loop(
                     }
                 }
                 KeyCode::Enter => {
-                    return Ok(());
+                    return Ok(true);
                 }
                 _ => {}
             }

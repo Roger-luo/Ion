@@ -280,7 +280,7 @@ impl<'a> SkillInstaller<'a> {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (commit, checksum)
             }
-            SourceType::Path | SourceType::Http | SourceType::Binary => {
+            SourceType::Path | SourceType::Http | SourceType::Binary | SourceType::Local => {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (None, checksum)
             }
@@ -336,6 +336,15 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
         }
         SourceType::Binary => {
             Err(Error::Source("Binary source uses dedicated installer".to_string()))
+        }
+        SourceType::Local => {
+            let path = PathBuf::from(&source.source);
+            if !path.exists() {
+                return Err(Error::Source(format!(
+                    "Local path does not exist: {}", source.source
+                )));
+            }
+            Ok(path)
         }
     }
 }
@@ -425,12 +434,14 @@ mod tests {
             version: None,
             binary: None,
             asset_pattern: None,
+            forked_from: None,
         }
     }
 
     fn empty_options() -> ManifestOptions {
         ManifestOptions {
             targets: std::collections::BTreeMap::new(),
+            skills_dir: None,
         }
     }
 
@@ -453,7 +464,7 @@ mod tests {
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets };
+        let options = ManifestOptions { targets, skills_dir: None };
 
         let installer = SkillInstaller::new(project.path(), &options);
         installer.uninstall("test").unwrap();
@@ -480,11 +491,12 @@ mod tests {
             version: None,
             binary: None,
             asset_pattern: None,
+            forked_from: None,
         };
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets };
+        let options = ManifestOptions { targets, skills_dir: None };
 
         let installer = SkillInstaller::new(project.path(), &options);
         let _locked = installer.install("sym-test", &source).unwrap();

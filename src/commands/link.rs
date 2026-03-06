@@ -44,6 +44,7 @@ pub fn run(path: &str) -> anyhow::Result<()> {
         version: None,
         binary: None,
         asset_pattern: None,
+        forked_from: None,
     };
 
     let manifest = ctx.manifest_or_empty()?;

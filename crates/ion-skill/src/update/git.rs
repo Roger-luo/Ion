@@ -163,6 +163,7 @@ mod tests {
             version: None,
             binary: None,
             asset_pattern: None,
+            forked_from: None,
         }
     }
 

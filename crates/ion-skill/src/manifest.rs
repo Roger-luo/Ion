@@ -13,7 +13,8 @@ pub enum SkillEntry {
     Full {
         #[serde(rename = "type", default)]
         source_type: Option<SourceType>,
-        source: String,
+        #[serde(default)]
+        source: Option<String>,
         #[serde(default)]
         version: Option<String>,
         #[serde(default)]
@@ -24,6 +25,8 @@ pub enum SkillEntry {
         binary: Option<String>,
         #[serde(default, alias = "asset-pattern")]
         asset_pattern: Option<String>,
+        #[serde(default, alias = "forked-from")]
+        forked_from: Option<String>,
     },
 }
 
@@ -32,11 +35,17 @@ pub enum SkillEntry {
 pub struct ManifestOptions {
     #[serde(default)]
     pub targets: BTreeMap<String, String>,
+    #[serde(default)]
+    pub skills_dir: Option<String>,
 }
 
 impl ManifestOptions {
-    /// Get a project config value by dot-notation key. Currently only targets are supported.
+    /// Get a project config value by key. Supports dot-notation for targets
+    /// and top-level keys like "skills-dir".
     pub fn get_value(&self, key: &str) -> Option<String> {
+        if key == "skills-dir" {
+            return self.skills_dir.clone();
+        }
         let (section, field) = key.split_once('.')?;
         match section {
             "targets" => self.targets.get(field).cloned(),
@@ -44,12 +53,17 @@ impl ManifestOptions {
         }
     }
 
-    /// List all project config values as (dot-key, value) pairs.
+    /// List all project config values as (key, value) pairs.
     pub fn list_values(&self) -> Vec<(String, String)> {
-        self.targets
+        let mut values: Vec<(String, String)> = self
+            .targets
             .iter()
             .map(|(k, v)| (format!("targets.{k}"), v.clone()))
-            .collect()
+            .collect();
+        if let Some(dir) = &self.skills_dir {
+            values.push(("skills-dir".to_string(), dir.clone()));
+        }
+        values
     }
 }
 
@@ -95,19 +109,45 @@ impl Manifest {
                 path,
                 binary,
                 asset_pattern,
+                forked_from,
             } => {
-                let mut resolved = if let Some(st) = source_type {
-                    SkillSource {
-                        source_type: st.clone(),
-                        source: source.clone(),
+                let mut resolved = match source_type {
+                    Some(SourceType::Local) => SkillSource {
+                        source_type: SourceType::Local,
+                        source: source.clone().unwrap_or_default(),
                         path: path.clone(),
                         rev: None,
                         version: None,
                         binary: None,
                         asset_pattern: None,
+                        forked_from: None,
+                    },
+                    Some(st) => {
+                        let src = source.as_deref().ok_or_else(|| {
+                            Error::Manifest(format!(
+                                "source is required for type {:?}",
+                                st
+                            ))
+                        })?;
+                        SkillSource {
+                            source_type: st.clone(),
+                            source: src.to_string(),
+                            path: path.clone(),
+                            rev: None,
+                            version: None,
+                            binary: None,
+                            asset_pattern: None,
+                            forked_from: None,
+                        }
                     }
-                } else {
-                    SkillSource::infer(source)?
+                    None => {
+                        let src = source.as_deref().ok_or_else(|| {
+                            Error::Manifest(
+                                "source is required when type is not specified".to_string(),
+                            )
+                        })?;
+                        SkillSource::infer(src)?
+                    }
                 };
                 if let Some(v) = version {
                     resolved.version = Some(v.clone());
@@ -120,6 +160,7 @@ impl Manifest {
                 }
                 resolved.binary = binary.clone();
                 resolved.asset_pattern = asset_pattern.clone();
+                resolved.forked_from = forked_from.clone();
                 Ok(resolved)
             }
         }
@@ -260,5 +301,39 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
         let values = manifest.options.list_values();
         assert_eq!(values.len(), 2);
         assert!(values.contains(&("targets.claude".to_string(), ".claude/skills".to_string())));
+    }
+
+    #[test]
+    fn parse_local_skill_entry() {
+        let toml_str = "[skills]\nmy-skill = { type = \"local\" }\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
+        assert_eq!(source.source_type, SourceType::Local);
+        assert_eq!(source.source, "");
+        assert!(source.forked_from.is_none());
+    }
+
+    #[test]
+    fn parse_local_skill_with_forked_from() {
+        let toml_str =
+            "[skills]\nmy-skill = { type = \"local\", forked-from = \"org/original-skill\" }\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
+        assert_eq!(source.source_type, SourceType::Local);
+        assert_eq!(
+            source.forked_from.as_deref(),
+            Some("org/original-skill")
+        );
+    }
+
+    #[test]
+    fn parse_skills_dir_option() {
+        let toml_str = "[skills]\n\n[options]\nskills-dir = \"my-skills\"\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        assert_eq!(manifest.options.skills_dir.as_deref(), Some("my-skills"));
+        assert_eq!(
+            manifest.options.get_value("skills-dir"),
+            Some("my-skills".to_string())
+        );
     }
 }

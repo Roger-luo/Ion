@@ -826,6 +826,7 @@ dependencies = [
  "env_logger",
  "ion-skill",
  "log",
+ "pathdiff",
  "ratatui",
  "tempfile",
  "toml_edit",

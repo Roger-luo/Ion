@@ -110,6 +110,7 @@ fn test_manifest_writer_binary_skill() {
         version: None,
         binary: Some("mytool".to_string()),
         asset_pattern: None,
+        forked_from: None,
     };
 
     ion_skill::manifest_writer::add_skill(&path, "mytool", &source).unwrap();

@@ -45,7 +45,7 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
 
     for (skill_name, source) in &skills_to_check {
         // Skip Path and Http source types silently
-        if matches!(source.source_type, SourceType::Path | SourceType::Http) {
+        if matches!(source.source_type, SourceType::Path | SourceType::Http | SourceType::Local) {
             continue;
         }
 

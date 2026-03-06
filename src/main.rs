@@ -95,6 +95,9 @@ enum SkillCommands {
         /// Target directory (default: current directory)
         #[arg(long)]
         path: Option<String>,
+        /// Set the project skills directory (persisted to Ion.toml)
+        #[arg(long)]
+        dir: Option<String>,
         /// Also run `cargo init --bin` to scaffold a Rust CLI project
         #[arg(long)]
         bin: bool,
@@ -121,6 +124,11 @@ enum SkillCommands {
     Link {
         /// Path to the local skill directory containing SKILL.md
         path: String,
+    },
+    /// Eject a remote skill into an editable local copy
+    Eject {
+        /// Name of the skill to eject
+        name: String,
     },
 }
 
@@ -176,13 +184,14 @@ fn main() {
         Commands::Update { name } => commands::update::run(name.as_deref()),
         Commands::Run { name, args } => commands::run::run(&name, &args),
         Commands::Skill { action } => match action {
-            SkillCommands::New { path, bin, collection, force } => {
-                commands::new::run(path.as_deref(), bin, collection, force)
+            SkillCommands::New { path, dir, bin, collection, force } => {
+                commands::new::run(path.as_deref(), dir.as_deref(), bin, collection, force)
             }
             SkillCommands::Validate { path } => commands::validate::run(path.as_deref()),
             SkillCommands::Info { skill } => commands::info::run(&skill),
             SkillCommands::List => commands::list::run(),
             SkillCommands::Link { path } => commands::link::run(&path),
+            SkillCommands::Eject { name } => commands::eject::run(&name),
         },
         Commands::Project { action } => match action {
             ProjectCommands::Init { target, force } => commands::init::run(&target, force),

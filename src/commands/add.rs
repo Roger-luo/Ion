@@ -5,7 +5,7 @@ use ion_skill::registry::Registry;
 use ion_skill::source::{SkillSource, SourceType};
 
 use crate::context::ProjectContext;
-use crate::commands::validation::{confirm_install_on_warnings, print_validation_report, select_warned_skills};
+use crate::commands::validation::{confirm_install_on_warnings, confirm_proceed_with_collection, print_validation_report, select_warned_skills};
 use crate::style::Paint;
 
 pub fn run(source_str: &str, rev: Option<&str>, bin: bool) -> anyhow::Result<()> {
@@ -124,6 +124,11 @@ fn install_collection(
     }
     println!();
 
+    if !confirm_proceed_with_collection(skills.len())? {
+        println!("Installation cancelled.");
+        return Ok(());
+    }
+
     // Phase 1: Validate all skills upfront
     let installer = SkillInstaller::new(&ctx.project_dir, merged_options);
 
@@ -185,7 +190,13 @@ fn install_collection(
             .iter()
             .map(|(entry, report)| (entry.name.clone(), report.warning_count))
             .collect();
-        select_warned_skills(&items)?
+        match select_warned_skills(&items)? {
+            Some(selections) => selections,
+            None => {
+                println!("Installation cancelled.");
+                return Ok(());
+            }
+        }
     } else {
         vec![]
     };

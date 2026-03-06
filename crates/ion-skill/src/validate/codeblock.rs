@@ -48,11 +48,14 @@ impl SkillChecker for TreeSitterCodeBlockChecker {
             };
 
             if tree.root_node().has_error() {
+                // Use Warning instead of Error: skill code blocks often contain
+                // pseudo-code, placeholder templates (e.g. <branch-name>), or
+                // abbreviated examples that aren't meant to be valid syntax.
                 findings.push(Finding {
-                    severity: Severity::Error,
+                    severity: Severity::Warning,
                     checker: self.name().to_string(),
                     message: format!(
-                        "Invalid {} code block starting at line {}",
+                        "Possibly invalid {} code block starting at line {}",
                         block.lang, block.start_line
                     ),
                     detail: None,
@@ -84,33 +87,33 @@ mod tests {
     }
 
     #[test]
-    fn invalid_python_block_is_error() {
+    fn invalid_python_block_is_warning() {
         let checker = TreeSitterCodeBlockChecker;
         let body = "```python\ndef foo(:\n```";
 
         let findings = checker.check(std::path::Path::new("."), &dummy_meta(), body);
 
-        assert!(findings.iter().any(|f| f.severity == Severity::Error));
+        assert!(findings.iter().any(|f| f.severity == Severity::Warning));
     }
 
     #[test]
-    fn invalid_bash_block_is_error() {
+    fn invalid_bash_block_is_warning() {
         let checker = TreeSitterCodeBlockChecker;
         let body = "```bash\nif [[\n```";
 
         let findings = checker.check(std::path::Path::new("."), &dummy_meta(), body);
 
-        assert!(findings.iter().any(|f| f.severity == Severity::Error));
+        assert!(findings.iter().any(|f| f.severity == Severity::Warning));
     }
 
     #[test]
-    fn invalid_rust_block_is_error() {
+    fn invalid_rust_block_is_warning() {
         let checker = TreeSitterCodeBlockChecker;
         let body = "```rust\nfn main( {\n```";
 
         let findings = checker.check(std::path::Path::new("."), &dummy_meta(), body);
 
-        assert!(findings.iter().any(|f| f.severity == Severity::Error));
+        assert!(findings.iter().any(|f| f.severity == Severity::Warning));
     }
 
     #[test]
