@@ -13,9 +13,9 @@ ion-skill = { path = "crates/ion-skill" }
 pathdiff = "0.2"
 toml_edit = "0.22"
 ratatui = "0.29"
+tempfile = "3"
 
 [dev-dependencies]
-tempfile = "3"
 
 [workspace]
 members = [".", "crates/ion-skill"]
