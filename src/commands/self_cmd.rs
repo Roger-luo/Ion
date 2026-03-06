@@ -4,6 +4,8 @@ use anyhow::bail;
 use ion_skill::binary;
 
 const REPO: &str = "Roger-luo/Ion";
+/// Tag prefix used by release-plz for the ion crate
+const TAG_PREFIX: &str = "ion-v";
 
 pub fn info() -> anyhow::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
@@ -19,7 +21,7 @@ pub fn check() -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
     println!("installed: {current}");
 
-    let release = binary::fetch_github_release(REPO, None)?;
+    let release = binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?;
     let latest = binary::parse_version_from_tag(&release.tag_name);
     println!("latest:    {latest}");
 
@@ -34,15 +36,14 @@ pub fn check() -> anyhow::Result<()> {
 
 pub fn update(version: Option<&str>) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
-    let tag = version.map(|v| {
-        if v.starts_with('v') {
-            v.to_string()
-        } else {
-            format!("v{v}")
+    let release = match version {
+        Some(v) => {
+            let ver = v.strip_prefix('v').unwrap_or(v);
+            let tag = format!("{TAG_PREFIX}{ver}");
+            binary::fetch_github_release(REPO, Some(&tag))?
         }
-    });
-
-    let release = binary::fetch_github_release(REPO, tag.as_deref())?;
+        None => binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?,
+    };
     let latest = binary::parse_version_from_tag(&release.tag_name);
 
     if version.is_none() && current == latest {

@@ -139,8 +139,47 @@ pub fn fetch_github_release(repo: &str, tag: Option<&str>) -> crate::Result<GitH
         .map_err(|e| crate::Error::Other(format!("Failed to parse release JSON: {}", e)))
 }
 
+/// Fetch the latest release whose tag starts with the given prefix.
+/// Useful when a repo has multiple crates releasing independently (e.g. `ion-v*` vs `ion-skill-v*`).
+pub fn fetch_latest_release_by_tag_prefix(
+    repo: &str,
+    prefix: &str,
+) -> crate::Result<GitHubRelease> {
+    let url = format!(
+        "https://api.github.com/repos/{}/releases?per_page=10",
+        repo
+    );
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(&url)
+        .header("User-Agent", "ion-skill-manager")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .map_err(|e| crate::Error::Other(format!("Failed to fetch releases: {}", e)))?;
+    if !resp.status().is_success() {
+        return Err(crate::Error::Other(format!(
+            "GitHub API returned {}",
+            resp.status()
+        )));
+    }
+    let releases: Vec<GitHubRelease> = resp
+        .json()
+        .map_err(|e| crate::Error::Other(format!("Failed to parse releases JSON: {}", e)))?;
+    releases
+        .into_iter()
+        .find(|r| r.tag_name.starts_with(prefix))
+        .ok_or_else(|| {
+            crate::Error::Other(format!("No release found with tag prefix '{}'", prefix))
+        })
+}
+
 pub fn parse_version_from_tag(tag: &str) -> &str {
-    tag.strip_prefix('v').unwrap_or(tag)
+    // Handle release-plz style tags like "ion-v0.1.1" or "ion-skill-v0.1.0"
+    if let Some(pos) = tag.rfind("-v") {
+        &tag[pos + 2..]
+    } else {
+        tag.strip_prefix('v').unwrap_or(tag)
+    }
 }
 
 /// Download a file from URL to a local path.
@@ -728,6 +767,8 @@ mod tests {
     fn test_parse_version_from_tag() {
         assert_eq!(parse_version_from_tag("v1.2.0"), "1.2.0");
         assert_eq!(parse_version_from_tag("1.2.0"), "1.2.0");
+        assert_eq!(parse_version_from_tag("ion-v0.1.1"), "0.1.1");
+        assert_eq!(parse_version_from_tag("ion-skill-v0.1.0"), "0.1.0");
     }
 
     #[test]

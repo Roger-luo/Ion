@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'ion-v*'
 
 permissions:
   contents: write
@@ -46,7 +46,8 @@ jobs:
         shell: bash
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../ion-${GITHUB_REF_NAME#v}-${{ matrix.target }}.tar.gz ion
+          VERSION=${GITHUB_REF_NAME#ion-v}
+          tar czf ../../../ion-${VERSION}-${{ matrix.target }}.tar.gz ion
           cd ../../..
 
       - name: Upload artifact
