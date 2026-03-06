@@ -14,10 +14,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Add a skill to the project
+    /// Add skills to the project, or install all from Ion.toml
     Add {
-        /// Skill source (e.g., owner/repo/skill or git URL)
-        source: String,
+        /// Skill source (e.g., owner/repo/skill or git URL). Omit to install all from Ion.toml.
+        source: Option<String>,
         /// Pin to a specific git ref (branch, tag, or commit SHA)
         #[arg(long)]
         rev: Option<String>,
@@ -32,24 +32,6 @@ enum Commands {
         /// Skip confirmation prompt
         #[arg(long, short = 'y')]
         yes: bool,
-    },
-    /// Install all skills from Ion.toml
-    Install,
-    /// List installed skills
-    List,
-    /// Show detailed info about a skill
-    Info {
-        /// Skill source or name
-        skill: String,
-    },
-    /// Migrate skills from skills-lock.json or existing directories
-    Migrate {
-        /// Path to skills-lock.json (defaults to ./skills-lock.json)
-        #[arg(long)]
-        from: Option<String>,
-        /// Show what would be migrated without writing files
-        #[arg(long)]
-        dry_run: bool,
     },
     /// Search for skills across registries and GitHub
     Search {
@@ -71,27 +53,51 @@ enum Commands {
         #[arg(long, short)]
         verbose: bool,
     },
-    /// Garbage collect stale skill repos from global storage
-    Gc {
-        /// Show what would be cleaned without deleting
-        #[arg(long)]
-        dry_run: bool,
+    /// Update skills to their latest versions
+    Update {
+        /// Update only a specific skill (default: update all)
+        name: Option<String>,
     },
-    /// Link a local skill directory into the project
-    Link {
-        /// Path to the local skill directory containing SKILL.md
-        path: String,
+    /// Run a binary skill
+    Run {
+        /// Name of the binary skill to run
+        name: String,
+        /// Arguments to pass to the binary
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
     },
-    /// Validate local skill definitions
-    Validate {
-        /// Optional path to a SKILL.md file or skill/workspace directory
-        path: Option<String>,
+    /// Create, inspect, and validate skills
+    Skill {
+        #[command(subcommand)]
+        action: SkillCommands,
     },
+    /// Project setup and migration
+    Project {
+        #[command(subcommand)]
+        action: ProjectCommands,
+    },
+    /// Manage the skill cache
+    Cache {
+        #[command(subcommand)]
+        action: CacheCommands,
+    },
+    /// Manage ion configuration
+    Config {
+        #[command(subcommand)]
+        action: Option<commands::config::ConfigAction>,
+    },
+}
+
+#[derive(Subcommand)]
+enum SkillCommands {
     /// Create a new skill or skill collection
     New {
         /// Target directory (default: current directory)
         #[arg(long)]
         path: Option<String>,
+        /// Set the project skills directory (persisted to Ion.toml)
+        #[arg(long)]
+        dir: Option<String>,
         /// Also run `cargo init --bin` to scaffold a Rust CLI project
         #[arg(long)]
         bin: bool,
@@ -102,6 +108,32 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
+    /// Validate local skill definitions
+    Validate {
+        /// Optional path to a SKILL.md file or skill/workspace directory
+        path: Option<String>,
+    },
+    /// Show detailed info about a skill
+    Info {
+        /// Skill source or name
+        skill: String,
+    },
+    /// List installed skills
+    List,
+    /// Link a local skill directory into the project
+    Link {
+        /// Path to the local skill directory containing SKILL.md
+        path: String,
+    },
+    /// Eject a remote skill into an editable local copy
+    Eject {
+        /// Name of the skill to eject
+        name: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum ProjectCommands {
     /// Initialize Ion.toml with agent tool targets
     Init {
         /// Configure specific targets (e.g. claude, cursor, or name:path)
@@ -111,23 +143,24 @@ enum Commands {
         #[arg(long)]
         force: bool,
     },
-    /// Run a binary skill
-    Run {
-        /// Name of the binary skill to run
-        name: String,
-        /// Arguments to pass to the binary
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
+    /// Migrate skills from skills-lock.json or existing directories
+    Migrate {
+        /// Path to skills-lock.json (defaults to ./skills-lock.json)
+        #[arg(long)]
+        from: Option<String>,
+        /// Show what would be migrated without writing files
+        #[arg(long)]
+        dry_run: bool,
     },
-    /// Update binary skills to their latest versions
-    Update {
-        /// Update only a specific skill (default: update all binary skills)
-        name: Option<String>,
-    },
-    /// Manage ion configuration
-    Config {
-        #[command(subcommand)]
-        action: Option<commands::config::ConfigAction>,
+}
+
+#[derive(Subcommand)]
+enum CacheCommands {
+    /// Garbage collect stale skill repos from global storage
+    Gc {
+        /// Show what would be cleaned without deleting
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -135,12 +168,11 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
-        Commands::Add { source, rev, bin } => commands::add::run(&source, rev.as_deref(), bin),
+        Commands::Add { source, rev, bin } => match source {
+            Some(src) => commands::add::run(&src, rev.as_deref(), bin),
+            None => commands::install::run(),
+        },
         Commands::Remove { name, yes } => commands::remove::run(&name, yes),
-        Commands::Install => commands::install::run(),
-        Commands::List => commands::list::run(),
-        Commands::Info { skill } => commands::info::run(&skill),
-        Commands::Migrate { from, dry_run } => commands::migrate::run(from.as_deref(), dry_run),
         Commands::Search { query, agent, interactive, source, limit, verbose } => {
             if verbose {
                 env_logger::Builder::new()
@@ -149,13 +181,27 @@ fn main() {
             }
             commands::search::run(&query, agent, interactive, source.as_deref(), limit)
         }
-        Commands::Gc { dry_run } => commands::gc::run(dry_run),
-        Commands::Link { path } => commands::link::run(&path),
-        Commands::New { path, bin, collection, force } => commands::new::run(path.as_deref(), bin, collection, force),
-        Commands::Validate { path } => commands::validate::run(path.as_deref()),
-        Commands::Init { target, force } => commands::init::run(&target, force),
-        Commands::Run { name, args } => commands::run::run(&name, &args),
         Commands::Update { name } => commands::update::run(name.as_deref()),
+        Commands::Run { name, args } => commands::run::run(&name, &args),
+        Commands::Skill { action } => match action {
+            SkillCommands::New { path, dir, bin, collection, force } => {
+                commands::new::run(path.as_deref(), dir.as_deref(), bin, collection, force)
+            }
+            SkillCommands::Validate { path } => commands::validate::run(path.as_deref()),
+            SkillCommands::Info { skill } => commands::info::run(&skill),
+            SkillCommands::List => commands::list::run(),
+            SkillCommands::Link { path } => commands::link::run(&path),
+            SkillCommands::Eject { name } => commands::eject::run(&name),
+        },
+        Commands::Project { action } => match action {
+            ProjectCommands::Init { target, force } => commands::init::run(&target, force),
+            ProjectCommands::Migrate { from, dry_run } => {
+                commands::migrate::run(from.as_deref(), dry_run)
+            }
+        },
+        Commands::Cache { action } => match action {
+            CacheCommands::Gc { dry_run } => commands::gc::run(dry_run),
+        },
         Commands::Config { action } => commands::config::run(action),
     };
 

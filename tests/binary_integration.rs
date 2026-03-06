@@ -109,6 +109,8 @@ fn test_manifest_writer_binary_skill() {
         rev: None,
         version: None,
         binary: Some("mytool".to_string()),
+        asset_pattern: None,
+        forked_from: None,
     };
 
     ion_skill::manifest_writer::add_skill(&path, "mytool", &source).unwrap();
@@ -216,4 +218,105 @@ fn test_list_installed_binaries() {
     // which may or may not have content
     let result = ion_skill::binary::list_installed_binaries();
     assert!(result.is_ok());
+}
+
+/// Test URL template expansion replaces all placeholders with platform values.
+#[test]
+fn url_template_expansion() {
+    use ion_skill::binary::{expand_url_template, Platform};
+
+    let platform = Platform::detect();
+    let url = expand_url_template(
+        "https://example.com/releases/{version}/{binary}-{target}.tar.gz",
+        "mytool",
+        "1.2.0",
+    );
+    assert!(url.contains("1.2.0"));
+    assert!(url.contains("mytool"));
+    assert!(url.contains(&platform.target_triple()));
+    assert!(!url.contains("{version}"));
+    assert!(!url.contains("{binary}"));
+    assert!(!url.contains("{target}"));
+}
+
+/// Test that all supported placeholders are expanded correctly.
+#[test]
+fn url_template_all_placeholders() {
+    use ion_skill::binary::{expand_url_template, Platform};
+
+    let platform = Platform::detect();
+    let url = expand_url_template(
+        "{binary}-{version}-{os}-{arch}-{target}.tar.gz",
+        "tool",
+        "2.0",
+    );
+    assert_eq!(
+        url,
+        format!(
+            "tool-2.0-{}-{}-{}.tar.gz",
+            platform.os,
+            platform.arch,
+            platform.target_triple()
+        )
+    );
+}
+
+/// Test asset pattern matching against expanded URL templates.
+#[test]
+fn asset_pattern_matching() {
+    use ion_skill::binary::{expand_url_template, Platform};
+
+    let platform = Platform::detect();
+    let pattern = "mytool-{version}-{os}-{arch}.tar.gz";
+    let expanded = expand_url_template(pattern, "mytool", "1.0.0");
+
+    let expected = format!("mytool-1.0.0-{}-{}.tar.gz", platform.os, platform.arch);
+    assert_eq!(expanded, expected);
+
+    // Verify the expanded name would match an asset list
+    let assets = vec![
+        expected.clone(),
+        "mytool-1.0.0-other-other.tar.gz".to_string(),
+    ];
+    assert!(assets.contains(&expanded));
+}
+
+/// Test validate_binary with non-existent and real executables.
+#[test]
+fn binary_validation_struct() {
+    use ion_skill::binary::validate_binary;
+
+    // Test with non-existent path
+    assert!(validate_binary(std::path::Path::new("/nonexistent/binary")).is_err());
+
+    // Test with a real executable
+    #[cfg(unix)]
+    {
+        let tmp = tempdir().unwrap();
+        let bin = tmp.path().join("testbin");
+        std::fs::write(&bin, "#!/bin/sh\necho test").unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let validation = validate_binary(&bin).unwrap();
+        assert!(validation.is_executable);
+    }
+}
+
+/// Test manifest parsing with asset-pattern field.
+#[test]
+fn manifest_with_asset_pattern() {
+    use ion_skill::manifest::Manifest;
+
+    let toml_str = r#"[skills]
+mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pattern = "mytool-{version}-{os}-{arch}.tar.gz" }
+"#;
+    let manifest = Manifest::parse(toml_str).unwrap();
+    let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+    assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
+    assert_eq!(source.binary.as_deref(), Some("mytool"));
+    assert_eq!(
+        source.asset_pattern.as_deref(),
+        Some("mytool-{version}-{os}-{arch}.tar.gz")
+    );
 }

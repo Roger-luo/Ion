@@ -202,12 +202,33 @@ impl<'a> SkillInstaller<'a> {
         let binary_name = source.binary.as_deref().unwrap_or(name);
         let skill_dir = self.project_dir.join(".agents").join("skills").join(name);
 
-        let result = binary::install_binary_from_github(
-            &source.source,
-            binary_name,
-            source.rev.as_deref(),
-            &skill_dir,
-        )?;
+        let is_url = source.source.starts_with("http://") || source.source.starts_with("https://");
+
+        let result = if is_url {
+            // Generic URL source — version is required from source.rev
+            let version = source.rev.as_deref().ok_or_else(|| {
+                Error::Other(
+                    "Binary skills with URL sources require a version \
+                     (set rev = \"x.y.z\" in Ion.toml)"
+                        .to_string(),
+                )
+            })?;
+            binary::install_binary_from_url(&source.source, binary_name, version, &skill_dir)?
+        } else {
+            // GitHub shorthand (owner/repo)
+            binary::install_binary_from_github(
+                &source.source,
+                binary_name,
+                source.rev.as_deref(),
+                &skill_dir,
+                source.asset_pattern.as_deref(),
+            )?
+        };
+
+        // Print any warnings from the binary installation
+        for warning in &result.warnings {
+            eprintln!("Warning: {}", warning);
+        }
 
         // Validate the generated/bundled SKILL.md
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
@@ -226,9 +247,15 @@ impl<'a> SkillInstaller<'a> {
         // Deploy symlinks to targets
         self.deploy(name, &skill_dir)?;
 
+        let locked_source = if is_url {
+            source.source.clone()
+        } else {
+            format!("https://github.com/{}.git", source.source)
+        };
+
         Ok(LockedSkill {
             name: name.to_string(),
-            source: format!("https://github.com/{}.git", source.source),
+            source: locked_source,
             path: source.path.clone(),
             version: meta.version().map(|v| v.to_string()),
             commit: None,
@@ -253,7 +280,7 @@ impl<'a> SkillInstaller<'a> {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (commit, checksum)
             }
-            SourceType::Path | SourceType::Http | SourceType::Binary => {
+            SourceType::Path | SourceType::Http | SourceType::Binary | SourceType::Local => {
                 let checksum = git::checksum_dir(skill_dir).ok();
                 (None, checksum)
             }
@@ -309,6 +336,15 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
         }
         SourceType::Binary => {
             Err(Error::Source("Binary source uses dedicated installer".to_string()))
+        }
+        SourceType::Local => {
+            let path = PathBuf::from(&source.source);
+            if !path.exists() {
+                return Err(Error::Source(format!(
+                    "Local path does not exist: {}", source.source
+                )));
+            }
+            Ok(path)
         }
     }
 }
@@ -397,12 +433,15 @@ mod tests {
             rev: None,
             version: None,
             binary: None,
+            asset_pattern: None,
+            forked_from: None,
         }
     }
 
     fn empty_options() -> ManifestOptions {
         ManifestOptions {
             targets: std::collections::BTreeMap::new(),
+            skills_dir: None,
         }
     }
 
@@ -425,7 +464,7 @@ mod tests {
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets };
+        let options = ManifestOptions { targets, skills_dir: None };
 
         let installer = SkillInstaller::new(project.path(), &options);
         installer.uninstall("test").unwrap();
@@ -451,11 +490,13 @@ mod tests {
             rev: None,
             version: None,
             binary: None,
+            asset_pattern: None,
+            forked_from: None,
         };
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets };
+        let options = ManifestOptions { targets, skills_dir: None };
 
         let installer = SkillInstaller::new(project.path(), &options);
         let _locked = installer.install("sym-test", &source).unwrap();

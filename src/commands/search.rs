@@ -3,8 +3,8 @@ use std::io::IsTerminal;
 use crossterm::style::Stylize;
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
-    enrich_github_results, owner_repo_of, parallel_search, skill_dir_name,
-    AgentSource, GitHubSource, RegistrySource, SearchResult, SearchSource, SkillsShSource,
+    enrich_github_results, owner_repo_of, parallel_search, skill_dir_name, AgentSource,
+    GitHubSource, RegistrySource, SearchCache, SearchResult, SearchSource, SkillsShSource,
 };
 
 pub fn run(
@@ -75,8 +75,25 @@ fn execute_search(
         sources.push(Box::new(s));
     }
 
-    log::debug!("running parallel search across {} sources", sources.len());
-    Ok(parallel_search(sources, query, limit))
+    let cache = SearchCache::new();
+    let max_age_secs = config
+        .cache
+        .max_age_days
+        .map(|d| u64::from(d) * 86400)
+        .unwrap_or(86400); // default: 1 day
+
+    log::debug!(
+        "running parallel search across {} sources (cache max_age={}s)",
+        sources.len(),
+        max_age_secs
+    );
+    Ok(parallel_search(
+        sources,
+        query,
+        limit,
+        cache.as_ref(),
+        max_age_secs,
+    ))
 }
 
 fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {

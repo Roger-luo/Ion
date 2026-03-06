@@ -53,7 +53,7 @@ fn migrate_from_lockfile_dry_run() {
 
     // Run dry-run migrate — should not write files
     let output = ion_cmd()
-        .args(["migrate", "--dry-run"])
+        .args(["project", "migrate", "--dry-run"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .output()
@@ -91,7 +91,7 @@ fn migrate_from_directory_scan_dry_run() {
     // Run dry-run migrate (no skills-lock.json, falls back to dir scan)
     // Pipe empty stdin so prompts for source get skipped
     let output = ion_cmd()
-        .args(["migrate", "--dry-run"])
+        .args(["project", "migrate", "--dry-run"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .output()
@@ -112,7 +112,7 @@ fn migrate_no_skills_found() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["migrate", "--dry-run"])
+        .args(["project", "migrate", "--dry-run"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -168,7 +168,7 @@ fn migrate_with_local_git_repo() {
 
     // Provide empty rev (just press Enter) via stdin
     let mut child = Command::new(env!("CARGO_BIN_EXE_ion"))
-        .args(["migrate"])
+        .args(["project", "migrate"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -199,8 +199,8 @@ fn migrate_with_local_git_repo() {
 }
 
 #[test]
-fn help_shows_migrate() {
+fn help_shows_project_group() {
     let output = ion_cmd().args(["--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("migrate"));
+    assert!(stdout.contains("project"));
 }

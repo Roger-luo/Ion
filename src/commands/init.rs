@@ -78,12 +78,12 @@ fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<Option<BTree
     run_init_select(project_dir)
 }
 
-/// Print a hint if no targets are configured, suggesting `ion init`.
+/// Print a hint if no targets are configured, suggesting `ion project init`.
 pub fn print_no_targets_hint(merged_options: &ion_skill::manifest::ManifestOptions, p: &crate::style::Paint) {
     if merged_options.targets.is_empty() {
         println!();
         println!("  {}: skills are only installed to .agents/skills/ (the default location)", p.warn("hint"));
-        println!("        To also install to .claude/skills/ or other tools, run: {}", p.bold("ion init"));
+        println!("        To also install to .claude/skills/ or other tools, run: {}", p.bold("ion project init"));
     }
 }
 

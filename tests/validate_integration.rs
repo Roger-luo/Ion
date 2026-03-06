@@ -17,7 +17,7 @@ fn write_skill(path: &std::path::Path, name: &str, body: &str) {
 
 #[test]
 fn validate_help_is_exposed() {
-    let output = ion_cmd().args(["validate", "--help"]).output().unwrap();
+    let output = ion_cmd().args(["skill", "validate", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
     assert!(stdout.contains("Validate local skill definitions"));
@@ -32,7 +32,7 @@ fn validate_default_scans_current_dir_recursively() {
     write_skill(&skill_b, "skill-b", "Safe body");
 
     let output = ion_cmd()
-        .args(["validate"])
+        .args(["skill", "validate"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -53,7 +53,7 @@ fn validate_single_skill_path() {
     write_skill(&two, "skill-two", "Hidden \u{200B} marker");
 
     let output = ion_cmd()
-        .args(["validate", one.to_str().unwrap()])
+        .args(["skill", "validate", one.to_str().unwrap()])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -72,7 +72,7 @@ fn validate_returns_nonzero_when_any_error_exists() {
     write_skill(&bad, "skill-bad", "Hidden \u{200B} marker");
 
     let output = ion_cmd()
-        .args(["validate", project.path().to_str().unwrap()])
+        .args(["skill", "validate", project.path().to_str().unwrap()])
         .current_dir(project.path())
         .output()
         .unwrap();

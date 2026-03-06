@@ -1,9 +1,11 @@
 mod agent;
+mod cache;
 mod github;
 mod registry;
 mod skills_sh;
 
 pub use agent::{parse_agent_output, AgentSource};
+pub use cache::SearchCache;
 pub use github::{
     enrich_github_results, parse_gh_code_response, parse_gh_repo_response, GitHubSource,
 };
@@ -37,7 +39,7 @@ pub fn skill_dir_name(source: &str) -> &str {
 }
 
 /// Search result from any source.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SearchResult {
     pub name: String,
     pub description: String,
@@ -135,18 +137,48 @@ fn http_get_with_query(
 
 /// Run all search sources in parallel using threads. Merge all results.
 /// If a source errors, print a warning and skip it.
+///
+/// When `cache` is provided, each source checks the cache before making a
+/// network call and writes results back on a miss. The "agent" source is
+/// never cached because its output is dynamic.
 pub fn parallel_search(
     sources: Vec<Box<dyn SearchSource + Send>>,
     query: &str,
     limit: usize,
+    cache: Option<&SearchCache>,
+    max_age_secs: u64,
 ) -> Vec<SearchResult> {
     log::debug!("parallel: spawning {} search threads", sources.len());
     let query = query.to_string();
+
+    // Pre-resolve cache hits on the main thread (cache is not Send).
+    let source_cache: Vec<_> = sources
+        .iter()
+        .map(|source| {
+            let name = source.name();
+            if name == "agent" {
+                return None;
+            }
+            cache.and_then(|c| c.get(name, &query, max_age_secs))
+        })
+        .collect();
+
     let handles: Vec<_> = sources
         .into_iter()
-        .map(|source| {
+        .zip(source_cache)
+        .map(|(source, cached)| {
             let q = query.clone();
             std::thread::spawn(move || {
+                // Return cached results if available.
+                if let Some(results) = cached {
+                    log::debug!(
+                        "parallel: '{}' using {} cached results",
+                        source.name(),
+                        results.len()
+                    );
+                    return (source.name().to_string(), results, false);
+                }
+
                 log::debug!("parallel: thread searching '{}'", source.name());
                 match source.search(&q, limit) {
                     Ok(results) => {
@@ -155,12 +187,12 @@ pub fn parallel_search(
                             source.name(),
                             results.len()
                         );
-                        results
+                        (source.name().to_string(), results, true)
                     }
                     Err(e) => {
                         log::debug!("parallel: '{}' failed: {e}", source.name());
                         eprintln!("Warning: {} search failed: {e}", source.name());
-                        vec![]
+                        (source.name().to_string(), vec![], false)
                     }
                 }
             })
@@ -170,7 +202,16 @@ pub fn parallel_search(
     let mut all_results = Vec::new();
     for handle in handles {
         match handle.join() {
-            Ok(results) => all_results.extend(results),
+            Ok((source_name, results, from_network)) => {
+                // Write fresh network results to cache.
+                if from_network
+                    && source_name != "agent"
+                    && let Some(c) = cache
+                {
+                    c.put(&source_name, &query, &results);
+                }
+                all_results.extend(results);
+            }
             Err(_) => eprintln!("Warning: a search thread panicked"),
         }
     }

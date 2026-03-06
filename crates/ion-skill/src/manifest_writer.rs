@@ -81,9 +81,41 @@ pub fn write_targets(
     Ok(result)
 }
 
+/// Write a skills-dir value to an Ion.toml file's [options] section.
+/// Creates the file with a [skills] section if it doesn't exist.
+/// Preserves all existing content.
+pub fn write_skills_dir(manifest_path: &Path, skills_dir: &str) -> Result<String> {
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("skills") {
+        doc["skills"] = Item::Table(Table::new());
+    }
+
+    if !doc.contains_key("options") {
+        doc["options"] = Item::Table(Table::new());
+    }
+    let options = doc["options"]
+        .as_table_mut()
+        .ok_or_else(|| Error::Manifest("[options] is not a table".to_string()))?;
+
+    options["skills-dir"] = value(skills_dir);
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
-    let needs_table = source.rev.is_some() || source.version.is_some() || source.path.is_some() || source.binary.is_some();
+    let needs_table = source.rev.is_some()
+        || source.version.is_some()
+        || source.path.is_some()
+        || source.binary.is_some()
+        || source.asset_pattern.is_some()
+        || source.forked_from.is_some()
+        || source.source_type == SourceType::Local;
 
     if !needs_table {
         let display = match (&source.source_type, &source.path) {
@@ -109,13 +141,19 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         SourceType::Binary => {
             table.insert("type", "binary".into());
         }
+        SourceType::Local => {
+            table.insert("type", "local".into());
+        }
     }
 
-    let source_str = match (&source.source_type, &source.path) {
-        (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
-        _ => source.source.clone(),
-    };
-    table.insert("source", source_str.into());
+    // Local skills have no source field
+    if source.source_type != SourceType::Local {
+        let source_str = match (&source.source_type, &source.path) {
+            (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
+            _ => source.source.clone(),
+        };
+        table.insert("source", source_str.into());
+    }
 
     if let Some(ref v) = source.version {
         table.insert("version", v.as_str().into());
@@ -130,6 +168,12 @@ fn skill_to_toml(source: &SkillSource) -> Item {
     }
     if let Some(ref b) = source.binary {
         table.insert("binary", b.as_str().into());
+    }
+    if let Some(ref ap) = source.asset_pattern {
+        table.insert("asset-pattern", ap.as_str().into());
+    }
+    if let Some(ref ff) = source.forked_from {
+        table.insert("forked-from", ff.as_str().into());
     }
 
     value(table)
@@ -240,5 +284,63 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("[skills]"));
         assert!(content.contains("claude"));
+    }
+
+    #[test]
+    fn add_local_skill_to_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        let source = SkillSource {
+            source_type: SourceType::Local,
+            source: String::new(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: None,
+            asset_pattern: None,
+            forked_from: None,
+        };
+
+        let result = add_skill(&path, "my-local-skill", &source).unwrap();
+        assert!(result.contains("my-local-skill"));
+        assert!(result.contains("type = \"local\""));
+        assert!(!result.contains("source"), "local skills should not have a source field");
+    }
+
+    #[test]
+    fn add_local_skill_with_forked_from() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        let source = SkillSource {
+            source_type: SourceType::Local,
+            source: String::new(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: None,
+            asset_pattern: None,
+            forked_from: Some("org/original-skill".to_string()),
+        };
+
+        let result = add_skill(&path, "my-forked-skill", &source).unwrap();
+        assert!(result.contains("type = \"local\""));
+        assert!(result.contains("forked-from = \"org/original-skill\""));
+        assert!(!result.contains("source ="), "local skills should not have a source field");
+    }
+
+    #[test]
+    fn write_skills_dir_to_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n").unwrap();
+
+        let result = write_skills_dir(&path, "my-skills").unwrap();
+        assert!(result.contains("[options]"));
+        assert!(result.contains("skills-dir = \"my-skills\""));
+        assert!(result.contains("brainstorming"), "existing skills should be preserved");
     }
 }

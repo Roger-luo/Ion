@@ -313,6 +313,69 @@ pub fn find_bundled_skill_md(extract_dir: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Result of validating an installed binary.
+#[derive(Debug)]
+pub struct BinaryValidation {
+    pub is_executable: bool,
+    pub version_output: Option<String>,
+    pub has_skill_command: bool,
+}
+
+/// Validate that an installed binary is functional.
+///
+/// Checks executable permissions, tries `--version`, and checks for a `skill` subcommand.
+/// Returns an error only if the binary does not exist; other checks are best-effort.
+pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
+    use std::process::Command;
+
+    // 1. Check file exists
+    if !binary_path.exists() {
+        return Err(crate::Error::Other(format!(
+            "Binary not found at {}",
+            binary_path.display()
+        )));
+    }
+
+    // 2. Check if executable (unix only)
+    let is_executable = {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let meta = std::fs::metadata(binary_path)
+                .map_err(|e| crate::Error::Other(format!("Failed to read metadata: {}", e)))?;
+            meta.permissions().mode() & 0o111 != 0
+        }
+        #[cfg(not(unix))]
+        {
+            true
+        }
+    };
+
+    // 3. Try --version (don't fail if it doesn't work)
+    let version_output = Command::new(binary_path)
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // 4. Try `skill` subcommand — check if it produces output starting with `---`
+    let has_skill_command = Command::new(binary_path)
+        .arg("skill")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).starts_with("---"))
+        .unwrap_or(false);
+
+    Ok(BinaryValidation {
+        is_executable,
+        version_output,
+        has_skill_command,
+    })
+}
+
 /// Check if a binary is already installed at the given version.
 pub fn is_binary_installed(name: &str, version: &str) -> bool {
     binary_path(name, version).exists()
@@ -322,6 +385,7 @@ pub fn is_binary_installed(name: &str, version: &str) -> bool {
 pub struct BinaryInstallResult {
     pub version: String,
     pub binary_checksum: String,
+    pub warnings: Vec<String>,
 }
 
 /// Full binary skill installation from GitHub Releases.
@@ -330,6 +394,7 @@ pub fn install_binary_from_github(
     binary_name: &str,
     rev: Option<&str>,
     skill_dir: &Path,
+    asset_pattern: Option<&str>,
 ) -> crate::Result<BinaryInstallResult> {
     let platform = Platform::detect();
     let release = fetch_github_release(repo, rev)?;
@@ -353,25 +418,43 @@ pub fn install_binary_from_github(
         return Ok(BinaryInstallResult {
             version,
             binary_checksum: checksum,
+            warnings: Vec::new(),
         });
     }
 
     let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
 
-    let asset_name = platform
-        .match_asset(binary_name, &asset_names)
-        .ok_or_else(|| {
-            crate::Error::Other(format!(
-                "No matching release asset for platform {} in {:?}",
-                platform.target_triple(),
-                asset_names
-            ))
-        })?;
+    let asset_name = if let Some(pattern) = asset_pattern {
+        let expanded = expand_url_template(pattern, binary_name, &version);
+        if asset_names.contains(&expanded) {
+            expanded
+        } else {
+            return Err(crate::Error::Other(format!(
+                "Asset pattern expanded to '{}' but no matching asset found in {:?}",
+                expanded, asset_names
+            )));
+        }
+    } else {
+        platform
+            .match_asset(binary_name, &asset_names)
+            .ok_or_else(|| {
+                crate::Error::Other(format!(
+                    "No matching release asset for platform {} in {:?}",
+                    platform.target_triple(),
+                    asset_names
+                ))
+            })?
+    };
     let asset = release
         .assets
         .iter()
         .find(|a| a.name == asset_name)
-        .unwrap();
+        .ok_or_else(|| {
+            crate::Error::Other(format!(
+                "Asset '{}' not found in release (this is a bug — asset was matched but not found)",
+                asset_name
+            ))
+        })?;
 
     let tmp_dir = tempfile::tempdir()
         .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
@@ -401,9 +484,125 @@ pub fn install_binary_from_github(
     fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
         .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
 
+    // Validate the installed binary (warnings only, don't fail)
+    let mut warnings = Vec::new();
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
+        }
+        if !validation.has_skill_command {
+            warnings.push(format!(
+                "Binary '{}' does not have a 'skill' subcommand",
+                binary_name
+            ));
+        }
+    }
+
     Ok(BinaryInstallResult {
         version,
         binary_checksum: checksum,
+        warnings,
+    })
+}
+
+/// Expand placeholders in a URL template using detected platform info.
+///
+/// Supported placeholders: `{version}`, `{target}`, `{os}`, `{arch}`, `{binary}`.
+pub fn expand_url_template(template: &str, binary_name: &str, version: &str) -> String {
+    let platform = Platform::detect();
+    template
+        .replace("{version}", version)
+        .replace("{binary}", binary_name)
+        .replace("{target}", &platform.target_triple())
+        .replace("{os}", &platform.os)
+        .replace("{arch}", &platform.arch)
+}
+
+/// Install a binary from a generic URL template.
+///
+/// The `url_template` may contain placeholders expanded by [`expand_url_template`].
+/// The archive is expected to be a `.tar.gz` file.
+pub fn install_binary_from_url(
+    url_template: &str,
+    binary_name: &str,
+    version: &str,
+    skill_dir: &Path,
+) -> crate::Result<BinaryInstallResult> {
+    // Check if already installed at this version
+    if is_binary_installed(binary_name, version) {
+        let installed_binary = binary_path(binary_name, version);
+        let checksum = file_checksum(&installed_binary)?;
+
+        fs::create_dir_all(skill_dir)
+            .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+        if !skill_dir.join("SKILL.md").exists() {
+            let skill_md_content = generate_skill_md(&installed_binary)?;
+            fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+                .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+        }
+
+        return Ok(BinaryInstallResult {
+            version: version.to_string(),
+            binary_checksum: checksum,
+            warnings: Vec::new(),
+        });
+    }
+
+    let url = expand_url_template(url_template, binary_name, version);
+
+    if !url.ends_with(".tar.gz") && !url.ends_with(".tgz") {
+        return Err(crate::Error::Other(format!(
+            "URL-based binary sources currently only support .tar.gz archives, got: {url}"
+        )));
+    }
+
+    let tmp_dir = tempfile::tempdir()
+        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
+    let archive_path = tmp_dir.path().join(format!("{}.tar.gz", binary_name));
+    download_file(&url, &archive_path)?;
+
+    let extract_dir = tmp_dir.path().join("extracted");
+    extract_tar_gz(&archive_path, &extract_dir)?;
+
+    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
+    let bin_root = bin_dir();
+    install_binary_file(&found_binary, binary_name, version, &bin_root)?;
+
+    let installed_binary = binary_path(binary_name, version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
+        fs::read_to_string(&bundled)
+            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
+    } else {
+        generate_skill_md(&installed_binary)?
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    // Validate the installed binary (warnings only, don't fail)
+    let mut warnings = Vec::new();
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
+        }
+        if !validation.has_skill_command {
+            warnings.push(format!(
+                "Binary '{}' does not have a 'skill' subcommand",
+                binary_name
+            ));
+        }
+    }
+
+    Ok(BinaryInstallResult {
+        version: version.to_string(),
+        binary_checksum: checksum,
+        warnings,
     })
 }
 
@@ -719,5 +918,123 @@ fi
         // Just verify the function doesn't crash
         let result = list_installed_binaries();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_expand_url_template() {
+        let url = expand_url_template(
+            "https://example.com/releases/{version}/tool-{target}.tar.gz",
+            "tool",
+            "1.2.0",
+        );
+        let platform = Platform::detect();
+        let expected = format!(
+            "https://example.com/releases/1.2.0/tool-{}.tar.gz",
+            platform.target_triple()
+        );
+        assert_eq!(url, expected);
+    }
+
+    #[test]
+    fn test_expand_url_template_all_placeholders() {
+        let platform = Platform::detect();
+        let url = expand_url_template(
+            "https://example.com/{binary}-{version}-{os}-{arch}-{target}.tar.gz",
+            "mytool",
+            "2.0.0",
+        );
+        assert!(url.contains("mytool"));
+        assert!(url.contains("2.0.0"));
+        assert!(url.contains(&platform.os));
+        assert!(url.contains(&platform.arch));
+        assert!(url.contains(&platform.target_triple()));
+    }
+
+    #[test]
+    fn test_match_asset_with_pattern() {
+        let assets = vec![
+            "mytool-1.0.0-linux-x86_64.tar.gz".to_string(),
+            "mytool-1.0.0-macos-aarch64.tar.gz".to_string(),
+        ];
+        // With pattern, expand_url_template should produce an exact match
+        let platform = Platform::detect();
+        let expanded = expand_url_template(
+            "mytool-{version}-{os}-{arch}.tar.gz",
+            "mytool",
+            "1.0.0",
+        );
+        let expected = format!(
+            "mytool-1.0.0-{}-{}.tar.gz",
+            platform.os, platform.arch
+        );
+        assert_eq!(expanded, expected);
+        // The expanded name should match one of the assets if our platform is in the list
+        if assets.contains(&expanded) {
+            assert!(true);
+        }
+    }
+
+    #[test]
+    fn test_expand_url_template_no_placeholders() {
+        let url = expand_url_template(
+            "https://example.com/static/tool.tar.gz",
+            "tool",
+            "1.0.0",
+        );
+        assert_eq!(url, "https://example.com/static/tool.tar.gz");
+    }
+
+    #[test]
+    fn test_validate_binary_with_skill_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_path = tmp.path().join("mytool");
+        #[cfg(unix)]
+        {
+            fs::write(
+                &bin_path,
+                r#"#!/bin/sh
+if [ "$1" = "--version" ]; then
+    echo "mytool 1.0.0"
+elif [ "$1" = "skill" ]; then
+    echo "---"
+    echo "name: mytool"
+    echo "description: Test tool."
+    echo "---"
+else
+    echo "unknown"
+fi
+"#,
+            )
+            .unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
+
+            let validation = validate_binary(&bin_path).unwrap();
+            assert!(validation.is_executable);
+            assert_eq!(validation.version_output.as_deref(), Some("mytool 1.0.0"));
+            assert!(validation.has_skill_command);
+        }
+    }
+
+    #[test]
+    fn test_validate_binary_without_skill_command() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin_path = tmp.path().join("simpletool");
+        #[cfg(unix)]
+        {
+            fs::write(&bin_path, "#!/bin/sh\necho hello\n").unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin_path, fs::Permissions::from_mode(0o755)).unwrap();
+
+            let validation = validate_binary(&bin_path).unwrap();
+            assert!(validation.is_executable);
+            assert!(!validation.has_skill_command);
+        }
+    }
+
+    #[test]
+    fn test_validate_binary_not_found() {
+        let result = validate_binary(std::path::Path::new("/nonexistent/binary"));
+        assert!(result.is_err());
     }
 }
