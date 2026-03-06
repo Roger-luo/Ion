@@ -86,6 +86,12 @@ enum Commands {
         #[command(subcommand)]
         action: Option<commands::config::ConfigAction>,
     },
+    /// Manage the ion installation
+    #[command(name = "self")]
+    Self_ {
+        #[command(subcommand)]
+        action: SelfCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -155,6 +161,20 @@ enum ProjectCommands {
 }
 
 #[derive(Subcommand)]
+enum SelfCommands {
+    /// Show ion version and installation info
+    Info,
+    /// Check if a newer version of ion is available
+    Check,
+    /// Update ion to the latest (or a specific) version
+    Update {
+        /// Install a specific version (e.g. 0.2.0)
+        #[arg(long)]
+        version: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
 enum CacheCommands {
     /// Garbage collect stale skill repos from global storage
     Gc {
@@ -203,6 +223,11 @@ fn main() {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run),
         },
         Commands::Config { action } => commands::config::run(action),
+        Commands::Self_ { action } => match action {
+            SelfCommands::Info => commands::self_cmd::info(),
+            SelfCommands::Check => commands::self_cmd::check(),
+            SelfCommands::Update { version } => commands::self_cmd::update(version.as_deref()),
+        },
     };
 
     if let Err(e) = result {
