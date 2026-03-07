@@ -10,6 +10,12 @@ Ion manages installation, validation, and organization of **skills** — reusabl
 curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh
 ```
 
+To install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh -s -- 0.1.2
+```
+
 Or install from source:
 
 ```bash
