@@ -7,6 +7,12 @@ Ion manages installation, validation, and organization of **skills** — reusabl
 ## Installation
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh
+```
+
+Or install from source:
+
+```bash
 cargo install --git https://github.com/Roger-luo/Ion
 ```
 
