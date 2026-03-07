@@ -3,14 +3,22 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. ion-v0.1.2)'
+        required: true
 
 permissions:
   contents: write
 
+env:
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
 jobs:
   build:
     # Only build binaries for the ion crate, not ion-skill
-    if: startsWith(github.event.release.tag_name, 'ion-v')
+    if: startsWith(github.event.release.tag_name || inputs.tag, 'ion-v')
     strategy:
       matrix:
         include:
@@ -28,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -48,8 +56,7 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          TAG="${{ github.event.release.tag_name }}"
-          VERSION="${TAG#ion-v}"
+          VERSION="${RELEASE_TAG#ion-v}"
           cd target/${{ matrix.target }}/release
           tar czf ../../../ion-${VERSION}-${{ matrix.target }}.tar.gz ion
           cd ../../..
@@ -72,5 +79,5 @@ jobs:
       - name: Upload assets to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ env.RELEASE_TAG }}
           files: ion-*.tar.gz
