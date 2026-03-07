@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+### Fixed
+
+- Align release workflow and self-update with release-plz tag format (96138a1)
+
 ### Added
 
 - Add TUI target selection widget for ion init (e2fb9b6)
