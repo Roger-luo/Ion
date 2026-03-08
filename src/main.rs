@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 mod commands;
 mod context;
@@ -91,6 +91,18 @@ enum Commands {
     Self_ {
         #[command(subcommand)]
         action: SelfCommands,
+    },
+    /// Generate shell completion scripts
+    #[command(after_help = "\
+Setup:
+  bash   ion completion bash >> ~/.bashrc
+  zsh    ion completion zsh > ~/.zfunc/_ion
+  fish   ion completion fish > ~/.config/fish/completions/ion.fish
+  elvish ion completion elvish >> ~/.config/elvish/rc.elv
+  pwsh   ion completion powershell >> $PROFILE")]
+    Completion {
+        /// Shell to generate completions for
+        shell: clap_complete::Shell,
     },
 }
 
@@ -228,6 +240,10 @@ fn main() {
             SelfCommands::Check => commands::self_cmd::check(),
             SelfCommands::Update { version } => commands::self_cmd::update(version.as_deref()),
         },
+        Commands::Completion { shell } => {
+            commands::completion::run(shell, Cli::command());
+            Ok(())
+        }
     };
 
     if let Err(e) = result {
