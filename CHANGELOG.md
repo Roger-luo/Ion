@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Prompt for shell completion setup in install script ([#72](https://github.com/Roger-luo/Ion/pull/72)) (f3602dc)
+- Prompt user to star GitHub repos after install ([#71](https://github.com/Roger-luo/Ion/pull/71)) (4b86ff6)
+
+### Added
+
 - Add ion completion command ([#66](https://github.com/Roger-luo/Ion/pull/66)) (ae6c751)
 
 ### CI
