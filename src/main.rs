@@ -87,6 +87,13 @@ enum Commands {
         action: Option<commands::config::ConfigAction>,
     },
     /// Generate shell completion scripts
+    #[command(after_help = "\
+Setup:
+  bash   ion completion bash >> ~/.bashrc
+  zsh    ion completion zsh > ~/.zfunc/_ion
+  fish   ion completion fish > ~/.config/fish/completions/ion.fish
+  elvish ion completion elvish >> ~/.config/elvish/rc.elv
+  pwsh   ion completion powershell >> $PROFILE")]
     Completion {
         /// Shell to generate completions for
         shell: clap_complete::Shell,

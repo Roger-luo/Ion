@@ -55,3 +55,16 @@ fn completion_missing_shell_fails() {
         .expect("failed to run ion");
     assert!(!output.status.success(), "should require a shell argument");
 }
+
+#[test]
+fn completion_help_shows_setup_instructions() {
+    let output = ion_cmd()
+        .args(["completion", "--help"])
+        .output()
+        .expect("failed to run ion");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("Setup:"), "help should include setup section");
+    assert!(stdout.contains(".bashrc"), "help should show bash setup");
+    assert!(stdout.contains(".zfunc"), "help should show zsh setup");
+    assert!(stdout.contains("completions/ion.fish"), "help should show fish setup");
+}
