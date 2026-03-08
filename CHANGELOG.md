@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add ion completion command ([#66](https://github.com/Roger-luo/Ion/pull/66)) (ae6c751)
+
+### CI
+
+- Merge release binary builds into release-plz workflow (fa5f456)
+
+### Added
+
 - Allow specifying version in install script (caed683)
 - Add one-line install script (e5fa685)
 
