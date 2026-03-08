@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+### Added
+
+- Allow specifying version in install script (caed683)
+- Add one-line install script (e5fa685)
+
+### Fixed
+
+- Add workflow_dispatch trigger for manual release builds (1393dd6)
+- Trigger release builds on release event instead of tag push (560b35c)
+
 ### Fixed
 
 - Align release workflow and self-update with release-plz tag format (96138a1)
