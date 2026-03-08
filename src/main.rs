@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 
 mod commands;
 mod context;
@@ -85,6 +85,11 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: Option<commands::config::ConfigAction>,
+    },
+    /// Generate shell completion scripts
+    Completion {
+        /// Shell to generate completions for
+        shell: clap_complete::Shell,
     },
 }
 
@@ -203,6 +208,10 @@ fn main() {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run),
         },
         Commands::Config { action } => commands::config::run(action),
+        Commands::Completion { shell } => {
+            commands::completion::run(shell, Cli::command());
+            Ok(())
+        }
     };
 
     if let Err(e) = result {
