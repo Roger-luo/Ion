@@ -92,6 +92,89 @@ print_success() {
             echo "Or add that line to your shell profile (~/.bashrc, ~/.zshrc, etc.)"
             ;;
     esac
+
+    setup_completions
+}
+
+detect_shell() {
+    CURRENT_SHELL=""
+    if [ -n "${SHELL:-}" ]; then
+        case "$SHELL" in
+            */bash) CURRENT_SHELL="bash" ;;
+            */zsh)  CURRENT_SHELL="zsh" ;;
+            */fish) CURRENT_SHELL="fish" ;;
+        esac
+    fi
+}
+
+setup_completions() {
+    # Only prompt in interactive terminals
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        return
+    fi
+
+    detect_shell
+
+    ION="${INSTALL_DIR}/ion"
+
+    # Verify ion binary works before offering completions
+    if ! "$ION" --version >/dev/null 2>&1; then
+        return
+    fi
+
+    echo ""
+    if [ -n "$CURRENT_SHELL" ]; then
+        printf '  \033[1;32m>\033[0m Set up shell completions for %s? [Y/n] ' "$CURRENT_SHELL"
+        read -r REPLY </dev/tty
+        case "$REPLY" in
+            [nN]|[nN][oO]) return ;;
+        esac
+        install_completion "$CURRENT_SHELL"
+    else
+        printf '  \033[1;32m>\033[0m Set up shell completions? (bash/zsh/fish/n) '
+        read -r REPLY </dev/tty
+        case "$REPLY" in
+            bash|zsh|fish) install_completion "$REPLY" ;;
+            *) return ;;
+        esac
+    fi
+}
+
+install_completion() {
+    COMP_SHELL="$1"
+    ION="${INSTALL_DIR}/ion"
+
+    case "$COMP_SHELL" in
+        bash)
+            COMP_FILE="${HOME}/.bashrc"
+            echo "" >> "$COMP_FILE"
+            echo '# Ion shell completions' >> "$COMP_FILE"
+            echo 'eval "$('"$ION"' completion bash)"' >> "$COMP_FILE"
+            log "Added completions to $COMP_FILE"
+            log "Run 'source $COMP_FILE' or restart your shell to activate"
+            ;;
+        zsh)
+            COMP_DIR="${HOME}/.zfunc"
+            mkdir -p "$COMP_DIR"
+            "$ION" completion zsh > "${COMP_DIR}/_ion"
+            log "Installed completions to ${COMP_DIR}/_ion"
+            if ! grep -q 'fpath.*\.zfunc' "${HOME}/.zshrc" 2>/dev/null; then
+                echo "" >> "${HOME}/.zshrc"
+                echo '# Ion shell completions' >> "${HOME}/.zshrc"
+                echo 'fpath=(~/.zfunc $fpath)' >> "${HOME}/.zshrc"
+                echo 'autoload -Uz compinit && compinit' >> "${HOME}/.zshrc"
+                log "Added ~/.zfunc to fpath in ~/.zshrc"
+            fi
+            log "Run 'source ~/.zshrc' or restart your shell to activate"
+            ;;
+        fish)
+            COMP_DIR="${HOME}/.config/fish/completions"
+            mkdir -p "$COMP_DIR"
+            "$ION" completion fish > "${COMP_DIR}/ion.fish"
+            log "Installed completions to ${COMP_DIR}/ion.fish"
+            log "Completions will be active in new fish sessions"
+            ;;
+    esac
 }
 
 log()  { printf '  \033[1;32m>\033[0m %s\n' "$*"; }
