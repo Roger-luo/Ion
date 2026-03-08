@@ -1,3 +1,6 @@
+use std::io::{IsTerminal, Write};
+use std::path::PathBuf;
+
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
 use ion_skill::manifest_writer;
@@ -263,6 +266,7 @@ fn install_collection(
             skills.len()
         ))
     );
+    prompt_github_star(base_source);
     crate::commands::init::print_no_targets_hint(merged_options, p);
     Ok(())
 }
@@ -321,6 +325,7 @@ fn finish_single_install(
     println!("  Updated {}", p.dim("Ion.lock"));
 
     println!("{}", p.success("Done!"));
+    prompt_github_star(source);
     crate::commands::init::print_no_targets_hint(merged_options, p);
     Ok(())
 }
@@ -336,6 +341,59 @@ fn register_in_registry(source: &SkillSource, project_dir: &std::path::Path) -> 
         registry.save()?;
     }
     Ok(())
+}
+
+fn starred_repos_path() -> Option<PathBuf> {
+    dirs::config_dir().map(|d| d.join("ion").join("starred.json"))
+}
+
+fn load_starred_repos() -> Vec<String> {
+    starred_repos_path()
+        .and_then(|p| std::fs::read_to_string(&p).ok())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_starred_repos(repos: &[String]) {
+    if let Some(path) = starred_repos_path() {
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::write(&path, serde_json::to_string_pretty(repos).unwrap_or_default());
+    }
+}
+
+fn prompt_github_star(source: &SkillSource) {
+    if source.source_type != SourceType::Github || !std::io::stdin().is_terminal() {
+        return;
+    }
+
+    let repo = &source.source;
+    let mut starred = load_starred_repos();
+    if starred.iter().any(|r| r == repo) {
+        return;
+    }
+
+    print!("  Star {repo} on GitHub? [Y/n] ");
+    let _ = std::io::stdout().flush();
+
+    let mut answer = String::new();
+    if std::io::stdin().read_line(&mut answer).is_err() {
+        return;
+    }
+    let answer = answer.trim();
+    if answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes")
+    {
+        let _ = std::process::Command::new("gh")
+            .args(["repo", "star", repo])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+
+    // Record regardless of yes/no so we don't ask again
+    starred.push(repo.to_string());
+    save_starred_repos(&starred);
 }
 
 fn skill_name_from_source(source: &SkillSource) -> String {

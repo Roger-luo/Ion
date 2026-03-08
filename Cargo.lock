@@ -833,11 +833,13 @@ dependencies = [
  "clap",
  "clap_complete",
  "crossterm",
+ "dirs",
  "env_logger",
  "ion-skill",
  "log",
  "pathdiff",
  "ratatui",
+ "serde_json",
  "tempfile",
  "toml_edit",
 ]
