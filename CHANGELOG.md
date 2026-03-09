@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Embed SKILL.md as built-in ion-cli skill (8217503)
+- Add global --json flag for agent/script interface (d8cfe64)
+
+### Documentation
+
+- Add SKILL.md for agent CLI interface and update README (8975a85)
+- Add JSON agent interface implementation plan (2404caa)
+- Add JSON agent interface design (d633ef5)
+
+### Added
+
 - Prompt for shell completion setup in install script ([#72](https://github.com/Roger-luo/Ion/pull/72)) (f3602dc)
 - Prompt user to star GitHub repos after install ([#71](https://github.com/Roger-luo/Ion/pull/71)) (4b86ff6)
 
