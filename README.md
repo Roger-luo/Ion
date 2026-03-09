@@ -64,6 +64,21 @@ ion skill list
 | `ion cache gc` | Clean up stale cached repos |
 | `ion config` | View and set configuration |
 
+## JSON Mode for Agents
+
+All commands support `ion --json <command>` for structured, non-interactive output. This enables AI agents and CI scripts to operate Ion programmatically.
+
+```bash
+# Structured search results
+ion --json search "testing"
+
+# Two-stage commands: preview first, then execute
+ion --json remove my-skill        # returns what would be removed (exit 2)
+ion --json remove my-skill --yes  # executes the removal (exit 0)
+```
+
+See [SKILL.md](SKILL.md) for the full agent interface reference.
+
 ## License
 
 MIT
