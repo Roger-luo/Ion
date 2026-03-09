@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::bail;
 use ion_skill::binary;
@@ -6,6 +7,8 @@ use ion_skill::binary;
 const REPO: &str = "Roger-luo/Ion";
 /// Tag prefix used by release-plz for the ion crate
 const TAG_PREFIX: &str = "ion-v";
+/// How often to check for updates (24 hours)
+const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub fn info(json: bool) -> anyhow::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
@@ -131,6 +134,65 @@ pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
     println!("Updated to ion {latest}");
     println!("exe: {}", installed_path.display());
     Ok(())
+}
+
+/// Silently check for updates and print a hint to stderr if one is available.
+/// Uses a cache file to avoid hitting the GitHub API on every invocation.
+pub fn check_for_update_hint() {
+    let _ = check_for_update_hint_inner();
+}
+
+fn update_check_cache_path() -> Option<PathBuf> {
+    dirs::data_dir().map(|d| d.join("ion").join("update_check.json"))
+}
+
+fn check_for_update_hint_inner() -> Option<()> {
+    let cache_path = update_check_cache_path()?;
+    let current = env!("CARGO_PKG_VERSION");
+
+    // Check if we have a recent cached result
+    if let Ok(contents) = std::fs::read_to_string(&cache_path)
+        && let Ok(cached) = serde_json::from_str::<serde_json::Value>(&contents)
+    {
+        let ts = cached.get("timestamp")?.as_u64()?;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs();
+        if now.saturating_sub(ts) < UPDATE_CHECK_INTERVAL.as_secs() {
+            // Cache is fresh — show hint if update was available
+            let latest = cached.get("latest")?.as_str()?;
+            if latest != current {
+                print_update_hint(current, latest);
+            }
+            return Some(());
+        }
+    }
+
+    // Cache is stale or missing — fetch from GitHub (best-effort)
+    let release = binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX).ok()?;
+    let latest = binary::parse_version_from_tag(&release.tag_name);
+
+    // Write cache
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs();
+    let cache_value = serde_json::json!({
+        "timestamp": now,
+        "latest": latest,
+    });
+    if let Some(parent) = cache_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&cache_path, cache_value.to_string());
+
+    if latest != current {
+        print_update_hint(current, latest);
+    }
+
+    Some(())
+}
+
+fn print_update_hint(current: &str, latest: &str) {
+    eprintln!(
+        "\nUpdate available: ion {} -> {} — run `ion self update` to install",
+        current, latest
+    );
 }
 
 fn replace_exe(new_binary: &Path) -> anyhow::Result<PathBuf> {

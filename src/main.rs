@@ -208,6 +208,10 @@ enum CacheCommands {
 fn main() {
     let cli = Cli::parse();
     let json = cli.json;
+    let skip_update_check = matches!(
+        cli.command,
+        Commands::Self_ { .. } | Commands::Completion { .. }
+    );
 
     let result = match cli.command {
         Commands::Add {
@@ -295,5 +299,10 @@ fn main() {
             eprintln!("Error: {e}");
             std::process::exit(1);
         }
+    }
+
+    // Hint about available updates (silent on failure, skipped for --json and `self` commands)
+    if !json && !skip_update_check {
+        commands::self_cmd::check_for_update_hint();
     }
 }
