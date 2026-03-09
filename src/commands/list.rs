@@ -3,7 +3,7 @@ use ion_skill::manifest::Manifest;
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
     ctx.require_manifest()?;
@@ -12,7 +12,49 @@ pub fn run() -> anyhow::Result<()> {
     let lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
+        if json {
+            crate::json::print_success(serde_json::json!([]));
+            return Ok(());
+        }
         println!("No skills declared in Ion.toml.");
+        return Ok(());
+    }
+
+    if json {
+        let skills: Vec<serde_json::Value> = manifest
+            .skills
+            .iter()
+            .filter_map(|(name, entry)| {
+                let source = Manifest::resolve_entry(entry).ok()?;
+                let locked = lockfile.find(name);
+                let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
+                let version = if is_binary {
+                    locked
+                        .and_then(|l| l.binary_version.as_deref())
+                        .unwrap_or("unknown")
+                } else {
+                    locked
+                        .and_then(|l| l.version.as_deref())
+                        .unwrap_or("unknown")
+                };
+                let commit = locked.and_then(|l| l.commit.as_deref());
+                let installed = ctx
+                    .project_dir
+                    .join(".agents")
+                    .join("skills")
+                    .join(name)
+                    .exists();
+                Some(serde_json::json!({
+                    "name": name,
+                    "source": source.source,
+                    "version": version,
+                    "commit": commit,
+                    "binary": is_binary,
+                    "installed": installed,
+                }))
+            })
+            .collect();
+        crate::json::print_success(serde_json::json!(skills));
         return Ok(());
     }
 
@@ -24,9 +66,13 @@ pub fn run() -> anyhow::Result<()> {
         let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
 
         let version_str = if is_binary {
-            locked.and_then(|l| l.binary_version.as_deref()).unwrap_or("unknown")
+            locked
+                .and_then(|l| l.binary_version.as_deref())
+                .unwrap_or("unknown")
         } else {
-            locked.and_then(|l| l.version.as_deref()).unwrap_or("unknown")
+            locked
+                .and_then(|l| l.version.as_deref())
+                .unwrap_or("unknown")
         };
 
         let type_indicator = if is_binary {
@@ -56,7 +102,8 @@ pub fn run() -> anyhow::Result<()> {
         } else {
             format!("v{version_str}")
         };
-        println!("  {} {}{} [{}]",
+        println!(
+            "  {} {}{} [{}]",
             p.bold(name),
             p.dim(&display_version),
             type_indicator,

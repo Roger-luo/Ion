@@ -2,12 +2,17 @@ use clap::{CommandFactory, Parser, Subcommand};
 
 mod commands;
 mod context;
+mod json;
 pub mod style;
 mod tui;
 
 #[derive(Parser)]
 #[command(name = "ion", about = "Agent skill manager")]
 struct Cli {
+    /// Output results as JSON (for agents and scripts)
+    #[arg(long, global = true)]
+    json: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -24,6 +29,12 @@ enum Commands {
         /// Install as a binary CLI skill from GitHub Releases
         #[arg(long)]
         bin: bool,
+        /// Proceed despite validation warnings
+        #[arg(long)]
+        allow_warnings: bool,
+        /// Comma-separated list of skills to install from a collection
+        #[arg(long)]
+        skills: Option<String>,
     },
     /// Remove a skill from the project
     Remove {
@@ -40,9 +51,6 @@ enum Commands {
         /// Include configured CLI agent in search
         #[arg(long)]
         agent: bool,
-        /// Pick a result to install interactively
-        #[arg(long, short)]
-        interactive: bool,
         /// Search only a specific source
         #[arg(long)]
         source: Option<String>,
@@ -198,47 +206,80 @@ enum CacheCommands {
 
 fn main() {
     let cli = Cli::parse();
+    let json = cli.json;
 
     let result = match cli.command {
-        Commands::Add { source, rev, bin } => match source {
-            Some(src) => commands::add::run(&src, rev.as_deref(), bin),
-            None => commands::install::run(),
+        Commands::Add {
+            source,
+            rev,
+            bin,
+            allow_warnings,
+            skills,
+        } => match source {
+            Some(src) => commands::add::run(
+                &src,
+                rev.as_deref(),
+                bin,
+                json,
+                allow_warnings,
+                skills.as_deref(),
+            ),
+            None => commands::install::run(json, allow_warnings),
         },
-        Commands::Remove { name, yes } => commands::remove::run(&name, yes),
-        Commands::Search { query, agent, interactive, source, limit, verbose } => {
+        Commands::Remove { name, yes } => commands::remove::run(&name, yes, json),
+        Commands::Search {
+            query,
+            agent,
+            source,
+            limit,
+            verbose,
+        } => {
             if verbose {
                 env_logger::Builder::new()
                     .filter_level(log::LevelFilter::Debug)
                     .init();
             }
-            commands::search::run(&query, agent, interactive, source.as_deref(), limit)
+            commands::search::run(&query, agent, json, source.as_deref(), limit)
         }
-        Commands::Update { name } => commands::update::run(name.as_deref()),
+        Commands::Update { name } => commands::update::run(name.as_deref(), json),
         Commands::Run { name, args } => commands::run::run(&name, &args),
         Commands::Skill { action } => match action {
-            SkillCommands::New { path, dir, bin, collection, force } => {
-                commands::new::run(path.as_deref(), dir.as_deref(), bin, collection, force)
-            }
-            SkillCommands::Validate { path } => commands::validate::run(path.as_deref()),
-            SkillCommands::Info { skill } => commands::info::run(&skill),
-            SkillCommands::List => commands::list::run(),
-            SkillCommands::Link { path } => commands::link::run(&path),
-            SkillCommands::Eject { name } => commands::eject::run(&name),
+            SkillCommands::New {
+                path,
+                dir,
+                bin,
+                collection,
+                force,
+            } => commands::new::run(
+                path.as_deref(),
+                dir.as_deref(),
+                bin,
+                collection,
+                force,
+                json,
+            ),
+            SkillCommands::Validate { path } => commands::validate::run(path.as_deref(), json),
+            SkillCommands::Info { skill } => commands::info::run(&skill, json),
+            SkillCommands::List => commands::list::run(json),
+            SkillCommands::Link { path } => commands::link::run(&path, json),
+            SkillCommands::Eject { name } => commands::eject::run(&name, json),
         },
         Commands::Project { action } => match action {
-            ProjectCommands::Init { target, force } => commands::init::run(&target, force),
+            ProjectCommands::Init { target, force } => commands::init::run(&target, force, json),
             ProjectCommands::Migrate { from, dry_run } => {
                 commands::migrate::run(from.as_deref(), dry_run)
             }
         },
         Commands::Cache { action } => match action {
-            CacheCommands::Gc { dry_run } => commands::gc::run(dry_run),
+            CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
         },
-        Commands::Config { action } => commands::config::run(action),
+        Commands::Config { action } => commands::config::run(action, json),
         Commands::Self_ { action } => match action {
-            SelfCommands::Info => commands::self_cmd::info(),
-            SelfCommands::Check => commands::self_cmd::check(),
-            SelfCommands::Update { version } => commands::self_cmd::update(version.as_deref()),
+            SelfCommands::Info => commands::self_cmd::info(json),
+            SelfCommands::Check => commands::self_cmd::check(json),
+            SelfCommands::Update { version } => {
+                commands::self_cmd::update(version.as_deref(), json)
+            }
         },
         Commands::Completion { shell } => {
             commands::completion::run(shell, Cli::command());
@@ -247,7 +288,11 @@ fn main() {
     };
 
     if let Err(e) = result {
-        eprintln!("Error: {e}");
-        std::process::exit(1);
+        if json {
+            crate::json::print_error(&e.to_string());
+        } else {
+            eprintln!("Error: {e}");
+            std::process::exit(1);
+        }
     }
 }

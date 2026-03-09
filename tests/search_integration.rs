@@ -13,7 +13,10 @@ fn search_shows_help() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Search for skills"));
     assert!(stdout.contains("--agent"));
-    assert!(stdout.contains("--interactive"));
+    assert!(
+        !stdout.contains("--interactive"),
+        "--interactive flag should be removed"
+    );
     assert!(stdout.contains("--source"));
     assert!(stdout.contains("--limit"));
 }

@@ -51,43 +51,50 @@ fn rename_legacy_files(project_dir: &Path) -> anyhow::Result<()> {
     let has_new_lock = dir_has_exact_name(project_dir, "Ion.lock");
 
     if has_old_manifest && has_new_manifest {
-        anyhow::bail!(
-            "Both ion.toml and Ion.toml found. Please remove one before running init."
-        );
+        anyhow::bail!("Both ion.toml and Ion.toml found. Please remove one before running init.");
     }
     if has_old_manifest {
-        std::fs::rename(
-            project_dir.join("ion.toml"),
-            project_dir.join("Ion.toml"),
-        )?;
+        std::fs::rename(project_dir.join("ion.toml"), project_dir.join("Ion.toml"))?;
         println!("Renamed ion.toml → Ion.toml");
     }
     if has_old_lock && !has_new_lock {
-        std::fs::rename(
-            project_dir.join("ion.lock"),
-            project_dir.join("Ion.lock"),
-        )?;
+        std::fs::rename(project_dir.join("ion.lock"), project_dir.join("Ion.lock"))?;
         println!("Renamed ion.lock → Ion.lock");
     }
     Ok(())
 }
 
-fn select_targets_interactive(project_dir: &Path) -> anyhow::Result<Option<BTreeMap<String, String>>> {
+fn select_targets_interactive(
+    project_dir: &Path,
+) -> anyhow::Result<Option<BTreeMap<String, String>>> {
     use crate::tui::init_select::run_init_select;
 
     run_init_select(project_dir)
 }
 
 /// Print a hint if no targets are configured, suggesting `ion project init`.
-pub fn print_no_targets_hint(merged_options: &ion_skill::manifest::ManifestOptions, p: &crate::style::Paint) {
+pub fn print_no_targets_hint(
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    p: &crate::style::Paint,
+    json: bool,
+) {
+    if json {
+        return;
+    }
     if merged_options.targets.is_empty() {
         println!();
-        println!("  {}: skills are only installed to .agents/skills/ (the default location)", p.warn("hint"));
-        println!("        To also install to .claude/skills/ or other tools, run: {}", p.bold("ion project init"));
+        println!(
+            "  {}: skills are only installed to .agents/skills/ (the default location)",
+            p.warn("hint")
+        );
+        println!(
+            "        To also install to .claude/skills/ or other tools, run: {}",
+            p.bold("ion project init")
+        );
     }
 }
 
-pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
+pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = crate::style::Paint::new(&ctx.global_config);
 
@@ -110,6 +117,21 @@ pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
             map.insert(name, path);
         }
         map
+    } else if json {
+        let detected: Vec<_> = KNOWN_TARGETS
+            .iter()
+            .map(|(name, dir, path)| {
+                let exists = ctx.project_dir.join(dir).exists();
+                serde_json::json!({"name": name, "path": path, "detected": exists})
+            })
+            .collect();
+        crate::json::print_action_required(
+            "target_selection",
+            serde_json::json!({
+                "available_targets": detected,
+                "hint": "Re-run with --target flags to select targets",
+            }),
+        );
     } else {
         match select_targets_interactive(&ctx.project_dir)? {
             Some(targets) => targets,
@@ -120,10 +142,22 @@ pub fn run(targets: &[String], force: bool) -> anyhow::Result<()> {
     // Write targets to Ion.toml
     manifest_writer::write_targets(&ctx.manifest_path, &resolved)?;
 
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "targets": resolved,
+            "manifest": "Ion.toml",
+        }));
+        return Ok(());
+    }
+
     if resolved.is_empty() {
         println!("{} Ion.toml", p.success("Created"));
     } else {
-        println!("{} Ion.toml with {} target(s):", p.success("Created"), p.bold(&resolved.len().to_string()));
+        println!(
+            "{} Ion.toml with {} target(s):",
+            p.success("Created"),
+            p.bold(&resolved.len().to_string())
+        );
         for (name, path) in &resolved {
             println!("  {} → {}", p.bold(name), p.info(path));
         }
@@ -159,5 +193,4 @@ mod tests {
     fn parse_absolute_path_is_error() {
         assert!(parse_target_flag("foo:/absolute/path").is_err());
     }
-
 }

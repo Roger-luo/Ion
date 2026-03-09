@@ -3,18 +3,20 @@ use std::io::IsTerminal;
 use crossterm::style::Stylize;
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
-    enrich_github_results, owner_repo_of, parallel_search, skill_dir_name, AgentSource,
-    GitHubSource, RegistrySource, SearchCache, SearchResult, SearchSource, SkillsShSource,
+    AgentSource, GitHubSource, RegistrySource, SearchCache, SearchResult, SearchSource,
+    SkillsShSource, enrich_github_results, owner_repo_of, parallel_search, skill_dir_name,
 };
 
 pub fn run(
     query: &str,
     agent: bool,
-    interactive: bool,
+    json: bool,
     source_filter: Option<&str>,
     limit: usize,
 ) -> anyhow::Result<()> {
-    log::debug!("search starting: query={query:?}, agent={agent}, interactive={interactive}, source={source_filter:?}, limit={limit}");
+    log::debug!(
+        "search starting: query={query:?}, agent={agent}, json={json}, source={source_filter:?}, limit={limit}"
+    );
     let config = GlobalConfig::load()?;
     log::debug!(
         "loaded config: {} registries, agent_command={:?}",
@@ -25,6 +27,10 @@ pub fn run(
 
     if results.is_empty() {
         log::debug!("no results found");
+        if json {
+            crate::json::print_success(serde_json::json!([]));
+            return Ok(());
+        }
         println!("No results found for '{query}'.");
         return Ok(());
     }
@@ -34,9 +40,15 @@ pub fn run(
         results.len()
     );
     enrich_github_results(&mut results);
-    print_results(&results);
 
-    if interactive {
+    if json {
+        crate::json::print_success(&results);
+        return Ok(());
+    }
+
+    // Human mode: TUI picker if TTY, otherwise plain text list
+    print_results(&results);
+    if std::io::stdout().is_terminal() {
         pick_and_install(&results)?;
     }
 
@@ -65,9 +77,7 @@ fn execute_search(
             .collect::<Vec<_>>()
             .join(", ")
     );
-    if agent
-        && let Some(s) = build_agent_source(config)
-    {
+    if agent && let Some(s) = build_agent_source(config) {
         log::debug!(
             "adding agent source with command template: {:?}",
             s.command_template
@@ -237,8 +247,7 @@ fn group_by_owner_repo_refs<'a>(
     results: &[&'a SearchResult],
 ) -> Vec<(String, Vec<&'a SearchResult>)> {
     let mut groups: Vec<(String, Vec<&'a SearchResult>)> = Vec::new();
-    let mut key_to_idx: std::collections::HashMap<&str, usize> =
-        std::collections::HashMap::new();
+    let mut key_to_idx: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
 
     for r in results {
         let key = owner_repo_of(&r.source);

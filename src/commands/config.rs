@@ -30,49 +30,65 @@ pub enum ConfigAction {
     },
 }
 
-pub fn run(action: Option<ConfigAction>) -> anyhow::Result<()> {
+pub fn run(action: Option<ConfigAction>, json: bool) -> anyhow::Result<()> {
     match action {
+        None if json => anyhow::bail!(
+            "Interactive config editor not available in --json mode. Use 'ion config get/set/list'."
+        ),
         None => run_interactive(),
-        Some(ConfigAction::Get { key, project }) => run_get(&key, project),
-        Some(ConfigAction::Set { key, value, project }) => run_set(&key, &value, project),
-        Some(ConfigAction::List { project }) => run_list(project),
+        Some(ConfigAction::Get { key, project }) => run_get(&key, project, json),
+        Some(ConfigAction::Set {
+            key,
+            value,
+            project,
+        }) => run_set(&key, &value, project, json),
+        Some(ConfigAction::List { project }) => run_list(project, json),
     }
 }
 
-fn run_get(key: &str, project: bool) -> anyhow::Result<()> {
-    if project {
+fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
+    let (value, scope) = if project {
         let ctx = crate::context::ProjectContext::load()?;
         let manifest = Manifest::from_file(&ctx.manifest_path)?;
-        match manifest.options.get_value(key) {
-            Some(value) => println!("{value}"),
-            None => {
-                eprintln!("Key '{key}' not found in project config");
-                std::process::exit(1);
-            }
-        }
+        (manifest.options.get_value(key), "project")
     } else {
         let config = GlobalConfig::load()?;
-        match config.get_value(key) {
-            Some(value) => println!("{value}"),
-            None => {
-                eprintln!("Key '{key}' not found in global config");
-                std::process::exit(1);
-            }
+        (config.get_value(key), "global")
+    };
+
+    let value = match value {
+        Some(v) => v,
+        None if json => anyhow::bail!("Key '{key}' not found in {scope} config"),
+        None => {
+            eprintln!("Key '{key}' not found in {scope} config");
+            std::process::exit(1);
         }
+    };
+
+    if json {
+        crate::json::print_success(serde_json::json!({"key": key, "value": value}));
+        return Ok(());
     }
+
+    println!("{value}");
     Ok(())
 }
 
-fn run_set(key: &str, value: &str, project: bool) -> anyhow::Result<()> {
+fn run_set(key: &str, value: &str, project: bool, json: bool) -> anyhow::Result<()> {
     if project {
         let ctx = crate::context::ProjectContext::load()?;
         set_project_value(&ctx.manifest_path, key, value)?;
-        println!("Set {key} = \"{value}\" in project config");
     } else {
         let config_path = GlobalConfig::config_path()
             .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
         GlobalConfig::set_value_in_file(&config_path, key, value)?;
-        println!("Set {key} = \"{value}\" in global config");
+    }
+
+    if json {
+        crate::json::print_success(serde_json::json!({"key": key, "value": value}));
+    } else {
+        let scope = if project { "project" } else { "global" };
+        println!("Set {key} = \"{value}\" in {scope} config");
     }
     Ok(())
 }
@@ -92,24 +108,29 @@ fn print_config_sections(values: &[(String, String)]) {
     }
 }
 
-fn run_list(project: bool) -> anyhow::Result<()> {
-    if project {
+fn run_list(project: bool, json: bool) -> anyhow::Result<()> {
+    let (values, scope) = if project {
         let ctx = crate::context::ProjectContext::load()?;
         let manifest = Manifest::from_file(&ctx.manifest_path)?;
-        let values = manifest.options.list_values();
-        if values.is_empty() {
-            println!("No project config values set.");
-        } else {
-            print_config_sections(&values);
-        }
+        (manifest.options.list_values(), "project")
     } else {
         let config = GlobalConfig::load()?;
-        let values = config.list_values();
-        if values.is_empty() {
-            println!("No global config values set.");
-        } else {
-            print_config_sections(&values);
-        }
+        (config.list_values(), "global")
+    };
+
+    if json {
+        let map: serde_json::Map<String, serde_json::Value> = values
+            .iter()
+            .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+            .collect();
+        crate::json::print_success(map);
+        return Ok(());
+    }
+
+    if values.is_empty() {
+        println!("No {scope} config values set.");
+    } else {
+        print_config_sections(&values);
     }
     Ok(())
 }
@@ -122,9 +143,9 @@ fn set_project_value(
 ) -> anyhow::Result<()> {
     use toml_edit::{DocumentMut, Item, Table};
 
-    let (section, field) = key.split_once('.').ok_or_else(|| {
-        anyhow::anyhow!("Invalid key format '{key}': expected 'section.key'")
-    })?;
+    let (section, field) = key
+        .split_once('.')
+        .ok_or_else(|| anyhow::anyhow!("Invalid key format '{key}': expected 'section.key'"))?;
 
     if section != "targets" {
         anyhow::bail!("Project config only supports 'targets' section, got '{section}'");

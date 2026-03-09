@@ -6,11 +6,11 @@ use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
 use ion_skill::validate::ValidationReport;
 
-use crate::context::ProjectContext;
 use crate::commands::validation::{print_validation_report, select_warned_skills};
+use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
     ctx.require_manifest()?;
@@ -19,13 +19,25 @@ pub fn run() -> anyhow::Result<()> {
     let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
+        if json {
+            crate::json::print_success(serde_json::json!({
+                "installed": [],
+                "skipped": [],
+            }));
+            return Ok(());
+        }
         println!("No skills declared in Ion.toml.");
         return Ok(());
     }
 
     let merged_options = ctx.merged_options(&manifest);
 
-    println!("Installing {} skill(s)...", p.bold(&manifest.skills.len().to_string()));
+    if !json {
+        println!(
+            "Installing {} skill(s)...",
+            p.bold(&manifest.skills.len().to_string())
+        );
+    }
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
 
@@ -44,10 +56,7 @@ pub fn run() -> anyhow::Result<()> {
 
         // Local skills bypass validation — deploy directly from project tree
         if source.source_type == SourceType::Local {
-            let skills_dir = merged_options
-                .skills_dir
-                .as_deref()
-                .unwrap_or(".agents");
+            let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents");
             let local_skill_dir = ctx.project_dir.join(skills_dir).join("skills").join(name);
 
             if !local_skill_dir.exists() {
@@ -80,10 +89,19 @@ pub fn run() -> anyhow::Result<()> {
 
         match installer.validate(name, &source) {
             Ok(report) if report.warning_count > 0 => {
-                warned.push((SkillEntry { name: name.clone(), source }, report));
+                warned.push((
+                    SkillEntry {
+                        name: name.clone(),
+                        source,
+                    },
+                    report,
+                ));
             }
             Ok(_) => {
-                clean.push(SkillEntry { name: name.clone(), source });
+                clean.push(SkillEntry {
+                    name: name.clone(),
+                    source,
+                });
             }
             Err(SkillError::ValidationFailed { report, .. }) => {
                 print_validation_report(name, &report);
@@ -101,16 +119,22 @@ pub fn run() -> anyhow::Result<()> {
         for (entry, report) in &warned {
             println!(
                 "  {} {} — {} warning(s)",
-                p.warn("⚠"), p.bold(&entry.name), report.warning_count
+                p.warn("⚠"),
+                p.bold(&entry.name),
+                report.warning_count
             );
             for finding in &report.findings {
-                println!("      {} [{}] {}", finding.severity, finding.checker, finding.message);
+                println!(
+                    "      {} [{}] {}",
+                    finding.severity, finding.checker, finding.message
+                );
             }
         }
         for (name, _) in &errored {
             println!(
                 "  {} {} — validation errors, will be skipped",
-                "✗", p.bold(name)
+                "✗",
+                p.bold(name)
             );
         }
         println!();
@@ -118,15 +142,49 @@ pub fn run() -> anyhow::Result<()> {
 
     // Phase 2b: Interactive selection for warned skills
     let warned_selections = if !warned.is_empty() {
-        let items: Vec<(String, usize)> = warned
-            .iter()
-            .map(|(entry, report)| (entry.name.clone(), report.warning_count))
-            .collect();
-        match select_warned_skills(&items)? {
-            Some(selections) => selections,
-            None => {
-                println!("Installation cancelled.");
-                return Ok(());
+        if json && !allow_warnings {
+            let skills_data: Vec<serde_json::Value> = warned
+                .iter()
+                .map(|(entry, report)| {
+                    let findings: Vec<serde_json::Value> = report
+                        .findings
+                        .iter()
+                        .map(|f| {
+                            serde_json::json!({
+                                "severity": f.severity.to_string(),
+                                "checker": f.checker,
+                                "message": f.message,
+                            })
+                        })
+                        .collect();
+                    serde_json::json!({
+                        "name": entry.name,
+                        "warning_count": report.warning_count,
+                        "findings": findings,
+                    })
+                })
+                .collect();
+            crate::json::print_action_required(
+                "validation_warnings",
+                serde_json::json!({
+                    "skills": skills_data,
+                    "hint": "Re-run with --allow-warnings to install these skills",
+                }),
+            );
+        } else if json && allow_warnings {
+            // In JSON mode with allow_warnings, install all warned skills
+            vec![true; warned.len()]
+        } else {
+            let items: Vec<(String, usize)> = warned
+                .iter()
+                .map(|(entry, report)| (entry.name.clone(), report.warning_count))
+                .collect();
+            match select_warned_skills(&items)? {
+                Some(selections) => selections,
+                None => {
+                    println!("Installation cancelled.");
+                    return Ok(());
+                }
             }
         }
     } else {
@@ -134,32 +192,50 @@ pub fn run() -> anyhow::Result<()> {
     };
 
     // Phase 3: Install approved skills
+    let mut json_installed: Vec<serde_json::Value> = Vec::new();
+    let mut json_skipped: Vec<serde_json::Value> = Vec::new();
+
     // Install clean skills
     for entry in &clean {
-        println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
+        if !json {
+            println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
+        }
         let locked = installer.install_with_options(
             &entry.name,
             &entry.source,
             InstallValidationOptions::default(),
         )?;
 
-        if !matches!(entry.source.source_type, SourceType::Path | SourceType::Local) {
-            let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
+        if !matches!(
+            entry.source.source_type,
+            SourceType::Path | SourceType::Local
+        ) {
+            let target_paths: Vec<&str> = merged_options
+                .targets
+                .values()
+                .map(|s| s.as_str())
+                .collect();
             ion_skill::gitignore::add_skill_entries(&ctx.project_dir, &entry.name, &target_paths)?;
         }
 
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
+        json_installed.push(serde_json::json!({ "name": entry.name }));
     }
 
     // Install user-approved warned skills
     for (i, (entry, _report)) in warned.iter().enumerate() {
         if !warned_selections[i] {
-            println!("  Skipping '{}' (deselected)", entry.name);
+            if !json {
+                println!("  Skipping '{}' (deselected)", entry.name);
+            }
+            json_skipped.push(serde_json::json!({ "name": entry.name, "reason": "deselected" }));
             continue;
         }
 
-        println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
+        if !json {
+            println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
+        }
         let locked = installer.install_with_options(
             &entry.name,
             &entry.source,
@@ -169,28 +245,51 @@ pub fn run() -> anyhow::Result<()> {
             },
         )?;
 
-        if !matches!(entry.source.source_type, SourceType::Path | SourceType::Local) {
-            let target_paths: Vec<&str> = merged_options.targets.values().map(|s| s.as_str()).collect();
+        if !matches!(
+            entry.source.source_type,
+            SourceType::Path | SourceType::Local
+        ) {
+            let target_paths: Vec<&str> = merged_options
+                .targets
+                .values()
+                .map(|s| s.as_str())
+                .collect();
             ion_skill::gitignore::add_skill_entries(&ctx.project_dir, &entry.name, &target_paths)?;
         }
 
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
+        json_installed.push(serde_json::json!({ "name": entry.name }));
     }
 
     // Log skipped errored skills
     for (name, _) in &errored {
-        println!("  Skipping '{}' (validation errors)", name);
+        if !json {
+            println!("  Skipping '{}' (validation errors)", name);
+        }
+        json_skipped.push(serde_json::json!({ "name": name, "reason": "validation_errors" }));
     }
 
     lockfile.write_to(&ctx.lockfile_path)?;
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "installed": json_installed,
+            "skipped": json_skipped,
+        }));
+        return Ok(());
+    }
+
     println!("Updated {}", p.dim("Ion.lock"));
     println!("{}", p.success("Done!"));
 
     Ok(())
 }
 
-fn register_in_registry(source: &ion_skill::source::SkillSource, project_dir: &std::path::Path) -> anyhow::Result<()> {
+fn register_in_registry(
+    source: &ion_skill::source::SkillSource,
+    project_dir: &std::path::Path,
+) -> anyhow::Result<()> {
     if matches!(source.source_type, SourceType::Github | SourceType::Git)
         && let Ok(url) = source.git_url()
     {

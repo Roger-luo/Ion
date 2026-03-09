@@ -7,7 +7,7 @@ use ion_skill::source::{SkillSource, SourceType};
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run(name: &str) -> anyhow::Result<()> {
+pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
     let manifest = ctx.manifest()?;
@@ -25,18 +25,12 @@ pub fn run(name: &str) -> anyhow::Result<()> {
 
     // Resolve skills-dir from merged options (default ".agents")
     let merged_options = ctx.merged_options(&manifest);
-    let skills_dir = merged_options
-        .skills_dir
-        .as_deref()
-        .unwrap_or(".agents");
+    let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents");
 
     // Find the current installed skill at .agents/skills/<name>
     let agents_skill = ctx.project_dir.join(".agents").join("skills").join(name);
     if !agents_skill.exists() {
-        anyhow::bail!(
-            "Skill '{}' is not installed. Run `ion add` first.",
-            name
-        );
+        anyhow::bail!("Skill '{}' is not installed. Run `ion add` first.", name);
     }
 
     // Resolve the actual content by following symlinks
@@ -45,10 +39,12 @@ pub fn run(name: &str) -> anyhow::Result<()> {
     // Determine destination
     let dest = ctx.project_dir.join(skills_dir).join("skills").join(name);
 
-    println!(
-        "Ejecting skill {} to local copy...",
-        p.bold(&format!("'{name}'"))
-    );
+    if !json {
+        println!(
+            "Ejecting skill {} to local copy...",
+            p.bold(&format!("'{name}'"))
+        );
+    }
 
     // Handle the copy based on whether skills-dir is ".agents" or custom
     if skills_dir == ".agents" {
@@ -86,7 +82,12 @@ pub fn run(name: &str) -> anyhow::Result<()> {
         .strip_prefix(&ctx.project_dir)
         .unwrap_or(&dest)
         .display();
-    println!("  Copied skill content to {}", p.info(&display_dest.to_string()));
+    if !json {
+        println!(
+            "  Copied skill content to {}",
+            p.info(&display_dest.to_string())
+        );
+    }
 
     // Target symlinks (.claude/skills/<name> etc.) already point at .agents, no update needed
 
@@ -101,18 +102,19 @@ pub fn run(name: &str) -> anyhow::Result<()> {
         version: None,
         binary: None,
         asset_pattern: None,
-        forked_from: Some(forked_from),
+        forked_from: Some(forked_from.clone()),
     };
     manifest_writer::remove_skill(&ctx.manifest_path, name)?;
     manifest_writer::add_skill(&ctx.manifest_path, name, &local_source)?;
-    println!("  Updated {} — type changed to local", p.dim("Ion.toml"));
+    if !json {
+        println!("  Updated {} — type changed to local", p.dim("Ion.toml"));
+    }
 
     // Remove gitignore entries (local skills are tracked by git)
     ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, name)?;
-    println!(
-        "  Updated {} — removed skill entries",
-        p.dim(".gitignore")
-    );
+    if !json {
+        println!("  Updated {} — removed skill entries", p.dim(".gitignore"));
+    }
 
     // Update lockfile: drop commit hash, keep checksum
     let mut lockfile = ctx.lockfile()?;
@@ -123,7 +125,18 @@ pub fn run(name: &str) -> anyhow::Result<()> {
         };
         lockfile.upsert(updated);
         lockfile.write_to(&ctx.lockfile_path)?;
-        println!("  Updated {}", p.dim("Ion.lock"));
+        if !json {
+            println!("  Updated {}", p.dim("Ion.lock"));
+        }
+    }
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "name": name,
+            "path": display_dest.to_string(),
+            "forked_from": forked_from,
+        }));
+        return Ok(());
     }
 
     println!(

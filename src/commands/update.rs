@@ -8,7 +8,7 @@ use ion_skill::update::{UpdateContext, Updater};
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run(name: Option<&str>) -> anyhow::Result<()> {
+pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
     let manifest = ctx.manifest()?;
@@ -34,6 +34,15 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         if let Some(n) = name {
             anyhow::bail!("No skill '{}' found in Ion.toml", n);
         }
+        if json {
+            crate::json::print_success(serde_json::json!({
+                "updated": [],
+                "skipped": [],
+                "failed": [],
+                "up_to_date": [],
+            }));
+            return Ok(());
+        }
         println!("No skills to update.");
         return Ok(());
     }
@@ -43,9 +52,17 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
     let mut failed_count = 0u32;
     let mut up_to_date_count = 0u32;
 
+    let mut json_updated: Vec<serde_json::Value> = Vec::new();
+    let mut json_skipped: Vec<serde_json::Value> = Vec::new();
+    let mut json_failed: Vec<serde_json::Value> = Vec::new();
+    let mut json_up_to_date: Vec<serde_json::Value> = Vec::new();
+
     for (skill_name, source) in &skills_to_check {
         // Skip Path and Http source types silently
-        if matches!(source.source_type, SourceType::Path | SourceType::Http | SourceType::Local) {
+        if matches!(
+            source.source_type,
+            SourceType::Path | SourceType::Http | SourceType::Local
+        ) {
             continue;
         }
 
@@ -53,11 +70,16 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         if source.source_type != SourceType::Binary
             && let Some(ref rev) = source.rev
         {
-            println!(
-                "  {} {}  {}",
-                p.dim("-"),
-                p.bold(skill_name),
-                p.dim(&format!("skipped (pinned to {})", rev))
+            if !json {
+                println!(
+                    "  {} {}  {}",
+                    p.dim("-"),
+                    p.bold(skill_name),
+                    p.dim(&format!("skipped (pinned to {})", rev))
+                );
+            }
+            json_skipped.push(
+                serde_json::json!({ "name": skill_name, "reason": format!("pinned to {}", rev) }),
             );
             skipped_count += 1;
             continue;
@@ -90,22 +112,28 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         let info = match updater.check(&locked, source) {
             Ok(Some(info)) => info,
             Ok(None) => {
-                println!(
-                    "  {} {}  {}",
-                    p.dim("·"),
-                    p.bold(skill_name),
-                    p.dim("already up to date")
-                );
+                if !json {
+                    println!(
+                        "  {} {}  {}",
+                        p.dim("·"),
+                        p.bold(skill_name),
+                        p.dim("already up to date")
+                    );
+                }
+                json_up_to_date.push(serde_json::json!({ "name": skill_name }));
                 up_to_date_count += 1;
                 continue;
             }
             Err(e) => {
-                println!(
-                    "  {} {}  {}",
-                    p.warn("✗"),
-                    p.bold(skill_name),
-                    p.warn(&format!("check failed: {}", e))
-                );
+                if !json {
+                    println!(
+                        "  {} {}  {}",
+                        p.warn("✗"),
+                        p.bold(skill_name),
+                        p.warn(&format!("check failed: {}", e))
+                    );
+                }
+                json_failed.push(serde_json::json!({ "name": skill_name, "error": e.to_string() }));
                 failed_count += 1;
                 continue;
             }
@@ -114,29 +142,40 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
         // Apply update
         match updater.apply(&locked, source, &update_ctx) {
             Ok(new_locked) => {
-                let binary_suffix = if source.source_type == SourceType::Binary {
-                    " (binary)"
-                } else {
-                    ""
-                };
-                println!(
-                    "  {} {}  {} → {}{}",
-                    p.success("✓"),
-                    p.bold(skill_name),
-                    info.old_version,
-                    p.info(&info.new_version),
-                    binary_suffix
-                );
+                if !json {
+                    let binary_suffix = if source.source_type == SourceType::Binary {
+                        " (binary)"
+                    } else {
+                        ""
+                    };
+                    println!(
+                        "  {} {}  {} → {}{}",
+                        p.success("✓"),
+                        p.bold(skill_name),
+                        info.old_version,
+                        p.info(&info.new_version),
+                        binary_suffix
+                    );
+                }
+                json_updated.push(serde_json::json!({
+                    "name": skill_name,
+                    "old_version": info.old_version,
+                    "new_version": info.new_version,
+                    "binary": source.source_type == SourceType::Binary,
+                }));
                 lockfile.upsert(new_locked);
                 updated_count += 1;
             }
             Err(e) => {
-                println!(
-                    "  {} {}  {}",
-                    p.warn("✗"),
-                    p.bold(skill_name),
-                    p.warn(&format!("{}", e))
-                );
+                if !json {
+                    println!(
+                        "  {} {}  {}",
+                        p.warn("✗"),
+                        p.bold(skill_name),
+                        p.warn(&format!("{}", e))
+                    );
+                }
+                json_failed.push(serde_json::json!({ "name": skill_name, "error": e.to_string() }));
                 failed_count += 1;
             }
         }
@@ -145,6 +184,16 @@ pub fn run(name: Option<&str>) -> anyhow::Result<()> {
     // Write lockfile only if something changed
     if updated_count > 0 {
         lockfile.write_to(&ctx.lockfile_path)?;
+    }
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "updated": json_updated,
+            "skipped": json_skipped,
+            "failed": json_failed,
+            "up_to_date": json_up_to_date,
+        }));
+        return Ok(());
     }
 
     // Print summary

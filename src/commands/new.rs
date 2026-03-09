@@ -227,9 +227,7 @@ fn resolve_skills_dir(project_dir: &Path, dir_flag: Option<&str>) -> String {
             return existing;
         }
     }
-    dir_flag
-        .unwrap_or(DEFAULT_SKILLS_DIR)
-        .to_string()
+    dir_flag.unwrap_or(DEFAULT_SKILLS_DIR).to_string()
 }
 
 pub fn run(
@@ -238,6 +236,7 @@ pub fn run(
     bin: bool,
     collection: bool,
     force: bool,
+    json: bool,
 ) -> anyhow::Result<()> {
     if collection && bin {
         anyhow::bail!("Cannot combine --collection with --bin");
@@ -251,10 +250,10 @@ pub fn run(
         }
 
         if collection {
-            return run_collection(&target_dir, force);
+            return run_collection(&target_dir, force, json);
         }
 
-        return run_explicit_path(&target_dir, bin, force);
+        return run_explicit_path(&target_dir, bin, force, json);
     }
 
     // Local skill flow: no --path provided.
@@ -266,13 +265,15 @@ pub fn run(
     if !in_project {
         // No project context and no --path: create in current directory (legacy behavior).
         if collection {
-            return run_collection(&cwd, force);
+            return run_collection(&cwd, force, json);
         }
-        return run_explicit_path(&cwd, bin, force);
+        return run_explicit_path(&cwd, bin, force, json);
     }
 
     if collection {
-        anyhow::bail!("Cannot combine --collection with local skill creation (--dir or Ion.toml project). Use --path instead.");
+        anyhow::bail!(
+            "Cannot combine --collection with local skill creation (--dir or Ion.toml project). Use --path instead."
+        );
     }
 
     // Determine the skills directory.
@@ -281,6 +282,11 @@ pub fn run(
     // Persist skills-dir to Ion.toml if --dir was explicitly provided.
     if let Some(d) = dir {
         manifest_writer::write_skills_dir(&manifest_path, d)?;
+    }
+
+    // In JSON mode, we cannot prompt for a skill name interactively.
+    if json {
+        anyhow::bail!("In --json mode, provide a skill name via --path");
     }
 
     // Prompt for the skill name.
@@ -339,7 +345,7 @@ fn resolve_path(p: &str) -> anyhow::Result<PathBuf> {
 }
 
 /// Create a skill in an explicit target directory (the --path flow). No Ion.toml tracking.
-fn run_explicit_path(target_dir: &Path, bin: bool, force: bool) -> anyhow::Result<()> {
+fn run_explicit_path(target_dir: &Path, bin: bool, force: bool, json: bool) -> anyhow::Result<()> {
     let dir_name = target_dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -357,6 +363,15 @@ fn run_explicit_path(target_dir: &Path, bin: bool, force: bool) -> anyhow::Resul
         scaffold_bin_project(target_dir, &name)?;
         write_skill_md(target_dir, &name, true, force)?;
 
+        if json {
+            crate::json::print_success(serde_json::json!({
+                "name": name,
+                "path": target_dir.display().to_string(),
+                "binary": true,
+            }));
+            return Ok(());
+        }
+
         println!("Created binary skill project in {}", target_dir.display());
         println!("  cargo build    -- compile the binary");
         println!("  cargo run -- skill  -- test the skill subcommand");
@@ -364,11 +379,21 @@ fn run_explicit_path(target_dir: &Path, bin: bool, force: bool) -> anyhow::Resul
     }
 
     write_skill_md(target_dir, &name, false, force)?;
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "name": name,
+            "path": target_dir.display().to_string(),
+            "binary": false,
+        }));
+        return Ok(());
+    }
+
     println!("Created SKILL.md in {}", target_dir.display());
     Ok(())
 }
 
-fn run_collection(target_dir: &Path, force: bool) -> anyhow::Result<()> {
+fn run_collection(target_dir: &Path, force: bool, json: bool) -> anyhow::Result<()> {
     let readme_path = target_dir.join("README.md");
 
     if readme_path.exists() && !force {
@@ -396,6 +421,15 @@ fn run_collection(target_dir: &Path, force: bool) -> anyhow::Result<()> {
 
     let content = COLLECTION_README_TEMPLATE.replace("{title}", &title);
     std::fs::write(&readme_path, content)?;
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "name": name,
+            "path": target_dir.display().to_string(),
+            "collection": true,
+        }));
+        return Ok(());
+    }
 
     println!("Created skill collection in {}", target_dir.display());
     Ok(())

@@ -7,7 +7,7 @@ use ion_skill::source::{SkillSource, SourceType};
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run(path: &str) -> anyhow::Result<()> {
+pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
 
@@ -33,7 +33,13 @@ pub fn run(path: &str) -> anyhow::Result<()> {
     let (meta, _body) = ion_skill::skill::SkillMetadata::from_file(&skill_md)?;
     let name = meta.name.clone();
 
-    println!("Linking local skill {} from {}...", p.bold(&format!("'{name}'")), p.info(path));
+    if !json {
+        println!(
+            "Linking local skill {} from {}...",
+            p.bold(&format!("'{name}'")),
+            p.info(path)
+        );
+    }
 
     // Build a path source pointing to the local directory
     let source = SkillSource {
@@ -53,22 +59,38 @@ pub fn run(path: &str) -> anyhow::Result<()> {
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     let locked = installer.install(&name, &source)?;
 
-    println!("  Linked to {}", p.info(&format!(".agents/skills/{name}/")));
-    for target_name in merged_options.targets.keys() {
-        println!("  Linked to {}", p.info(target_name));
+    if !json {
+        println!("  Linked to {}", p.info(&format!(".agents/skills/{name}/")));
+        for target_name in merged_options.targets.keys() {
+            println!("  Linked to {}", p.info(target_name));
+        }
     }
 
     // No gitignore entries for local skills — they should be tracked in git
 
     manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
-    println!("  Updated {}", p.dim("Ion.toml"));
+    if !json {
+        println!("  Updated {}", p.dim("Ion.toml"));
+    }
 
     let mut lockfile = ctx.lockfile()?;
     lockfile.upsert(locked);
     lockfile.write_to(&ctx.lockfile_path)?;
-    println!("  Updated {}", p.dim("Ion.lock"));
+    if !json {
+        println!("  Updated {}", p.dim("Ion.lock"));
+    }
+
+    if json {
+        let targets: Vec<&str> = merged_options.targets.keys().map(|s| s.as_str()).collect();
+        crate::json::print_success(serde_json::json!({
+            "name": name,
+            "path": path,
+            "targets": targets,
+        }));
+        return Ok(());
+    }
 
     println!("{}", p.success("Done!"));
-    crate::commands::init::print_no_targets_hint(&merged_options, &p);
+    crate::commands::init::print_no_targets_hint(&merged_options, &p, json);
     Ok(())
 }

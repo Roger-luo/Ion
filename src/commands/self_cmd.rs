@@ -7,22 +7,42 @@ const REPO: &str = "Roger-luo/Ion";
 /// Tag prefix used by release-plz for the ion crate
 const TAG_PREFIX: &str = "ion-v";
 
-pub fn info() -> anyhow::Result<()> {
+pub fn info(json: bool) -> anyhow::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let target = env!("TARGET");
     let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("unknown"));
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "version": version,
+            "target": target,
+            "exe": exe.display().to_string(),
+        }));
+        return Ok(());
+    }
+
     println!("ion {version}");
     println!("target: {target}");
     println!("exe: {}", exe.display());
     Ok(())
 }
 
-pub fn check() -> anyhow::Result<()> {
+pub fn check(json: bool) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
-    println!("installed: {current}");
 
     let release = binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?;
     let latest = binary::parse_version_from_tag(&release.tag_name);
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "installed": current,
+            "latest": latest,
+            "update_available": current != latest,
+        }));
+        return Ok(());
+    }
+
+    println!("installed: {current}");
     println!("latest:    {latest}");
 
     if current == latest {
@@ -34,7 +54,7 @@ pub fn check() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub fn update(version: Option<&str>) -> anyhow::Result<()> {
+pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
     let current = env!("CARGO_PKG_VERSION");
     let release = match version {
         Some(v) => {
@@ -47,11 +67,21 @@ pub fn update(version: Option<&str>) -> anyhow::Result<()> {
     let latest = binary::parse_version_from_tag(&release.tag_name);
 
     if version.is_none() && current == latest {
+        if json {
+            crate::json::print_success(serde_json::json!({
+                "updated": false,
+                "version": current,
+                "message": "Already up to date",
+            }));
+            return Ok(());
+        }
         println!("Already up to date ({current}).");
         return Ok(());
     }
 
-    println!("Updating ion {current} -> {latest}...");
+    if !json {
+        println!("Updating ion {current} -> {latest}...");
+    }
 
     let platform = binary::Platform::detect();
     let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
@@ -59,11 +89,10 @@ pub fn update(version: Option<&str>) -> anyhow::Result<()> {
     let asset_name = match platform.match_asset("ion", &asset_names) {
         Some(name) => name,
         None => {
-            println!("No prebuilt binary found for {}.", platform.target_triple());
-            println!(
-                "Available assets: {}",
-                asset_names.join(", ")
-            );
+            if !json {
+                println!("No prebuilt binary found for {}.", platform.target_triple());
+                println!("Available assets: {}", asset_names.join(", "));
+            }
             bail!(
                 "Install from source instead:\n  cargo install --git https://github.com/{REPO} --force"
             );
@@ -78,7 +107,9 @@ pub fn update(version: Option<&str>) -> anyhow::Result<()> {
 
     let tmp_dir = tempfile::tempdir()?;
     let archive_path = tmp_dir.path().join(&asset_name);
-    println!("Downloading {asset_name}...");
+    if !json {
+        println!("Downloading {asset_name}...");
+    }
     binary::download_file(&asset.browser_download_url, &archive_path)?;
 
     let extract_dir = tmp_dir.path().join("extracted");
@@ -86,6 +117,16 @@ pub fn update(version: Option<&str>) -> anyhow::Result<()> {
 
     let new_binary = binary::find_binary_in_dir(&extract_dir, "ion")?;
     let installed_path = replace_exe(&new_binary)?;
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "updated": true,
+            "old_version": current,
+            "new_version": latest,
+            "exe": installed_path.display().to_string(),
+        }));
+        return Ok(());
+    }
 
     println!("Updated to ion {latest}");
     println!("exe: {}", installed_path.display());
@@ -99,9 +140,7 @@ fn replace_exe(new_binary: &Path) -> anyhow::Result<PathBuf> {
     // Move current executable to backup
     if let Err(e) = std::fs::rename(&current_exe, &backup) {
         if e.kind() == std::io::ErrorKind::PermissionDenied {
-            bail!(
-                "Permission denied. Try: sudo ion self update"
-            );
+            bail!("Permission denied. Try: sudo ion self update");
         }
         bail!("Failed to back up current executable: {e}");
     }
