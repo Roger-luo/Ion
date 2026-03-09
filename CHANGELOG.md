@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Hint about available updates on every invocation (a61a3c7)
+
+### Added
+
 - Embed SKILL.md as built-in ion-cli skill (8217503)
 - Add global --json flag for agent/script interface (d8cfe64)
 
