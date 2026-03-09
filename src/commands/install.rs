@@ -16,6 +16,17 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
+    let merged_options = ctx.merged_options(&manifest);
+
+    // Ensure the built-in ion-cli skill is deployed
+    if let Err(e) = crate::builtin_skill::ensure_installed(
+        &ctx.project_dir,
+        &ctx.manifest_path,
+        &merged_options,
+    ) {
+        log::warn!("Failed to install built-in ion-cli skill: {e}");
+    }
+
     let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {

@@ -1,5 +1,6 @@
 use clap::{CommandFactory, Parser, Subcommand};
 
+mod builtin_skill;
 mod commands;
 mod context;
 mod json;

@@ -1,0 +1,63 @@
+use std::path::Path;
+
+use ion_skill::installer::{SkillInstaller, builtin_skills_dir};
+use ion_skill::manifest::ManifestOptions;
+use ion_skill::manifest_writer;
+use ion_skill::source::{SkillSource, SourceType};
+
+const SKILL_NAME: &str = "ion-cli";
+const SKILL_CONTENT: &str = include_str!("../SKILL.md");
+
+/// Ensure the ion-cli built-in skill is installed in the project.
+///
+/// Writes the embedded SKILL.md to global storage if needed,
+/// deploys symlinks into the project, and registers in Ion.toml.
+pub fn ensure_installed(
+    project_dir: &Path,
+    manifest_path: &Path,
+    options: &ManifestOptions,
+) -> anyhow::Result<()> {
+    let global_dir = builtin_skills_dir().join(SKILL_NAME);
+    let global_skill_md = global_dir.join("SKILL.md");
+
+    // Write/update SKILL.md in global storage
+    let needs_write = if global_skill_md.exists() {
+        std::fs::read_to_string(&global_skill_md).ok().as_deref() != Some(SKILL_CONTENT)
+    } else {
+        true
+    };
+
+    if needs_write {
+        std::fs::create_dir_all(&global_dir)?;
+        std::fs::write(&global_skill_md, SKILL_CONTENT)?;
+    }
+
+    // Deploy symlinks: global → .agents/skills/ion-cli → targets
+    let installer = SkillInstaller::new(project_dir, options);
+    installer.deploy(SKILL_NAME, &global_dir)?;
+
+    // Gitignore the symlinks (they point to global storage, not project-local content)
+    let target_paths: Vec<&str> = options.targets.values().map(|s| s.as_str()).collect();
+    ion_skill::gitignore::add_skill_entries(project_dir, SKILL_NAME, &target_paths)?;
+
+    // Register as local skill in Ion.toml if not already present
+    let content = std::fs::read_to_string(manifest_path).unwrap_or_default();
+    if !content.contains(&format!("[skills.{SKILL_NAME}]"))
+        && !content.contains(&format!("{SKILL_NAME} ="))
+        && !content.contains(&format!("\"{SKILL_NAME}\""))
+    {
+        let source = SkillSource {
+            source_type: SourceType::Local,
+            source: String::new(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: None,
+            asset_pattern: None,
+            forked_from: None,
+        };
+        manifest_writer::add_skill(manifest_path, SKILL_NAME, &source)?;
+    }
+
+    Ok(())
+}

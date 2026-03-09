@@ -8,6 +8,14 @@ use crate::validate;
 use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
 
+/// Where ion stores built-in skills that ship with the binary.
+pub fn builtin_skills_dir() -> PathBuf {
+    dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("ion")
+        .join("builtin")
+}
+
 /// Where ion stores cloned repositories persistently.
 pub fn data_dir() -> PathBuf {
     let dir = dirs::data_dir()
