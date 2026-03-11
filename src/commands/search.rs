@@ -106,7 +106,7 @@ fn execute_search(
     ))
 }
 
-fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {
+pub(crate) fn build_sources(config: &GlobalConfig) -> Vec<Box<dyn SearchSource + Send>> {
     let mut sources: Vec<Box<dyn SearchSource + Send>> = Vec::new();
 
     log::debug!("adding built-in skills.sh source");

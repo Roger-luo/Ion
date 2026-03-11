@@ -178,6 +178,12 @@ enum ProjectCommands {
         /// Show what would be migrated without writing files
         #[arg(long)]
         dry_run: bool,
+        /// Skip confirmation prompts (auto-accept all)
+        #[arg(long, short = 'y')]
+        yes: bool,
+        /// Proceed despite validation warnings
+        #[arg(long)]
+        allow_warnings: bool,
     },
 }
 
@@ -271,9 +277,12 @@ fn main() {
         },
         Commands::Project { action } => match action {
             ProjectCommands::Init { target, force } => commands::init::run(&target, force, json),
-            ProjectCommands::Migrate { from, dry_run } => {
-                commands::migrate::run(from.as_deref(), dry_run)
-            }
+            ProjectCommands::Migrate {
+                from,
+                dry_run,
+                yes,
+                allow_warnings,
+            } => commands::migrate::run(from.as_deref(), dry_run, json, yes, allow_warnings),
         },
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),

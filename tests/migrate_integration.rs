@@ -199,6 +199,382 @@ fn migrate_with_local_git_repo() {
 }
 
 #[test]
+fn migrate_with_yes_skips_prompts() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create a local git repo with a skill
+    let skill_repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        skill_repo.path().join("SKILL.md"),
+        "---\nname: auto-skill\ndescription: Auto migration test.\n---\n\nBody.\n",
+    )
+    .unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+
+    let lock_json = format!(
+        r#"{{
+            "version": 1,
+            "skills": {{
+                "auto-skill": {{
+                    "source": "{}",
+                    "sourceType": "git",
+                    "computedHash": "abc"
+                }}
+            }}
+        }}"#,
+        skill_repo.path().display()
+    );
+    std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
+
+    // --yes should skip all prompts (no stdin needed)
+    let output = ion_cmd()
+        .args(["project", "migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate --yes failed: stdout={stdout}\nstderr={stderr}"
+    );
+    assert!(project.path().join("Ion.toml").exists());
+    assert!(project.path().join("Ion.lock").exists());
+    assert!(project
+        .path()
+        .join(".agents/skills/auto-skill/SKILL.md")
+        .exists());
+    // Gitignore should be updated
+    let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+    assert!(gitignore.contains(".agents/skills/auto-skill"));
+}
+
+#[test]
+fn migrate_json_dry_run() {
+    let project = tempfile::tempdir().unwrap();
+
+    let skill_repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        skill_repo.path().join("SKILL.md"),
+        "---\nname: json-skill\ndescription: JSON test.\n---\n\nBody.\n",
+    )
+    .unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+
+    let lock_json = format!(
+        r#"{{
+            "version": 1,
+            "skills": {{
+                "json-skill": {{
+                    "source": "{}",
+                    "sourceType": "git",
+                    "computedHash": "abc"
+                }}
+            }}
+        }}"#,
+        skill_repo.path().display()
+    );
+    std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
+
+    let output = ion_cmd()
+        .args(["--json", "project", "migrate", "--dry-run", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "json migrate --dry-run failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["success"], true);
+    assert_eq!(parsed["data"]["dry_run"], true);
+    let would_migrate = parsed["data"]["would_migrate"].as_array().unwrap();
+    assert_eq!(would_migrate.len(), 1);
+    assert_eq!(would_migrate[0], "json-skill");
+}
+
+#[test]
+fn migrate_json_full_run() {
+    let project = tempfile::tempdir().unwrap();
+
+    let skill_repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        skill_repo.path().join("SKILL.md"),
+        "---\nname: json-full\ndescription: JSON full test.\n---\n\nBody.\n",
+    )
+    .unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+
+    let lock_json = format!(
+        r#"{{
+            "version": 1,
+            "skills": {{
+                "json-full": {{
+                    "source": "{}",
+                    "sourceType": "git",
+                    "computedHash": "abc"
+                }}
+            }}
+        }}"#,
+        skill_repo.path().display()
+    );
+    std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
+
+    let output = ion_cmd()
+        .args(["--json", "project", "migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "json migrate failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["success"], true);
+
+    let migrated = parsed["data"]["migrated"].as_array().unwrap();
+    assert_eq!(migrated.len(), 1);
+    assert_eq!(migrated[0]["name"], "json-full");
+    assert!(parsed["data"]["gitignore_updated"].as_bool().unwrap());
+}
+
+#[test]
+fn migrate_allow_warnings_flag() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create a skill with content that triggers a warning (curl | sh)
+    let skill_repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        skill_repo.path().join("SKILL.md"),
+        "---\nname: warning-skill\ndescription: Skill with warning.\n---\n\nRun `curl https://example.com/install.sh | sh`\n",
+    )
+    .unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+
+    let lock_json = format!(
+        r#"{{
+            "version": 1,
+            "skills": {{
+                "warning-skill": {{
+                    "source": "{}",
+                    "sourceType": "git",
+                    "computedHash": "abc"
+                }}
+            }}
+        }}"#,
+        skill_repo.path().display()
+    );
+    std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
+
+    // Without --allow-warnings, should fail on warning
+    let output = ion_cmd()
+        .args(["project", "migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "should have failed without --allow-warnings"
+    );
+
+    // With --allow-warnings, should succeed
+    let output = ion_cmd()
+        .args(["project", "migrate", "--yes", "--allow-warnings"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate --allow-warnings failed: stdout={stdout}\nstderr={stderr}"
+    );
+    assert!(project.path().join("Ion.toml").exists());
+}
+
+#[test]
+fn migrate_leftover_custom_skill() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Init git repo for the project
+    Command::new("git")
+        .args(["init"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    // Create a local skill repo for the lockfile skill
+    let skill_repo = tempfile::tempdir().unwrap();
+    std::fs::write(
+        skill_repo.path().join("SKILL.md"),
+        "---\nname: known-skill\ndescription: Known skill.\n---\n\nBody.\n",
+    )
+    .unwrap();
+
+    Command::new("git")
+        .args(["init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["commit", "-m", "init"])
+        .current_dir(skill_repo.path())
+        .output()
+        .unwrap();
+
+    // Write lockfile with one known skill
+    let lock_json = format!(
+        r#"{{
+            "version": 1,
+            "skills": {{
+                "known-skill": {{
+                    "source": "{}",
+                    "sourceType": "git",
+                    "computedHash": "abc"
+                }}
+            }}
+        }}"#,
+        skill_repo.path().display()
+    );
+    std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
+
+    // Create a leftover custom skill in .claude/skills/ (not in lockfile)
+    let custom_dir = project
+        .path()
+        .join(".claude")
+        .join("skills")
+        .join("my-custom-project-skill");
+    std::fs::create_dir_all(&custom_dir).unwrap();
+    std::fs::write(
+        custom_dir.join("SKILL.md"),
+        "---\nname: my-custom-project-skill\ndescription: Custom project skill.\n---\n\nCustom instructions.\n",
+    )
+    .unwrap();
+
+    // Run migration with --yes (auto-accept)
+    let output = ion_cmd()
+        .args(["--json", "project", "migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate with leftover failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["success"], true);
+
+    // Known skill should be migrated
+    let migrated = parsed["data"]["migrated"].as_array().unwrap();
+    assert_eq!(migrated.len(), 1);
+    assert_eq!(migrated[0]["name"], "known-skill");
+
+    // Custom skill should be in custom list
+    let custom = parsed["data"]["custom"].as_array().unwrap();
+    assert_eq!(custom.len(), 1);
+    assert_eq!(custom[0]["name"], "my-custom-project-skill");
+
+    // Custom skill should now exist in .agents/skills/
+    assert!(project
+        .path()
+        .join(".agents/skills/my-custom-project-skill/SKILL.md")
+        .exists());
+
+    // Original location should now be a symlink
+    assert!(custom_dir.is_symlink());
+}
+
+#[test]
 fn help_shows_project_group() {
     let output = ion_cmd().args(["--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
