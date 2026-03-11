@@ -195,6 +195,114 @@ fn print_update_hint(current: &str, latest: &str) {
     );
 }
 
+pub fn uninstall(yes: bool, json: bool) -> anyhow::Result<()> {
+    let exe = std::env::current_exe()?.canonicalize()?;
+
+    // Collect all directories/files to remove
+    let data_dir = dirs::data_dir().map(|d| d.join("ion"));
+    let config_dir = dirs::config_dir().map(|d| d.join("ion"));
+
+    if json && !yes {
+        let mut paths = Vec::new();
+        if let Some(ref d) = data_dir {
+            paths.push(d.display().to_string());
+        }
+        if let Some(ref d) = config_dir {
+            paths.push(d.display().to_string());
+        }
+        paths.push(exe.display().to_string());
+        crate::json::print_action_required(
+            "confirm_uninstall",
+            serde_json::json!({
+                "paths": paths,
+            }),
+        );
+    }
+
+    if !json {
+        println!("This will remove:");
+        if let Some(ref d) = data_dir
+            && d.exists()
+        {
+            println!("  {} (repos, cache, registry, binaries)", d.display());
+        }
+        if let Some(ref d) = config_dir
+            && d.exists()
+        {
+            println!("  {} (config, starred repos)", d.display());
+        }
+        println!("  {} (binary)", exe.display());
+    }
+
+    if !yes {
+        use std::io::Write;
+        println!();
+        print!("Are you sure? [y/N] ");
+        std::io::stdout().flush()?;
+        let mut answer = String::new();
+        std::io::stdin().read_line(&mut answer)?;
+        if !answer.trim().eq_ignore_ascii_case("y")
+            && !answer.trim().eq_ignore_ascii_case("yes")
+        {
+            bail!("Aborted.");
+        }
+    }
+
+    let mut removed = Vec::new();
+
+    // Remove data directory (repos, search_cache, bin, registry, update_check, builtin)
+    if let Some(ref d) = data_dir
+        && d.exists()
+    {
+        std::fs::remove_dir_all(d)?;
+        removed.push(d.display().to_string());
+        if !json {
+            println!("  Removed {}", d.display());
+        }
+    }
+
+    // Remove config directory (config.toml, starred.json)
+    if let Some(ref d) = config_dir
+        && d.exists()
+    {
+        std::fs::remove_dir_all(d)?;
+        removed.push(d.display().to_string());
+        if !json {
+            println!("  Removed {}", d.display());
+        }
+    }
+
+    // Delete the binary itself — must be last
+    let exe_path = exe.display().to_string();
+    if let Err(e) = std::fs::remove_file(&exe) {
+        if e.kind() == std::io::ErrorKind::PermissionDenied {
+            if json {
+                crate::json::print_error(&format!(
+                    "Permission denied removing {}. Try: sudo ion self uninstall --yes",
+                    exe_path
+                ));
+            }
+            bail!(
+                "Permission denied removing {}. Try: sudo ion self uninstall --yes",
+                exe_path
+            );
+        }
+        bail!("Failed to remove binary: {e}");
+    }
+    removed.push(exe_path);
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "removed": removed,
+        }));
+        return Ok(());
+    }
+
+    println!("  Removed binary");
+    println!("\nion has been uninstalled.");
+    Ok(())
+}
+
 fn replace_exe(new_binary: &Path) -> anyhow::Result<PathBuf> {
     let current_exe = std::env::current_exe()?.canonicalize()?;
     let backup = current_exe.with_extension("old");

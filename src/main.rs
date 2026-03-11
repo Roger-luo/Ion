@@ -199,6 +199,12 @@ enum SelfCommands {
         #[arg(long)]
         version: Option<String>,
     },
+    /// Uninstall ion and remove all data
+    Uninstall {
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -294,6 +300,7 @@ fn main() {
             SelfCommands::Update { version } => {
                 commands::self_cmd::update(version.as_deref(), json)
             }
+            SelfCommands::Uninstall { yes } => commands::self_cmd::uninstall(yes, json),
         },
         Commands::Completion { shell } => {
             commands::completion::run(shell, Cli::command());

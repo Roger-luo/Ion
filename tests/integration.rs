@@ -229,6 +229,21 @@ fn self_help_shows_subcommands() {
     assert!(stdout.contains("check"));
     assert!(stdout.contains("info"));
     assert!(stdout.contains("update"));
+    assert!(stdout.contains("uninstall"));
+}
+
+#[test]
+fn self_uninstall_json_without_yes_returns_action_required() {
+    let output = ion_cmd()
+        .args(["--json", "self", "uninstall"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert_eq!(output.status.code(), Some(2), "should exit 2 for action_required");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["success"], false);
+    assert_eq!(parsed["action_required"], "confirm_uninstall");
+    assert!(parsed["data"]["paths"].is_array());
 }
 
 #[test]
