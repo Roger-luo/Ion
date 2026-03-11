@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Detect existing install in install.sh and add --version flag (04ce4cf)
+- Add `ion self uninstall` command (7d23dff)
+
+### Fixed
+
+- Handle old ion binaries without --version in install.sh (ba4baac)
+
+### Added
+
 - Enhance migrate command with JSON interface, leftover handling, and gitignore support (2d6895d)
 - Hint about available updates on every invocation (a61a3c7)
 - Embed SKILL.md as built-in ion-cli skill (8217503)
