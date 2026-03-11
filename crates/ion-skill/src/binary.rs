@@ -167,7 +167,7 @@ pub fn fetch_latest_release_by_tag_prefix(
         .map_err(|e| crate::Error::Other(format!("Failed to parse releases JSON: {}", e)))?;
     releases
         .into_iter()
-        .find(|r| r.tag_name.starts_with(prefix))
+        .find(|r| r.tag_name.starts_with(prefix) && !r.assets.is_empty())
         .ok_or_else(|| {
             crate::Error::Other(format!("No release found with tag prefix '{}'", prefix))
         })
