@@ -82,9 +82,18 @@ check_existing() {
         return
     fi
 
-    # Get the installed version (try --version first, fall back to self info)
-    INSTALLED_VERSION=$("$EXISTING" --version 2>/dev/null | head -1 | sed 's/[^0-9.]*//' || \
-        "$EXISTING" self info 2>/dev/null | head -1 | sed 's/[^0-9.]*//' || echo "unknown")
+    # Get the installed version
+    # Try --version first (>= 0.1.12), then self info (older), then "unknown"
+    INSTALLED_VERSION=""
+    VER_OUTPUT=$("$EXISTING" --version 2>/dev/null) && \
+        INSTALLED_VERSION=$(printf '%s' "$VER_OUTPUT" | head -1 | sed 's/[^0-9.]*//')
+    if [ -z "$INSTALLED_VERSION" ]; then
+        VER_OUTPUT=$("$EXISTING" self info 2>/dev/null) && \
+            INSTALLED_VERSION=$(printf '%s' "$VER_OUTPUT" | head -1 | sed 's/[^0-9.]*//')
+    fi
+    if [ -z "$INSTALLED_VERSION" ]; then
+        INSTALLED_VERSION="unknown"
+    fi
 
     if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
         log "ion $VERSION is already installed at $EXISTING"
