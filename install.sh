@@ -47,22 +47,23 @@ resolve_version() {
         RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" \
             -H "Accept: application/vnd.github+json")
 
-        # Find the first ion-v* release that has assets (skip empty releases
-        # where CI hasn't finished building binaries yet)
-        TAG=""
+        # Find all ion-v* releases that have assets, then pick the highest
+        # semver. GitHub sorts by creation date, not version, so a re-published
+        # older release can appear first.
+        CANDIDATES=""
         for candidate in $(printf '%s' "$RELEASE_JSON" | grep -o '"tag_name": *"ion-v[^"]*"' | sed 's/.*"ion-v//' | sed 's/"//'); do
             # Check if this release has any .tar.gz assets
             if printf '%s' "$RELEASE_JSON" | grep -q "ion-${candidate}-.*\\.tar\\.gz"; then
-                TAG="$candidate"
-                break
+                CANDIDATES="${CANDIDATES}${candidate}\n"
             fi
         done
 
-        if [ -z "$TAG" ]; then
+        if [ -z "$CANDIDATES" ]; then
             err "Could not find latest ion release with prebuilt binaries"
         fi
 
-        VERSION="$TAG"
+        # Sort by semver (major.minor.patch) descending and take the highest
+        VERSION=$(printf '%b' "$CANDIDATES" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
         log "Latest version: $VERSION"
     fi
 }
