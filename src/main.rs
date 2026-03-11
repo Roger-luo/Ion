@@ -8,7 +8,7 @@ pub mod style;
 mod tui;
 
 #[derive(Parser)]
-#[command(name = "ion", about = "Agent skill manager")]
+#[command(name = "ion", about = "Agent skill manager", version = env!("CARGO_PKG_VERSION"))]
 struct Cli {
     /// Output results as JSON (for agents and scripts)
     #[arg(long, global = true)]

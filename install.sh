@@ -12,6 +12,7 @@ VERSION="${1:-}"
 main() {
     detect_platform
     resolve_version
+    check_existing
     download_and_install
     print_success
 }
@@ -46,15 +47,66 @@ resolve_version() {
         RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases?per_page=10" \
             -H "Accept: application/vnd.github+json")
 
-        TAG=$(printf '%s' "$RELEASE_JSON" | grep -o '"tag_name": *"ion-v[^"]*"' | head -1 | sed 's/.*"ion-v//' | sed 's/"//')
+        # Find the first ion-v* release that has assets (skip empty releases
+        # where CI hasn't finished building binaries yet)
+        TAG=""
+        for candidate in $(printf '%s' "$RELEASE_JSON" | grep -o '"tag_name": *"ion-v[^"]*"' | sed 's/.*"ion-v//' | sed 's/"//'); do
+            # Check if this release has any .tar.gz assets
+            if printf '%s' "$RELEASE_JSON" | grep -q "ion-${candidate}-.*\\.tar\\.gz"; then
+                TAG="$candidate"
+                break
+            fi
+        done
 
         if [ -z "$TAG" ]; then
-            err "Could not find latest ion release"
+            err "Could not find latest ion release with prebuilt binaries"
         fi
 
         VERSION="$TAG"
         log "Latest version: $VERSION"
     fi
+}
+
+check_existing() {
+    EXISTING=""
+
+    # Check the target install directory first
+    if [ -x "${INSTALL_DIR}/ion" ]; then
+        EXISTING="${INSTALL_DIR}/ion"
+    # Also check if ion is elsewhere on PATH
+    elif command -v ion >/dev/null 2>&1; then
+        EXISTING=$(command -v ion)
+    fi
+
+    if [ -z "$EXISTING" ]; then
+        return
+    fi
+
+    # Get the installed version (try --version first, fall back to self info)
+    INSTALLED_VERSION=$("$EXISTING" --version 2>/dev/null | head -1 | sed 's/[^0-9.]*//' || \
+        "$EXISTING" self info 2>/dev/null | head -1 | sed 's/[^0-9.]*//' || echo "unknown")
+
+    if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
+        log "ion $VERSION is already installed at $EXISTING"
+        exit 0
+    fi
+
+    log "Found existing ion $INSTALLED_VERSION at $EXISTING"
+
+    # Non-interactive (piped) — proceed without prompting
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        log "Upgrading ion $INSTALLED_VERSION -> $VERSION"
+        return
+    fi
+
+    printf '  \033[1;33m!\033[0m Replace ion %s with %s? [Y/n] ' "$INSTALLED_VERSION" "$VERSION"
+    read -r REPLY </dev/tty
+    case "$REPLY" in
+        [nN]|[nN][oO])
+            log "Aborted."
+            exit 0
+            ;;
+    esac
 }
 
 download_and_install() {
