@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Enhance migrate command with JSON interface, leftover handling, and gitignore support (2d6895d)
+
+### Added
+
 - Hint about available updates on every invocation (a61a3c7)
 - Embed SKILL.md as built-in ion-cli skill (8217503)
 - Add global --json flag for agent/script interface (d8cfe64)
