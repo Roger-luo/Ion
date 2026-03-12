@@ -1,0 +1,16 @@
+[skills]
+brainstorming = { source = "obra/superpowers/brainstorming" }
+dispatching-parallel-agents = { source = "obra/superpowers/dispatching-parallel-agents" }
+executing-plans = { source = "obra/superpowers/executing-plans" }
+finishing-a-development-branch = { source = "obra/superpowers/finishing-a-development-branch" }
+receiving-code-review = { source = "obra/superpowers/receiving-code-review" }
+requesting-code-review = { source = "obra/superpowers/requesting-code-review" }
+skill-creator = { source = "anthropics/skills/skill-creator" }
+subagent-driven-development = { source = "obra/superpowers/subagent-driven-development" }
+systematic-debugging = { source = "obra/superpowers/systematic-debugging" }
+test-driven-development = { source = "obra/superpowers/test-driven-development" }
+using-git-worktrees = { source = "obra/superpowers/using-git-worktrees" }
+using-superpowers = { source = "obra/superpowers/using-superpowers" }
+verification-before-completion = { source = "obra/superpowers/verification-before-completion" }
+writing-plans = { source = "obra/superpowers/writing-plans" }
+writing-skills = { source = "obra/superpowers/writing-skills" }
