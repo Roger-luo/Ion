@@ -20,7 +20,6 @@ pub fn run(
     dry_run: bool,
     json: bool,
     yes: bool,
-    allow_warnings: bool,
 ) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
@@ -168,7 +167,6 @@ pub fn run(
 
     let options = MigrateOptions {
         dry_run: false,
-        allow_warnings,
         manifest_options: merged_options.clone(),
     };
 
@@ -289,7 +287,7 @@ pub fn run(
                                 SkillInstaller::new(project_dir, &merged_options);
                             let validation = InstallValidationOptions {
                                 skip_validation: false,
-                                allow_warnings,
+                                allow_warnings: true,
                             };
                             match installer
                                 .install_with_options(&leftover.name, &source, validation)
@@ -378,7 +376,16 @@ pub fn run(
         lockfile.write_to(&ctx.lockfile_path)?;
     }
 
-    // ── Phase 8: Git commit ───────────────────────────────────────────────
+    // ── Phase 8: Ensure built-in ion-cli skill ────────────────────────────
+    if let Err(e) = crate::builtin_skill::ensure_installed(
+        &ctx.project_dir,
+        &ctx.manifest_path,
+        &merged_options,
+    ) {
+        log::warn!("Failed to install built-in ion-cli skill: {e}");
+    }
+
+    // ── Phase 9: Git commit ───────────────────────────────────────────────
     let commit_hash = create_migration_commit(project_dir);
 
     // ── Output ────────────────────────────────────────────────────────────

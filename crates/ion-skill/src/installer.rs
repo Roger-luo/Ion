@@ -193,11 +193,20 @@ impl<'a> SkillInstaller<'a> {
 
     pub fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
         let agents_target = self.project_dir.join(".agents").join("skills").join(name);
-        create_skill_symlink(skill_dir, &agents_target)?;
+
+        // Only create the .agents/skills/ symlink if skill_dir is a different location.
+        // Binary skills write directly into .agents/skills/{name}, so symlinking
+        // it to itself would create a circular symlink.
+        if skill_dir != agents_target {
+            create_skill_symlink(skill_dir, &agents_target)?;
+        }
 
         let canonical = self.project_dir.join(".agents").join("skills").join(name);
         for target_path in self.options.targets.values() {
             let target_skill_dir = self.project_dir.join(target_path).join(name);
+            if target_skill_dir == agents_target {
+                continue;
+            }
             create_skill_symlink(&canonical, &target_skill_dir)?;
         }
 
@@ -621,5 +630,37 @@ mod tests {
             .path()
             .join(".agents/skills/warning-ok/SKILL.md")
             .exists());
+    }
+
+    #[test]
+    fn deploy_skips_self_symlink_for_binary_skills() {
+        // Binary skills write directly into .agents/skills/{name}.
+        // deploy() must not create a symlink from that path to itself.
+        let project = tempfile::tempdir().unwrap();
+        let skill_dir = project.path().join(".agents").join("skills").join("ion-cli");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: ion-cli\ndescription: Binary skill.\n---\n\nBody.\n",
+        )
+        .unwrap();
+
+        let mut targets = std::collections::BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+        let options = ManifestOptions { targets, skills_dir: None };
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        installer.deploy("ion-cli", &skill_dir).unwrap();
+
+        // .agents/skills/ion-cli should remain a real directory, NOT a symlink
+        let agents_path = project.path().join(".agents/skills/ion-cli");
+        assert!(agents_path.exists(), ".agents/skills/ion-cli should exist");
+        assert!(!agents_path.is_symlink(), ".agents/skills/ion-cli should NOT be a symlink");
+        assert!(agents_path.join("SKILL.md").exists(), "SKILL.md should be readable");
+
+        // .claude/skills/ion-cli should be a symlink pointing to .agents/skills/ion-cli
+        let claude_path = project.path().join(".claude/skills/ion-cli");
+        assert!(claude_path.is_symlink(), ".claude/skills/ion-cli should be a symlink");
+        assert!(claude_path.join("SKILL.md").exists(), "SKILL.md should be readable via symlink");
     }
 }

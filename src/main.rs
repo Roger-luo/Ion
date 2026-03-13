@@ -181,9 +181,6 @@ enum ProjectCommands {
         /// Skip confirmation prompts (auto-accept all)
         #[arg(long, short = 'y')]
         yes: bool,
-        /// Proceed despite validation warnings
-        #[arg(long)]
-        allow_warnings: bool,
     },
 }
 
@@ -287,8 +284,7 @@ fn main() {
                 from,
                 dry_run,
                 yes,
-                allow_warnings,
-            } => commands::migrate::run(from.as_deref(), dry_run, json, yes, allow_warnings),
+            } => commands::migrate::run(from.as_deref(), dry_run, json, yes),
         },
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),

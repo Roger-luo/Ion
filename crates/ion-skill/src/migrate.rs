@@ -168,7 +168,6 @@ pub struct ResolvedSkill {
 
 pub struct MigrateOptions {
     pub dry_run: bool,
-    pub allow_warnings: bool,
     pub manifest_options: ManifestOptions,
 }
 
@@ -194,9 +193,10 @@ pub fn migrate(
     let mut locked_skills = Vec::new();
 
     let installer = SkillInstaller::new(project_dir, &options.manifest_options);
+    // Migration is re-installing skills the user already has — warnings should not block.
     let validation = InstallValidationOptions {
         skip_validation: false,
-        allow_warnings: options.allow_warnings,
+        allow_warnings: true,
     };
     for skill in resolved {
         let mut source = skill.source.clone();

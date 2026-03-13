@@ -393,7 +393,7 @@ fn migrate_json_full_run() {
 }
 
 #[test]
-fn migrate_allow_warnings_flag() {
+fn migrate_succeeds_despite_warnings() {
     let project = tempfile::tempdir().unwrap();
 
     // Create a skill with content that triggers a warning (curl | sh)
@@ -435,21 +435,10 @@ fn migrate_allow_warnings_flag() {
     );
     std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
 
-    // Without --allow-warnings, should fail on warning
+    // Migration should succeed even with validation warnings — the user is
+    // migrating skills they already have installed, so warnings should not block.
     let output = ion_cmd()
         .args(["project", "migrate", "--yes"])
-        .current_dir(project.path())
-        .output()
-        .unwrap();
-
-    assert!(
-        !output.status.success(),
-        "should have failed without --allow-warnings"
-    );
-
-    // With --allow-warnings, should succeed
-    let output = ion_cmd()
-        .args(["project", "migrate", "--yes", "--allow-warnings"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -458,7 +447,7 @@ fn migrate_allow_warnings_flag() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         output.status.success(),
-        "migrate --allow-warnings failed: stdout={stdout}\nstderr={stderr}"
+        "migrate should succeed despite warnings: stdout={stdout}\nstderr={stderr}"
     );
     assert!(project.path().join("Ion.toml").exists());
 }
