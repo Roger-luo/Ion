@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+### Fixed
+
+- Prevent circular symlink for binary skills and auto-deploy ion-cli (58da614)
+- Sort releases by semver in install.sh instead of taking first (d87ea0d)
+
 ### Added
 
 - Detect existing install in install.sh and add --version flag (04ce4cf)
