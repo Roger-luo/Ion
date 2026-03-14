@@ -1,10 +1,7 @@
 ---
 name: ion-cli
 description: "Operate the Ion skill manager from CLI using --json flag for structured, non-interactive control of skill installation, search, and project management."
-compatibility:
-  - claude
-  - cursor
-  - windsurf
+compatibility: "claude, cursor, windsurf"
 ---
 
 # Ion CLI for Agents
@@ -21,151 +18,559 @@ All commands support `ion --json <command>`. The `--json` flag:
 
 ### Response Envelope
 
+Every response is one of three shapes:
+
+
+**Success** (exit 0) — operation completed:
 ```json
 {"success": true, "data": { ... }}
+```
+
+**Action required** (exit 2) — you must re-run with explicit flags:
+```json
 {"success": false, "action_required": "<type>", "data": { ... }}
+```
+
+**Error** (exit 1) — operation failed:
+```json
 {"success": false, "error": "message"}
 ```
 
-### Exit Codes
 
-- `0` — success
-- `1` — error
-- `2` — action required (re-run with explicit flags)
+## Commands with Examples
 
-## Commands
+Each example below shows the exact command and its JSON output, so you can learn the input-output format.
 
 ### Initialize a project
 
-```bash
-# Discover available targets
-ion --json project init
-# Exit 2, returns: {"action_required": "target_selection", "data": {"available_targets": [...]}}
+Without `--target`, ion discovers available targets and asks you to choose:
 
-# Initialize with specific targets
-ion --json project init --target claude
-ion --json project init --target claude --target cursor
+```bash
+$ ion --json project init
+```
+```json
+{
+  "success": false,
+  "action_required": "target_selection",
+  "data": {
+    "available_targets": [
+      {
+        "detected": true,
+        "name": "claude",
+        "path": ".claude/skills"
+      },
+      {
+        "detected": false,
+        "name": "cursor",
+        "path": ".cursor/skills"
+      },
+      {
+        "detected": false,
+        "name": "windsurf",
+        "path": ".windsurf/skills"
+      }
+    ],
+    "hint": "Re-run with --target flags to select targets"
+  }
+}
+```
+
+Re-run with explicit targets:
+
+```bash
+$ ion --json project init --target claude --target cursor
+```
+```json
+{
+  "success": true,
+  "data": {
+    "manifest": "Ion.toml",
+    "targets": {
+      "claude": ".claude/skills",
+      "cursor": ".cursor/skills"
+    }
+  }
+}
 ```
 
 ### Search for skills
 
+
 ```bash
-ion --json search "code review"
-# Returns: {"success": true, "data": [{"name": "...", "source": "...", "description": "...", "stars": N}, ...]}
+$ ion --json search "code review"
 ```
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "name": "code-review",
+      "description": "Automated code review skill",
+      "source": "obra/skills/code-review",
+      "registry": "github",
+      "stars": 42
+    },
+    {
+      "name": "pr-reviewer",
+      "description": "Pull request review assistant",
+      "source": "acme/pr-reviewer",
+      "registry": "skills.sh",
+      "stars": 18
+    }
+  ]
+}
+```
+
 
 Use the `source` field from results to install a skill.
 
-### Add a skill
+### Add a single skill
+
 
 ```bash
-# Single skill — succeeds directly
-ion --json add owner/repo/skill-name
+$ ion --json add obra/skills/code-review
+```
+```json
+{
+  "success": true,
+  "data": {
+    "name": "code-review",
+    "installed_to": ".agents/skills/code-review/",
+    "targets": ["claude", "cursor"]
+  }
+}
+```
 
-# Single skill with validation warnings
-ion --json add owner/repo/skill-name
-# Exit 2 if warnings: {"action_required": "validation_warnings", "data": {"skill": "...", "warnings": [...]}}
-# Re-run to accept:
-ion --json add owner/repo/skill-name --allow-warnings
+If the skill has validation warnings, you get exit 2 instead:
 
-# Skill collection — returns discovered skills
-ion --json add owner/repo
-# Exit 2: {"action_required": "skill_selection", "data": {"skills": [{"name": "...", "status": "clean|warnings|error"}, ...]}}
-# Install specific skills:
-ion --json add owner/repo --skills skill-a,skill-b
-ion --json add owner/repo --skills skill-a,skill-b --allow-warnings
+```bash
+$ ion --json add acme/experimental-skill
+```
+```json
+{
+  "success": false,
+  "action_required": "validation_warnings",
+  "data": {
+    "skill": "experimental-skill",
+    "warnings": [
+      {"severity": "warning", "checker": "security", "message": "Skill requests shell access"}
+    ]
+  }
+}
+```
+
+Re-run with `--allow-warnings` to accept:
+
+```bash
+$ ion --json add acme/experimental-skill --allow-warnings
+```
+```json
+{
+  "success": true,
+  "data": {
+    "name": "experimental-skill",
+    "installed_to": ".agents/skills/experimental-skill/",
+    "targets": ["claude"]
+  }
+}
+```
+
+### Add from a skill collection
+
+When a repo contains multiple skills, ion lists them for you to choose:
+
+```bash
+$ ion --json add obra/skills
+```
+```json
+{
+  "success": false,
+  "action_required": "skill_selection",
+  "data": {
+    "skills": [
+      {"name": "code-review", "status": "clean"},
+      {"name": "test-driven-dev", "status": "clean"},
+      {"name": "experimental", "status": "warnings", "warning_count": 2}
+    ]
+  }
+}
+```
+
+Pick specific skills:
+
+```bash
+$ ion --json add obra/skills --skills code-review,test-driven-dev
+```
+```json
+{
+  "success": true,
+  "data": {
+    "name": "code-review",
+    "installed_to": ".agents/skills/code-review/",
+    "targets": ["claude"]
+  }
+}
 ```
 
 ### Install all from Ion.toml
 
 ```bash
-ion --json add
-# If warnings exist and --allow-warnings not set: exit 2
-ion --json add --allow-warnings
+$ ion --json add
 ```
+```json
+{
+  "success": true,
+  "data": {
+    "installed": ["code-review", "test-driven-dev"],
+    "skipped": ["pinned-skill"]
+  }
+}
+```
+
 
 ### Remove a skill
 
-```bash
-# Preview what will be removed
-ion --json remove skill-name
-# Exit 2: {"action_required": "confirm_removal", "data": {"skills": ["skill-name"]}}
+First call returns a confirmation prompt:
 
-# Confirm removal
-ion --json remove skill-name --yes
+```bash
+$ ion --json remove test-skill
+```
+```json
+{
+  "success": false,
+  "action_required": "confirm_removal",
+  "data": {
+    "skills": [
+      "test-skill"
+    ]
+  }
+}
+```
+
+Confirm with `--yes`:
+
+```bash
+$ ion --json remove test-skill --yes
+```
+```json
+{
+  "success": true,
+  "data": {
+    "removed": [
+      "test-skill"
+    ]
+  }
+}
 ```
 
 ### List installed skills
 
 ```bash
-ion --json skill list
+$ ion --json skill list
+```
+```json
+{
+  "success": true,
+  "data": []
+}
 ```
 
 ### Show skill info
 
+
 ```bash
-ion --json skill info skill-name
+$ ion --json skill info code-review
+```
+```json
+{
+  "success": true,
+  "data": {
+    "name": "code-review",
+    "description": "Automated code review skill",
+    "source_type": "Github",
+    "source": "obra/skills",
+    "path": "code-review",
+    "git_url": "https://github.com/obra/skills.git"
+  }
+}
 ```
 
 ### Update skills
 
 ```bash
-ion --json update          # update all
-ion --json update skill-name  # update one
+$ ion --json update
 ```
+```json
+{
+  "success": true,
+  "data": {
+    "updated": [
+      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
+    ],
+    "skipped": [
+      {"name": "pinned-skill", "reason": "pinned to refs/tags/v1.0"}
+    ],
+    "failed": [],
+    "up_to_date": [
+      {"name": "test-driven-dev"}
+    ]
+  }
+}
+```
+
+Update a single skill:
+
+```bash
+$ ion --json update code-review
+```
+```json
+{
+  "success": true,
+  "data": {
+    "updated": [
+      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
+    ],
+    "skipped": [],
+    "failed": [],
+    "up_to_date": []
+  }
+}
+```
+
 
 ### Validate skills
 
 ```bash
-ion --json skill validate
-ion --json skill validate path/to/SKILL.md
+$ ion --json skill validate
+```
+```json
+{
+  "success": true,
+  "data": {
+    "skills": [
+      {
+        "errors": 0,
+        "findings": [],
+        "infos": 0,
+        "name": "test-skill",
+        "path": "test-skill/SKILL.md",
+        "warnings": 0
+      }
+    ],
+    "total_errors": 0,
+    "total_infos": 0,
+    "total_warnings": 0
+  }
+}
 ```
 
 ### Configuration
 
 ```bash
-ion --json config list
-ion --json config get targets.claude
-ion --json config set targets.claude .claude/skills
-ion --json config list --project
+$ ion --json config list
+```
+```json
+{
+  "success": true,
+  "data": {
+    "targets.claude": ".claude/skills",
+    "targets.cursor": ".cursor/skills"
+  }
+}
+```
+
+```bash
+$ ion --json config get targets.claude
+```
+```json
+{
+  "success": true,
+  "data": {
+    "key": "targets.claude",
+    "value": ".claude/skills"
+  }
+}
+```
+
+```bash
+$ ion --json config set targets.claude .claude/commands
+```
+```json
+{
+  "success": true,
+  "data": {
+    "key": "targets.claude",
+    "value": ".claude/commands"
+  }
+}
 ```
 
 ### Cache management
 
 ```bash
-ion --json cache gc
-ion --json cache gc --dry-run
+$ ion --json cache gc --dry-run
+```
+```json
+{
+  "success": true,
+  "data": {
+    "dry_run": true,
+    "removed": [
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/28591af7e5893501",
+        "exists": true,
+        "hash": "28591af7e5893501",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpTeBgk0/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/2f24fd86908b9069",
+        "exists": true,
+        "hash": "2f24fd86908b9069",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpQzV1P2/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/346f4c237a76e6b6",
+        "exists": true,
+        "hash": "346f4c237a76e6b6",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpUD6Pw5/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/38f22f2e101a5089",
+        "exists": true,
+        "hash": "38f22f2e101a5089",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpLQIWg2/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/4327d0d58349dd6e",
+        "exists": true,
+        "hash": "4327d0d58349dd6e",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpza4YNh/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/5050e4fe25a015ef",
+        "exists": true,
+        "hash": "5050e4fe25a015ef",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpz0iQFp/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/628853969379a634",
+        "exists": true,
+        "hash": "628853969379a634",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpLSruJK/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/64f4012dd482eb19",
+        "exists": true,
+        "hash": "64f4012dd482eb19",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpanEPiE/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/75007fab6128dff9",
+        "exists": true,
+        "hash": "75007fab6128dff9",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpxiDKv3/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/7ea382c1ee1fea3d",
+        "exists": true,
+        "hash": "7ea382c1ee1fea3d",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpMZS6eu/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/8ea9ec5fef79c19a",
+        "exists": true,
+        "hash": "8ea9ec5fef79c19a",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpvLGmOr/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/ad6f338f8e1fad29",
+        "exists": true,
+        "hash": "ad6f338f8e1fad29",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpnwRAy4/upstream"
+      }
+    ]
+  }
+}
 ```
 
 ### Self management
 
+
 ```bash
-ion --json self info      # version, target, exe path
-ion --json self check     # check for updates
-ion --json self update    # update ion itself
+$ ion --json self info
 ```
+```json
+{
+  "success": true,
+  "data": {
+    "version": "0.2.1",
+    "target": "aarch64-apple-darwin",
+    "exe": "/usr/local/bin/ion"
+  }
+}
+```
+
+```bash
+$ ion --json self check
+```
+```json
+{
+  "success": true,
+  "data": {
+    "installed": "0.2.0",
+    "latest": "0.2.1",
+    "update_available": true
+  }
+}
+```
+
+```bash
+$ ion --json self update
+```
+```json
+{
+  "success": true,
+  "data": {
+    "updated": true,
+    "old_version": "0.2.0",
+    "new_version": "0.2.1",
+    "exe": "/usr/local/bin/ion"
+  }
+}
+```
+
 
 ## Typical Agent Workflow
 
+Here is a complete example showing how to search for and install a skill:
+
+
 ```bash
-# 1. Initialize project if needed
-ion --json project init --target claude
+# 1. Initialize project (if no Ion.toml exists)
+$ ion --json project init --target claude
+# → {"success": true, "data": {"targets": {"claude": ".claude/skills"}, "manifest": "Ion.toml"}}
 
-# 2. Search for relevant skills
-ion --json search "testing"
+# 2. Search for a skill
+$ ion --json search "testing"
+# → {"success": true, "data": [{"name": "test-driven-development", "source": "obra/skills/test-driven-development", ...}]}
 
-# 3. Install skills from search results (use the "source" field)
-ion --json add obra/skills/test-driven-development
+# 3. Install it (use the "source" field from search results)
+$ ion --json add obra/skills/test-driven-development
+# → {"success": true, "data": {"name": "test-driven-development", "installed_to": ".agents/skills/test-driven-development/", "targets": ["claude"]}}
 
-# 4. Handle warnings if they come back (exit code 2)
-ion --json add some/skill --allow-warnings
+# 4. If exit code 2 with warnings, re-run with --allow-warnings
+$ ion --json add some/skill --allow-warnings
+# → {"success": true, "data": {"name": "some-skill", ...}}
 
-# 5. List what's installed
-ion --json skill list
+# 5. Verify what's installed
+$ ion --json skill list
+# → {"success": true, "data": [{"name": "test-driven-development", "source": "obra/skills", ...}]}
 
-# 6. Remove a skill
-ion --json remove old-skill --yes
+# 6. Remove a skill when no longer needed
+$ ion --json remove old-skill --yes
+# → {"success": true, "data": {"removed": ["old-skill"]}}
 ```
+
 
 ## Key Flags
 
