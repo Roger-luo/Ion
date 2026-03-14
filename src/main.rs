@@ -215,6 +215,11 @@ enum CacheCommands {
 }
 
 fn main() {
+    // Refresh the global ion-cli SKILL.md if the binary has been updated.
+    // Cheap no-op if already current; ensures `ion self update` propagates
+    // the new skill content to all symlinked projects on the next command.
+    builtin_skill::refresh_global();
+
     let cli = Cli::parse();
     let json = cli.json;
     let skip_update_check = matches!(

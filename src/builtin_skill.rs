@@ -8,6 +8,30 @@ use ion_skill::source::{SkillSource, SourceType};
 const SKILL_NAME: &str = "ion-cli";
 const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
 
+/// Update the global SKILL.md if the embedded content has changed.
+///
+/// Called on every ion invocation so that after `ion self update`, the next
+/// command automatically refreshes the global copy. Since all projects
+/// symlink to this global file, every project sees the update immediately.
+///
+/// This is a cheap operation: one file read + string compare, no-op if current.
+pub fn refresh_global() {
+    let global_dir = builtin_skills_dir().join(SKILL_NAME);
+    let global_skill_md = global_dir.join("SKILL.md");
+
+    let needs_write = if global_skill_md.exists() {
+        std::fs::read_to_string(&global_skill_md).ok().as_deref() != Some(SKILL_CONTENT)
+    } else {
+        // Don't create the global dir on first run — wait for `ensure_installed`
+        // which also sets up symlinks and Ion.toml registration.
+        return;
+    };
+
+    if needs_write {
+        let _ = std::fs::write(&global_skill_md, SKILL_CONTENT);
+    }
+}
+
 /// Ensure the ion-cli built-in skill is installed in the project.
 ///
 /// Writes the embedded SKILL.md to global storage if needed,
