@@ -3,6 +3,9 @@
 .worktrees
 
 
+# Generated at build time by build.rs from templates/ion-cli.md.j2
+/SKILL.md
+
 # Added by cargo
 
 /target
@@ -23,3 +26,6 @@
 .agents/skills/verification-before-completion
 .agents/skills/writing-plans
 .agents/skills/writing-skills
+.agents/skills/ion-cli
+.claude/skills/ion-cli
+.cursor/skills/ion-cli

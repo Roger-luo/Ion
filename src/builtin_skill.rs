@@ -6,7 +6,7 @@ use ion_skill::manifest_writer;
 use ion_skill::source::{SkillSource, SourceType};
 
 const SKILL_NAME: &str = "ion-cli";
-const SKILL_CONTENT: &str = include_str!("../SKILL.md");
+const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
 
 /// Ensure the ion-cli built-in skill is installed in the project.
 ///
