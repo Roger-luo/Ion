@@ -95,49 +95,49 @@ $ ion --json project init --target claude --target cursor
 
 ### Search for skills
 
-
 ```bash
 $ ion --json search "code review"
 ```
 ```json
 {
-  "success": true,
   "data": [
     {
-      "name": "code-review",
       "description": "Automated code review skill",
-      "source": "obra/skills/code-review",
+      "name": "code-review",
       "registry": "github",
+      "source": "obra/skills/code-review",
       "stars": 42
     },
     {
-      "name": "pr-reviewer",
       "description": "Pull request review assistant",
-      "source": "acme/pr-reviewer",
+      "name": "pr-reviewer",
       "registry": "skills.sh",
+      "source": "acme/pr-reviewer",
       "stars": 18
     }
-  ]
+  ],
+  "success": true
 }
 ```
-
 
 Use the `source` field from results to install a skill.
 
 ### Add a single skill
-
 
 ```bash
 $ ion --json add obra/skills/code-review
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "name": "code-review",
     "installed_to": ".agents/skills/code-review/",
-    "targets": ["claude", "cursor"]
-  }
+    "name": "code-review",
+    "targets": [
+      "claude",
+      "cursor"
+    ]
+  },
+  "success": true
 }
 ```
 
@@ -148,14 +148,18 @@ $ ion --json add acme/experimental-skill
 ```
 ```json
 {
-  "success": false,
   "action_required": "validation_warnings",
   "data": {
     "skill": "experimental-skill",
     "warnings": [
-      {"severity": "warning", "checker": "security", "message": "Skill requests shell access"}
+      {
+        "checker": "security",
+        "message": "Skill requests shell access",
+        "severity": "warning"
+      }
     ]
-  }
+  },
+  "success": false
 }
 ```
 
@@ -166,12 +170,14 @@ $ ion --json add acme/experimental-skill --allow-warnings
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "name": "experimental-skill",
     "installed_to": ".agents/skills/experimental-skill/",
-    "targets": ["claude"]
-  }
+    "name": "experimental-skill",
+    "targets": [
+      "claude"
+    ]
+  },
+  "success": true
 }
 ```
 
@@ -184,15 +190,25 @@ $ ion --json add obra/skills
 ```
 ```json
 {
-  "success": false,
   "action_required": "skill_selection",
   "data": {
     "skills": [
-      {"name": "code-review", "status": "clean"},
-      {"name": "test-driven-dev", "status": "clean"},
-      {"name": "experimental", "status": "warnings", "warning_count": 2}
+      {
+        "name": "code-review",
+        "status": "clean"
+      },
+      {
+        "name": "test-driven-dev",
+        "status": "clean"
+      },
+      {
+        "name": "experimental",
+        "status": "warnings",
+        "warning_count": 2
+      }
     ]
-  }
+  },
+  "success": false
 }
 ```
 
@@ -203,12 +219,14 @@ $ ion --json add obra/skills --skills code-review,test-driven-dev
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "name": "code-review",
     "installed_to": ".agents/skills/code-review/",
-    "targets": ["claude"]
-  }
+    "name": "code-review",
+    "targets": [
+      "claude"
+    ]
+  },
+  "success": true
 }
 ```
 
@@ -219,14 +237,18 @@ $ ion --json add
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "installed": ["code-review", "test-driven-dev"],
-    "skipped": ["pinned-skill"]
-  }
+    "installed": [
+      "code-review",
+      "test-driven-dev"
+    ],
+    "skipped": [
+      "pinned-skill"
+    ]
+  },
+  "success": true
 }
 ```
-
 
 ### Remove a skill
 
@@ -277,21 +299,20 @@ $ ion --json skill list
 
 ### Show skill info
 
-
 ```bash
 $ ion --json skill info code-review
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "name": "code-review",
     "description": "Automated code review skill",
-    "source_type": "Github",
-    "source": "obra/skills",
+    "git_url": "https://github.com/obra/skills.git",
+    "name": "code-review",
     "path": "code-review",
-    "git_url": "https://github.com/obra/skills.git"
-  }
+    "source": "obra/skills",
+    "source_type": "Github"
+  },
+  "success": true
 }
 ```
 
@@ -302,19 +323,29 @@ $ ion --json update
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "updated": [
-      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-    ],
-    "skipped": [
-      {"name": "pinned-skill", "reason": "pinned to refs/tags/v1.0"}
-    ],
     "failed": [],
+    "skipped": [
+      {
+        "name": "pinned-skill",
+        "reason": "pinned to refs/tags/v1.0"
+      }
+    ],
     "up_to_date": [
-      {"name": "test-driven-dev"}
+      {
+        "name": "test-driven-dev"
+      }
+    ],
+    "updated": [
+      {
+        "binary": false,
+        "name": "code-review",
+        "new_version": "v1.2.0",
+        "old_version": "v1.1.0"
+      }
     ]
-  }
+  },
+  "success": true
 }
 ```
 
@@ -325,18 +356,22 @@ $ ion --json update code-review
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "updated": [
-      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-    ],
-    "skipped": [],
     "failed": [],
-    "up_to_date": []
-  }
+    "skipped": [],
+    "up_to_date": [],
+    "updated": [
+      {
+        "binary": false,
+        "name": "code-review",
+        "new_version": "v1.2.0",
+        "old_version": "v1.1.0"
+      }
+    ]
+  },
+  "success": true
 }
 ```
-
 
 ### Validate skills
 
@@ -407,17 +442,16 @@ $ ion --json config set targets.claude .claude/commands
 
 ### Cache management
 
-
 ```bash
 $ ion --json cache gc --dry-run
 ```
 ```json
 {
-  "success": true,
   "data": {
     "dry_run": true,
     "removed": []
-  }
+  },
+  "success": true
 }
 ```
 
@@ -428,12 +462,12 @@ $ ion --json self info
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "version": "0.2.1",
+    "exe": "/usr/local/bin/ion",
     "target": "aarch64-apple-darwin",
-    "exe": "/usr/local/bin/ion"
-  }
+    "version": "0.2.1"
+  },
+  "success": true
 }
 ```
 
@@ -442,12 +476,12 @@ $ ion --json self check
 ```
 ```json
 {
-  "success": true,
   "data": {
     "installed": "0.2.0",
     "latest": "0.2.1",
     "update_available": true
-  }
+  },
+  "success": true
 }
 ```
 
@@ -456,16 +490,15 @@ $ ion --json self update
 ```
 ```json
 {
-  "success": true,
   "data": {
-    "updated": true,
-    "old_version": "0.2.0",
+    "exe": "/usr/local/bin/ion",
     "new_version": "0.2.1",
-    "exe": "/usr/local/bin/ion"
-  }
+    "old_version": "0.2.0",
+    "updated": true
+  },
+  "success": true
 }
 ```
-
 
 ## Typical Agent Workflow
 

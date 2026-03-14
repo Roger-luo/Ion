@@ -63,50 +63,22 @@ $ ion --json project init --target claude --target cursor
 
 ### Search for skills
 
-{% raw %}
 ```bash
 $ ion --json search "code review"
 ```
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "name": "code-review",
-      "description": "Automated code review skill",
-      "source": "obra/skills/code-review",
-      "registry": "github",
-      "stars": 42
-    },
-    {
-      "name": "pr-reviewer",
-      "description": "Pull request review assistant",
-      "source": "acme/pr-reviewer",
-      "registry": "skills.sh",
-      "stars": 18
-    }
-  ]
-}
+{{ example_search }}
 ```
-{% endraw %}
 
 Use the `source` field from results to install a skill.
 
 ### Add a single skill
 
-{% raw %}
 ```bash
 $ ion --json add obra/skills/code-review
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "name": "code-review",
-    "installed_to": ".agents/skills/code-review/",
-    "targets": ["claude", "cursor"]
-  }
-}
+{{ example_add_success }}
 ```
 
 If the skill has validation warnings, you get exit 2 instead:
@@ -115,16 +87,7 @@ If the skill has validation warnings, you get exit 2 instead:
 $ ion --json add acme/experimental-skill
 ```
 ```json
-{
-  "success": false,
-  "action_required": "validation_warnings",
-  "data": {
-    "skill": "experimental-skill",
-    "warnings": [
-      {"severity": "warning", "checker": "security", "message": "Skill requests shell access"}
-    ]
-  }
-}
+{{ example_add_warnings }}
 ```
 
 Re-run with `--allow-warnings` to accept:
@@ -133,14 +96,7 @@ Re-run with `--allow-warnings` to accept:
 $ ion --json add acme/experimental-skill --allow-warnings
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "name": "experimental-skill",
-    "installed_to": ".agents/skills/experimental-skill/",
-    "targets": ["claude"]
-  }
-}
+{{ example_add_warnings_accept }}
 ```
 
 ### Add from a skill collection
@@ -151,17 +107,7 @@ When a repo contains multiple skills, ion lists them for you to choose:
 $ ion --json add obra/skills
 ```
 ```json
-{
-  "success": false,
-  "action_required": "skill_selection",
-  "data": {
-    "skills": [
-      {"name": "code-review", "status": "clean"},
-      {"name": "test-driven-dev", "status": "clean"},
-      {"name": "experimental", "status": "warnings", "warning_count": 2}
-    ]
-  }
-}
+{{ example_add_collection }}
 ```
 
 Pick specific skills:
@@ -170,14 +116,7 @@ Pick specific skills:
 $ ion --json add obra/skills --skills code-review,test-driven-dev
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "name": "code-review",
-    "installed_to": ".agents/skills/code-review/",
-    "targets": ["claude"]
-  }
-}
+{{ example_add_collection_select }}
 ```
 
 ### Install all from Ion.toml
@@ -186,15 +125,8 @@ $ ion --json add obra/skills --skills code-review,test-driven-dev
 $ ion --json add
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "installed": ["code-review", "test-driven-dev"],
-    "skipped": ["pinned-skill"]
-  }
-}
+{{ example_install_all }}
 ```
-{% endraw %}
 
 ### Remove a skill
 
@@ -227,22 +159,11 @@ $ ion --json skill list
 
 ### Show skill info
 
-{% raw %}
 ```bash
 $ ion --json skill info code-review
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "name": "code-review",
-    "description": "Automated code review skill",
-    "source_type": "Github",
-    "source": "obra/skills",
-    "path": "code-review",
-    "git_url": "https://github.com/obra/skills.git"
-  }
-}
+{{ example_skill_info }}
 ```
 
 ### Update skills
@@ -251,21 +172,7 @@ $ ion --json skill info code-review
 $ ion --json update
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "updated": [
-      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-    ],
-    "skipped": [
-      {"name": "pinned-skill", "reason": "pinned to refs/tags/v1.0"}
-    ],
-    "failed": [],
-    "up_to_date": [
-      {"name": "test-driven-dev"}
-    ]
-  }
-}
+{{ example_update }}
 ```
 
 Update a single skill:
@@ -274,19 +181,8 @@ Update a single skill:
 $ ion --json update code-review
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "updated": [
-      {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-    ],
-    "skipped": [],
-    "failed": [],
-    "up_to_date": []
-  }
-}
+{{ example_update_single }}
 ```
-{% endraw %}
 
 ### Validate skills
 
@@ -322,18 +218,11 @@ $ ion --json config set targets.claude .claude/commands
 
 ### Cache management
 
-{% raw %}
 ```bash
 $ ion --json cache gc --dry-run
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "dry_run": true,
-    "removed": []
-  }
-}
+{{ example_gc_dry_run }}
 ```
 
 ### Self management
@@ -342,45 +231,22 @@ $ ion --json cache gc --dry-run
 $ ion --json self info
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "version": "0.2.1",
-    "target": "aarch64-apple-darwin",
-    "exe": "/usr/local/bin/ion"
-  }
-}
+{{ example_self_info }}
 ```
 
 ```bash
 $ ion --json self check
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "installed": "0.2.0",
-    "latest": "0.2.1",
-    "update_available": true
-  }
-}
+{{ example_self_check }}
 ```
 
 ```bash
 $ ion --json self update
 ```
 ```json
-{
-  "success": true,
-  "data": {
-    "updated": true,
-    "old_version": "0.2.0",
-    "new_version": "0.2.1",
-    "exe": "/usr/local/bin/ion"
-  }
-}
+{{ example_self_update }}
 ```
-{% endraw %}
 
 ## Typical Agent Workflow
 
