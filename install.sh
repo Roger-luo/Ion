@@ -3,11 +3,30 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh
 #   curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh -s -- 0.1.2
+#   curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh -s -- --yes
+#
+# Flags:
+#   -y, --yes   Non-interactive: error if another ion is found (instead of prompting for alias)
 set -eu
 
 REPO="Roger-luo/Ion"
 INSTALL_DIR="${ION_INSTALL_DIR:-${HOME}/.local/bin}"
-VERSION="${1:-}"
+BIN_NAME="ion"
+VERSION=""
+YES=false
+
+log()  { printf '  \033[1;32m>\033[0m %s\n' "$*"; }
+warn() { printf '  \033[1;33m!\033[0m %s\n' "$*"; }
+err()  { printf '  \033[1;31mx\033[0m %s\n' "$*" >&2; exit 1; }
+
+# Parse flags
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -y|--yes) YES=true; shift ;;
+        -*)       err "Unknown flag: $1" ;;
+        *)        VERSION="$1"; shift ;;
+    esac
+done
 
 main() {
     detect_platform
@@ -69,54 +88,85 @@ resolve_version() {
 }
 
 check_existing() {
-    EXISTING=""
-
-    # Check the target install directory first
+    # 1. Check our own install directory
     if [ -x "${INSTALL_DIR}/ion" ]; then
-        EXISTING="${INSTALL_DIR}/ion"
-    # Also check if ion is elsewhere on PATH
-    elif command -v ion >/dev/null 2>&1; then
-        EXISTING=$(command -v ion)
-    fi
-
-    if [ -z "$EXISTING" ]; then
+        INSTALLED_VERSION=$(get_version "${INSTALL_DIR}/ion")
+        if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
+            log "ion $VERSION is already installed at ${INSTALL_DIR}/ion"
+            exit 0
+        fi
+        log "Upgrading ion $INSTALLED_VERSION -> $VERSION at ${INSTALL_DIR}/ion"
         return
     fi
 
-    # Get the installed version
-    # Try --version first (>= 0.1.12), then self info (older), then "unknown"
-    INSTALLED_VERSION=""
-    VER_OUTPUT=$("$EXISTING" --version 2>/dev/null) && \
-        INSTALLED_VERSION=$(printf '%s' "$VER_OUTPUT" | head -1 | sed 's/[^0-9.]*//')
-    if [ -z "$INSTALLED_VERSION" ]; then
-        VER_OUTPUT=$("$EXISTING" self info 2>/dev/null) && \
-            INSTALLED_VERSION=$(printf '%s' "$VER_OUTPUT" | head -1 | sed 's/[^0-9.]*//')
-    fi
-    if [ -z "$INSTALLED_VERSION" ]; then
-        INSTALLED_VERSION="unknown"
+    # 2. Check if ion exists elsewhere on PATH (installed by another tool)
+    if ! command -v ion >/dev/null 2>&1; then
+        return
     fi
 
-    if [ "$INSTALLED_VERSION" = "$VERSION" ]; then
-        log "ion $VERSION is already installed at $EXISTING"
+    EXISTING=$(command -v ion)
+    INSTALLED_VERSION=$(get_version "$EXISTING")
+
+    # Determine what installed it
+    MANAGER=""
+    case "$EXISTING" in
+        */.cargo/bin/*)  MANAGER="cargo" ;;
+        */Cellar/*)      MANAGER="Homebrew" ;;
+        */homebrew/bin/*) MANAGER="Homebrew" ;;
+    esac
+
+    if [ -n "$MANAGER" ]; then
+        warn "Found ion $INSTALLED_VERSION at $EXISTING (installed via $MANAGER)"
+    else
+        warn "Found ion $INSTALLED_VERSION at $EXISTING"
+    fi
+
+    echo ""
+    echo "  To avoid conflicts, you can either:"
+    echo ""
+    if [ -n "$MANAGER" ]; then
+        case "$MANAGER" in
+            cargo)    echo "    1. Uninstall the existing one:  cargo uninstall ion" ;;
+            Homebrew) echo "    1. Uninstall the existing one:  brew uninstall ion" ;;
+        esac
+    else
+        echo "    1. Remove the existing binary:   rm $EXISTING"
+    fi
+    echo "    2. Install with a different name (e.g. 'ion-skill')"
+    echo ""
+
+    # With --yes: just error, don't prompt
+    if [ "$YES" = true ]; then
+        err "Existing ion found at $EXISTING. Remove it first or omit --yes to choose an alias."
+    fi
+
+    # Non-interactive: error
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        err "Existing ion found at $EXISTING. Remove it first or run interactively to choose an alias."
+    fi
+
+    printf '  \033[1;33m!\033[0m Install with a different name? Enter name (or press Enter to abort): '
+    read -r REPLY </dev/tty
+
+    if [ -z "$REPLY" ]; then
+        log "Aborted."
         exit 0
     fi
 
-    log "Found existing ion $INSTALLED_VERSION at $EXISTING"
+    BIN_NAME="$REPLY"
+    log "Will install as '$BIN_NAME'"
+}
 
-    # Non-interactive (piped) — proceed without prompting
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
-        log "Upgrading ion $INSTALLED_VERSION -> $VERSION"
-        return
+get_version() {
+    _BIN="$1"
+    _VER=""
+    _OUT=$("$_BIN" --version 2>/dev/null) && \
+        _VER=$(printf '%s' "$_OUT" | head -1 | sed 's/[^0-9.]*//')
+    if [ -z "$_VER" ]; then
+        _OUT=$("$_BIN" self info 2>/dev/null) && \
+            _VER=$(printf '%s' "$_OUT" | head -1 | sed 's/[^0-9.]*//')
     fi
-
-    printf '  \033[1;33m!\033[0m Replace ion %s with %s? [Y/n] ' "$INSTALLED_VERSION" "$VERSION"
-    read -r REPLY </dev/tty
-    case "$REPLY" in
-        [nN]|[nN][oO])
-            log "Aborted."
-            exit 0
-            ;;
-    esac
+    printf '%s' "${_VER:-unknown}"
 }
 
 download_and_install() {
@@ -135,12 +185,17 @@ download_and_install() {
     tar xzf "${TMPDIR}/${ARCHIVE}" -C "$TMPDIR"
 
     mkdir -p "$INSTALL_DIR"
-    mv "${TMPDIR}/ion" "${INSTALL_DIR}/ion"
-    chmod +x "${INSTALL_DIR}/ion"
+    mv "${TMPDIR}/ion" "${INSTALL_DIR}/${BIN_NAME}"
+    chmod +x "${INSTALL_DIR}/${BIN_NAME}"
 }
 
 print_success() {
-    log "Installed ion $VERSION to ${INSTALL_DIR}/ion"
+    log "Installed ion $VERSION to ${INSTALL_DIR}/${BIN_NAME}"
+
+    if [ "$BIN_NAME" != "ion" ]; then
+        echo ""
+        log "Installed as '$BIN_NAME' (use '$BIN_NAME' instead of 'ion')"
+    fi
 
     # Check if install dir is in PATH
     case ":$PATH:" in
@@ -177,10 +232,15 @@ setup_completions() {
 
     detect_shell
 
-    ION="${INSTALL_DIR}/ion"
+    ION="${INSTALL_DIR}/${BIN_NAME}"
 
-    # Verify ion binary works before offering completions
+    # Verify binary works before offering completions
     if ! "$ION" --version >/dev/null 2>&1; then
+        return
+    fi
+
+    # Skip completions for aliased installs — they'd register as "ion" not the alias
+    if [ "$BIN_NAME" != "ion" ]; then
         return
     fi
 
@@ -204,7 +264,7 @@ setup_completions() {
 
 install_completion() {
     COMP_SHELL="$1"
-    ION="${INSTALL_DIR}/ion"
+    ION="${INSTALL_DIR}/${BIN_NAME}"
 
     case "$COMP_SHELL" in
         bash)
@@ -238,9 +298,5 @@ install_completion() {
             ;;
     esac
 }
-
-log()  { printf '  \033[1;32m>\033[0m %s\n' "$*"; }
-warn() { printf '  \033[1;33m!\033[0m %s\n' "$*"; }
-err()  { printf '  \033[1;31mx\033[0m %s\n' "$*" >&2; exit 1; }
 
 main
