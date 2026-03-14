@@ -20,6 +20,7 @@ ratatui = "0.29"
 tempfile = "3"
 
 [dev-dependencies]
+minijinja = "2"
 
 [workspace]
 members = [".", "crates/ion-skill"]
