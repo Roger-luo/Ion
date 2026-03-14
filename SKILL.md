@@ -417,6 +417,12 @@ $ ion --json cache gc --dry-run
     "dry_run": true,
     "removed": [
       {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/1e052a6ddcc7b55c",
+        "exists": true,
+        "hash": "1e052a6ddcc7b55c",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmp1MCpSh/upstream"
+      },
+      {
         "directory": "/Users/roger/Library/Application Support/ion/repos/28591af7e5893501",
         "exists": true,
         "hash": "28591af7e5893501",
@@ -487,6 +493,12 @@ $ ion --json cache gc --dry-run
         "exists": true,
         "hash": "ad6f338f8e1fad29",
         "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpnwRAy4/upstream"
+      },
+      {
+        "directory": "/Users/roger/Library/Application Support/ion/repos/b0fd4ae881ec3892",
+        "exists": true,
+        "hash": "b0fd4ae881ec3892",
+        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpbfzFGg/upstream"
       }
     ]
   }
