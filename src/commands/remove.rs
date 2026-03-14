@@ -67,7 +67,9 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
         let entry = &manifest.skills[skill_name];
         let entry_source = Manifest::resolve_entry(entry);
 
-        println!("Removing skill {}...", p.bold(&format!("'{skill_name}'")));
+        if !json {
+            println!("Removing skill {}...", p.bold(&format!("'{skill_name}'")));
+        }
 
         // For local skills, only remove symlinks — preserve the actual skill directory
         if let Ok(ref source) = entry_source
@@ -88,14 +90,18 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             if agents_dir.is_symlink() {
                 std::fs::remove_file(&agents_dir)?;
             }
-            println!("  Removed symlinks for {}", p.info(skill_name));
-            println!("  {}: local skill directory preserved", p.dim("note"));
+            if !json {
+                println!("  Removed symlinks for {}", p.info(skill_name));
+                println!("  {}: local skill directory preserved", p.dim("note"));
+            }
         } else {
             SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
-            println!(
-                "  Removed from {}",
-                p.info(&format!(".agents/skills/{skill_name}/"))
-            );
+            if !json {
+                println!(
+                    "  Removed from {}",
+                    p.info(&format!(".agents/skills/{skill_name}/"))
+                );
+            }
         }
 
         // Skip gitignore removal for local skills (they were never gitignored)
@@ -104,7 +110,9 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             Ok(SourceType::Local)
         ) {
             ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
-            println!("  Updated {}", p.dim(".gitignore"));
+            if !json {
+                println!("  Updated {}", p.dim(".gitignore"));
+            }
         }
 
         // Unregister from global registry for git-based sources
@@ -124,11 +132,13 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             if let Some(ref binary_name) = locked.binary {
                 if let Some(ref version) = locked.binary_version {
                     ion_skill::binary::remove_binary_version(binary_name, version)?;
-                    println!(
-                        "  Removed binary {} v{}",
-                        p.info(binary_name),
-                        p.dim(version)
-                    );
+                    if !json {
+                        println!(
+                            "  Removed binary {} v{}",
+                            p.info(binary_name),
+                            p.dim(version)
+                        );
+                    }
                 }
             }
         }

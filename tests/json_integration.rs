@@ -97,6 +97,30 @@ fn json_remove_without_yes_returns_action_required() {
 }
 
 #[test]
+fn json_remove_yes_returns_pure_json() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("Ion.toml"),
+        "[skills]\ntest-skill = \"owner/repo\"\n",
+    )
+    .unwrap();
+    std::fs::write(dir.path().join("Ion.lock"), "").unwrap();
+    std::fs::create_dir_all(dir.path().join(".agents/skills/test-skill")).unwrap();
+
+    let output = ion()
+        .args(["--json", "remove", "test-skill", "--yes"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .expect("stdout should be valid JSON with no extra text");
+    assert_eq!(parsed["success"], true);
+    assert!(parsed["data"]["removed"].is_array());
+}
+
+#[test]
 fn json_config_no_subcommand_errors() {
     let output = ion()
         .args(["--json", "config"])
