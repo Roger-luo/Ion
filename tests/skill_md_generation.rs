@@ -155,11 +155,12 @@ fn render_skill_md() -> String {
         config_set_dir.path(),
     );
 
-    // -- cache gc --
-    let example_gc_dry_run = capture_json(
-        &["--json", "cache", "gc", "--dry-run"],
-        init_dir.path(),
-    );
+    // -- cache gc: verify structure only (output depends on global registry state, template uses static example) --
+    let gc_output = capture_json(&["--json", "cache", "gc", "--dry-run"], init_dir.path());
+    let gc: serde_json::Value = serde_json::from_str(&gc_output).unwrap();
+    assert_eq!(gc["success"], true);
+    assert_eq!(gc["data"]["dry_run"], true);
+    assert!(gc["data"]["removed"].is_array());
 
     // -- self info: verify structure only (template uses static example) --
     let self_info_output = capture_json(&["--json", "self", "info"], init_dir.path());
@@ -184,7 +185,6 @@ fn render_skill_md() -> String {
         example_config_list,
         example_config_get,
         example_config_set,
-        example_gc_dry_run,
     })
     .unwrap()
 }

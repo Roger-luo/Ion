@@ -407,6 +407,7 @@ $ ion --json config set targets.claude .claude/commands
 
 ### Cache management
 
+
 ```bash
 $ ion --json cache gc --dry-run
 ```
@@ -415,98 +416,12 @@ $ ion --json cache gc --dry-run
   "success": true,
   "data": {
     "dry_run": true,
-    "removed": [
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/1e052a6ddcc7b55c",
-        "exists": true,
-        "hash": "1e052a6ddcc7b55c",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmp1MCpSh/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/28591af7e5893501",
-        "exists": true,
-        "hash": "28591af7e5893501",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpTeBgk0/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/2f24fd86908b9069",
-        "exists": true,
-        "hash": "2f24fd86908b9069",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpQzV1P2/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/346f4c237a76e6b6",
-        "exists": true,
-        "hash": "346f4c237a76e6b6",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpUD6Pw5/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/38f22f2e101a5089",
-        "exists": true,
-        "hash": "38f22f2e101a5089",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpLQIWg2/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/4327d0d58349dd6e",
-        "exists": true,
-        "hash": "4327d0d58349dd6e",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpza4YNh/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/5050e4fe25a015ef",
-        "exists": true,
-        "hash": "5050e4fe25a015ef",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpz0iQFp/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/628853969379a634",
-        "exists": true,
-        "hash": "628853969379a634",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpLSruJK/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/64f4012dd482eb19",
-        "exists": true,
-        "hash": "64f4012dd482eb19",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpanEPiE/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/75007fab6128dff9",
-        "exists": true,
-        "hash": "75007fab6128dff9",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpxiDKv3/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/7ea382c1ee1fea3d",
-        "exists": true,
-        "hash": "7ea382c1ee1fea3d",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpMZS6eu/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/8ea9ec5fef79c19a",
-        "exists": true,
-        "hash": "8ea9ec5fef79c19a",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpvLGmOr/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/ad6f338f8e1fad29",
-        "exists": true,
-        "hash": "ad6f338f8e1fad29",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpnwRAy4/upstream"
-      },
-      {
-        "directory": "/Users/roger/Library/Application Support/ion/repos/b0fd4ae881ec3892",
-        "exists": true,
-        "hash": "b0fd4ae881ec3892",
-        "url": "/var/folders/ml/ztzmczc55fs5f89jwk71j1vm0000gn/T/.tmpbfzFGg/upstream"
-      }
-    ]
+    "removed": []
   }
 }
 ```
 
 ### Self management
-
 
 ```bash
 $ ion --json self info

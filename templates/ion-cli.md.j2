@@ -322,16 +322,22 @@ $ ion --json config set targets.claude .claude/commands
 
 ### Cache management
 
+{% raw %}
 ```bash
 $ ion --json cache gc --dry-run
 ```
 ```json
-{{ example_gc_dry_run }}
+{
+  "success": true,
+  "data": {
+    "dry_run": true,
+    "removed": []
+  }
+}
 ```
 
 ### Self management
 
-{% raw %}
 ```bash
 $ ion --json self info
 ```
