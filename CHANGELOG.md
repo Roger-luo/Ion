@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+### Added
+
+- Auto-refresh global ion-cli SKILL.md on every invocation (e68712c)
+- Generate SKILL.md from minijinja template with real JSON examples (c3710f3)
+- Add minijinja template for SKILL.md generation (d733a9d)
+
+### Build
+
+- Add minijinja as dev-dependency for template-based SKILL.md generation (ee797b2)
+
+### Fixed
+
+- Make cache gc example static in SKILL.md template (6c45ed2)
+- Guard println in remove command for --json mode (9054515)
+
+### Refactored
+
+- Generate SKILL.md at build time, remove from git tracking (b1256aa)
+- Generate all JSON examples programmatically, eliminate hand-typed JSON from template (ef7e17e)
+
 ### Fixed
 
 - Prevent circular symlink for binary skills and auto-deploy ion-cli (58da614)
