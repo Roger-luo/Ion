@@ -10,6 +10,31 @@ const TAG_PREFIX: &str = "ion-v";
 /// How often to check for updates (24 hours)
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// Detect whether the binary was installed by an external package manager.
+/// Returns `Some("manager name")` if managed, `None` if self-update is safe.
+fn detect_package_manager() -> Option<&'static str> {
+    let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
+    let exe_str = exe.to_str()?;
+
+    // cargo install → ~/.cargo/bin/ion
+    if let Some(cargo_home) = std::env::var_os("CARGO_HOME") {
+        if exe.starts_with(cargo_home) {
+            return Some("cargo");
+        }
+    } else if let Some(home) = dirs::home_dir() {
+        if exe.starts_with(home.join(".cargo/bin")) {
+            return Some("cargo");
+        }
+    }
+
+    // Homebrew on macOS — /opt/homebrew/bin/ or /usr/local/Cellar/
+    if exe_str.contains("/Cellar/") || exe_str.starts_with("/opt/homebrew/bin/") {
+        return Some("brew");
+    }
+
+    None
+}
+
 pub fn info(json: bool) -> anyhow::Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     let target = env!("TARGET");
@@ -51,13 +76,35 @@ pub fn check(json: bool) -> anyhow::Result<()> {
     if current == latest {
         println!("\nAlready up to date.");
     } else {
+        let command = match detect_package_manager() {
+            Some("cargo") => "cargo install --git https://github.com/Roger-luo/Ion --force",
+            Some("brew") => "brew upgrade ion",
+            _ => "ion self update",
+        };
         println!("\nUpdate available: {current} -> {latest}");
-        println!("Run `ion self update` to install it.");
+        println!("Run `{command}` to install it.");
     }
     Ok(())
 }
 
 pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
+    if let Some(manager) = detect_package_manager() {
+        let hint = match manager {
+            "cargo" => "cargo install --git https://github.com/Roger-luo/Ion --force",
+            "brew" => "brew upgrade ion",
+            _ => "your package manager",
+        };
+        if json {
+            crate::json::print_error(&format!(
+                "ion was installed via {manager}. Update with: {hint}"
+            ));
+        }
+        bail!(
+            "ion was installed via {manager}, so `ion self update` cannot safely replace it.\n\
+             Update with: {hint}"
+        );
+    }
+
     let current = env!("CARGO_PKG_VERSION");
     let release = match version {
         Some(v) => {
@@ -189,9 +236,14 @@ fn check_for_update_hint_inner() -> Option<()> {
 }
 
 fn print_update_hint(current: &str, latest: &str) {
+    let command = match detect_package_manager() {
+        Some("cargo") => "cargo install --git https://github.com/Roger-luo/Ion --force",
+        Some("brew") => "brew upgrade ion",
+        _ => "ion self update",
+    };
     eprintln!(
-        "\nUpdate available: ion {} -> {} — run `ion self update` to install",
-        current, latest
+        "\nUpdate available: ion {} -> {} — run `{}` to install",
+        current, latest, command
     );
 }
 
