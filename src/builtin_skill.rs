@@ -3,7 +3,7 @@ use std::path::Path;
 use ion_skill::installer::{SkillInstaller, builtin_skills_dir};
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 const SKILL_NAME: &str = "ion-cli";
 const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
@@ -70,16 +70,7 @@ pub fn ensure_installed(
         && !content.contains(&format!("{SKILL_NAME} ="))
         && !content.contains(&format!("\"{SKILL_NAME}\""))
     {
-        let source = SkillSource {
-            source_type: SourceType::Local,
-            source: String::new(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: None,
-        };
+        let source = SkillSource::local();
         manifest_writer::add_skill(manifest_path, SKILL_NAME, &source)?;
     }
 

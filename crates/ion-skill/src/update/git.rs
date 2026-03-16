@@ -133,16 +133,7 @@ mod tests {
     }
 
     fn git_source(url: &str) -> SkillSource {
-        SkillSource {
-            source_type: SourceType::Git,
-            source: url.to_string(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: None,
-        }
+        SkillSource::new(SourceType::Git, url)
     }
 
     #[test]

@@ -427,16 +427,7 @@ fn handle_custom_skill(
     move_skill_to_local(project_dir, leftover, options)?;
 
     // Add to manifest as a local skill
-    let local_source = ion_skill::source::SkillSource {
-        source_type: SourceType::Local,
-        source: String::new(),
-        path: None,
-        rev: None,
-        version: None,
-        binary: None,
-        asset_pattern: None,
-        forked_from: None,
-    };
+    let local_source = ion_skill::source::SkillSource::local();
     let manifest_path = project_dir.join("Ion.toml");
     ion_skill::manifest_writer::add_skill(&manifest_path, &leftover.name, &local_source)?;
 

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -42,16 +42,7 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
     }
 
     // Build a path source pointing to the local directory
-    let source = SkillSource {
-        source_type: SourceType::Path,
-        source: path.to_string(),
-        path: None,
-        rev: None,
-        version: None,
-        binary: None,
-        asset_pattern: None,
-        forked_from: None,
-    };
+    let source = SkillSource::from_path(path);
 
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);

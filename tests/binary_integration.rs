@@ -102,16 +102,11 @@ fn test_manifest_writer_binary_skill() {
     let path = dir.path().join("Ion.toml");
     fs::write(&path, "[skills]\n").unwrap();
 
-    let source = ion_skill::source::SkillSource {
-        source_type: ion_skill::source::SourceType::Binary,
-        source: "owner/mytool".to_string(),
-        path: None,
-        rev: None,
-        version: None,
-        binary: Some("mytool".to_string()),
-        asset_pattern: None,
-        forked_from: None,
-    };
+    let source = ion_skill::source::SkillSource::new(
+        ion_skill::source::SourceType::Binary,
+        "owner/mytool",
+    )
+    .with_binary("mytool");
 
     ion_skill::manifest_writer::add_skill(&path, "mytool", &source).unwrap();
 

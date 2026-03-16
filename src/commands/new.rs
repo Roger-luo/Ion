@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 const DEFAULT_SKILLS_DIR: &str = ".agents/skills";
 
@@ -311,16 +311,7 @@ pub fn run(
     write_skill_md(&skill_dir, &name, bin, force)?;
 
     // Register the skill in Ion.toml as a local skill.
-    let source = SkillSource {
-        source_type: SourceType::Local,
-        source: String::new(),
-        path: None,
-        rev: None,
-        version: None,
-        binary: None,
-        asset_pattern: None,
-        forked_from: None,
-    };
+    let source = SkillSource::local();
     manifest_writer::add_skill(&manifest_path, &name, &source)?;
 
     if bin {

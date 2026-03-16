@@ -97,16 +97,8 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     // Update Ion.toml: remove old entry, add new local entry with forked-from
     let forked_from = build_forked_from(&source);
 
-    let local_source = SkillSource {
-        source_type: SourceType::Local,
-        source: String::new(),
-        path: None,
-        rev: None,
-        version: None,
-        binary: None,
-        asset_pattern: None,
-        forked_from: Some(forked_from.clone()),
-    };
+    let local_source = SkillSource::local()
+        .with_forked_from(forked_from.clone());
     manifest_writer::remove_skill(&ctx.manifest_path, name)?;
     manifest_writer::add_skill(&ctx.manifest_path, name, &local_source)?;
     if !json {

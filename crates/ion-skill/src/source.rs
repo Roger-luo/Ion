@@ -28,20 +28,80 @@ pub struct SkillSource {
 }
 
 impl SkillSource {
+    /// Create a skill source with the given type and source string.
+    pub fn new(source_type: SourceType, source: impl Into<String>) -> Self {
+        Self {
+            source_type,
+            source: source.into(),
+            path: None,
+            rev: None,
+            version: None,
+            binary: None,
+            asset_pattern: None,
+            forked_from: None,
+        }
+    }
+
+    /// Create a local skill source (no remote origin).
+    pub fn local() -> Self {
+        Self::new(SourceType::Local, "")
+    }
+
+    /// Create a path-based skill source.
+    pub fn from_path(source: &str) -> Self {
+        Self::new(SourceType::Path, source)
+    }
+
+    /// Derive a human-readable skill name from this source.
+    /// Uses the path's last segment if available, otherwise the source's last segment.
+    pub fn display_name(&self) -> String {
+        if let Some(ref path) = self.path {
+            path.rsplit('/').next().unwrap_or(path).to_string()
+        } else {
+            self.source
+                .trim_end_matches(".git")
+                .rsplit('/')
+                .next()
+                .unwrap_or(&self.source)
+                .to_string()
+        }
+    }
+
+    pub fn with_rev(mut self, rev: impl Into<String>) -> Self {
+        self.rev = Some(rev.into());
+        self
+    }
+
+    pub fn with_path(mut self, path: impl Into<String>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    pub fn with_version(mut self, version: impl Into<String>) -> Self {
+        self.version = Some(version.into());
+        self
+    }
+
+    pub fn with_binary(mut self, binary: impl Into<String>) -> Self {
+        self.binary = Some(binary.into());
+        self
+    }
+
+    pub fn with_asset_pattern(mut self, pattern: impl Into<String>) -> Self {
+        self.asset_pattern = Some(pattern.into());
+        self
+    }
+
+    pub fn with_forked_from(mut self, forked_from: impl Into<String>) -> Self {
+        self.forked_from = Some(forked_from.into());
+        self
+    }
+
     /// Infer a SkillSource from a raw source string (no explicit type).
     pub fn infer(source: &str) -> Result<Self> {
         // Local paths
         if source.starts_with('/') || source.starts_with("./") || source.starts_with("../") {
-            return Ok(Self {
-                source_type: SourceType::Path,
-                source: source.to_string(),
-                path: None,
-                rev: None,
-                version: None,
-                binary: None,
-                asset_pattern: None,
-                forked_from: None,
-            });
+            return Ok(Self::from_path(source));
         }
 
         // URLs
@@ -53,41 +113,17 @@ impl SkillSource {
             } else {
                 SourceType::Http
             };
-            return Ok(Self {
-                source_type,
-                source: source.to_string(),
-                path: None,
-                rev: None,
-                version: None,
-                binary: None,
-                asset_pattern: None,
-                forked_from: None,
-            });
+            return Ok(Self::new(source_type, source));
         }
 
         // Shorthand: owner/repo or owner/repo/skill-path
         let segments: Vec<&str> = source.split('/').collect();
         match segments.len() {
-            2 => Ok(Self {
-                source_type: SourceType::Github,
-                source: source.to_string(),
-                path: None,
-                rev: None,
-                version: None,
-                binary: None,
-                asset_pattern: None,
-                forked_from: None,
-            }),
-            3.. => Ok(Self {
-                source_type: SourceType::Github,
-                source: format!("{}/{}", segments[0], segments[1]),
-                path: Some(segments[2..].join("/")),
-                rev: None,
-                version: None,
-                binary: None,
-                asset_pattern: None,
-                forked_from: None,
-            }),
+            2 => Ok(Self::new(SourceType::Github, source)),
+            3.. => Ok(
+                Self::new(SourceType::Github, format!("{}/{}", segments[0], segments[1]))
+                    .with_path(segments[2..].join("/")),
+            ),
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
             ))),
@@ -190,16 +226,8 @@ mod tests {
 
     #[test]
     fn test_binary_source_type_serializes() {
-        let source = SkillSource {
-            source_type: SourceType::Binary,
-            source: "owner/mytool".to_string(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: Some("mytool".to_string()),
-            asset_pattern: None,
-            forked_from: None,
-        };
+        let source = SkillSource::new(SourceType::Binary, "owner/mytool")
+            .with_binary("mytool");
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.binary.as_deref(), Some("mytool"));
     }
@@ -212,16 +240,8 @@ mod tests {
 
     #[test]
     fn local_source_type_serializes() {
-        let source = SkillSource {
-            source_type: SourceType::Local,
-            source: "./my-skill".to_string(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: Some("org/original-skill".to_string()),
-        };
+        let source = SkillSource::new(SourceType::Local, "./my-skill")
+            .with_forked_from("org/original-skill");
         assert_eq!(source.source_type, SourceType::Local);
         assert_eq!(source.forked_from.as_deref(), Some("org/original-skill"));
         assert!(source.git_url().is_err());

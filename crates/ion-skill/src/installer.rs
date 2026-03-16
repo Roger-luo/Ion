@@ -458,16 +458,7 @@ mod tests {
     use super::*;
 
     fn test_source(path: &Path) -> SkillSource {
-        SkillSource {
-            source_type: SourceType::Path,
-            source: path.display().to_string(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: None,
-        }
+        SkillSource::from_path(&path.display().to_string())
     }
 
     fn empty_options() -> ManifestOptions {
@@ -518,16 +509,7 @@ mod tests {
         .unwrap();
 
         let project = tempfile::tempdir().unwrap();
-        let source = SkillSource {
-            source_type: SourceType::Path,
-            source: skill_src.path().display().to_string(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: None,
-        };
+        let source = SkillSource::from_path(&skill_src.path().display().to_string());
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());

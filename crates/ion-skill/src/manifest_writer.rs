@@ -299,16 +299,7 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
-        let source = SkillSource {
-            source_type: SourceType::Local,
-            source: String::new(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: None,
-        };
+        let source = SkillSource::local();
 
         let result = add_skill(&path, "my-local-skill", &source).unwrap();
         assert!(result.contains("my-local-skill"));
@@ -325,16 +316,8 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
-        let source = SkillSource {
-            source_type: SourceType::Local,
-            source: String::new(),
-            path: None,
-            rev: None,
-            version: None,
-            binary: None,
-            asset_pattern: None,
-            forked_from: Some("org/original-skill".to_string()),
-        };
+        let source = SkillSource::local()
+            .with_forked_from("org/original-skill");
 
         let result = add_skill(&path, "my-forked-skill", &source).unwrap();
         assert!(result.contains("type = \"local\""));

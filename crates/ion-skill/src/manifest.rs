@@ -112,30 +112,21 @@ impl Manifest {
                 forked_from,
             } => {
                 let mut resolved = match source_type {
-                    Some(SourceType::Local) => SkillSource {
-                        source_type: SourceType::Local,
-                        source: source.clone().unwrap_or_default(),
-                        path: path.clone(),
-                        rev: None,
-                        version: None,
-                        binary: None,
-                        asset_pattern: None,
-                        forked_from: None,
-                    },
+                    Some(SourceType::Local) => {
+                        let mut s = SkillSource::new(
+                            SourceType::Local,
+                            source.clone().unwrap_or_default(),
+                        );
+                        s.path = path.clone();
+                        s
+                    }
                     Some(st) => {
                         let src = source.as_deref().ok_or_else(|| {
                             Error::Manifest(format!("source is required for type {:?}", st))
                         })?;
-                        SkillSource {
-                            source_type: st.clone(),
-                            source: src.to_string(),
-                            path: path.clone(),
-                            rev: None,
-                            version: None,
-                            binary: None,
-                            asset_pattern: None,
-                            forked_from: None,
-                        }
+                        let mut s = SkillSource::new(st.clone(), src);
+                        s.path = path.clone();
+                        s
                     }
                     None => {
                         let src = source.as_deref().ok_or_else(|| {
