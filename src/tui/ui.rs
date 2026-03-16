@@ -9,21 +9,28 @@ use super::app::{App, InputMode, Tab};
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
-    let hint_lines = hint_height(app);
-    let chunks = Layout::vertical([
-        Constraint::Length(3),
-        Constraint::Min(3),
-        Constraint::Length(hint_lines),
-        Constraint::Length(1),
-        Constraint::Length(2),
+    let rows = Layout::vertical([
+        Constraint::Length(3),  // tabs
+        Constraint::Min(3),    // content + hint (2-column)
+        Constraint::Length(1), // status
+        Constraint::Length(2), // help
     ])
     .split(area);
 
-    render_tabs(frame, app, chunks[0]);
-    render_content(frame, app, chunks[1]);
-    render_hint(frame, app, chunks[2]);
-    render_status(frame, app, chunks[3]);
-    render_help(frame, app, chunks[4]);
+    render_tabs(frame, app, rows[0]);
+
+    // Split the middle area into two columns: left for entries, right for hint
+    let columns = Layout::horizontal([
+        Constraint::Percentage(55),
+        Constraint::Percentage(45),
+    ])
+    .split(rows[1]);
+
+    render_content(frame, app, columns[0]);
+    render_hint(frame, app, columns[1]);
+
+    render_status(frame, app, rows[2]);
+    render_help(frame, app, rows[3]);
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -53,7 +60,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
     if app.tab == Tab::Project && !app.has_project {
         let msg = Paragraph::new("No Ion.toml found in current directory.")
             .style(Style::default().fg(Color::DarkGray))
-            .block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
+            .block(Block::default().borders(Borders::LEFT));
         frame.render_widget(msg, area);
         return;
     }
@@ -61,7 +68,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
     if sections.is_empty() || app.total_entries() == 0 {
         let msg = Paragraph::new("No config values set. Press 'a' to add one.")
             .style(Style::default().fg(Color::DarkGray))
-            .block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
+            .block(Block::default().borders(Borders::LEFT));
         frame.render_widget(msg, area);
         return;
     }
@@ -80,7 +87,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
         for (key, value) in &section.entries {
             let is_selected = entry_index == app.cursor;
             let prefix = if is_selected { "  > " } else { "    " };
-            let dots = ".".repeat(30usize.saturating_sub(key.len()));
+            let dots = ".".repeat(24usize.saturating_sub(key.len()));
 
             let style = if is_selected {
                 Style::default()
@@ -90,9 +97,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White)
             };
 
-            let value_style = if value == "(unset)" {
-                Style::default().fg(Color::DarkGray)
-            } else if is_selected {
+            let value_style = if is_selected {
                 Style::default()
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD)
@@ -112,8 +117,7 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
         lines.push(Line::from(""));
     }
 
-    let content =
-        Paragraph::new(lines).block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
+    let content = Paragraph::new(lines).block(Block::default().borders(Borders::LEFT));
     frame.render_widget(content, area);
 }
 
@@ -227,27 +231,22 @@ fn hint_for_entry(app: &App) -> Option<(&'static str, &'static str)> {
     }
 }
 
-fn hint_height(app: &App) -> u16 {
-    if app.input_mode != InputMode::Normal {
-        return 0;
-    }
-    if hint_for_entry(app).is_some() { 2 } else { 0 }
-}
-
 fn render_hint(frame: &mut Frame, app: &App, area: Rect) {
-    if app.input_mode != InputMode::Normal {
-        return;
-    }
+    let hint_style = Style::default().fg(Color::DarkGray);
 
-    if let Some((desc, example)) = hint_for_entry(app) {
-        let hint_style = Style::default().fg(Color::DarkGray);
-        let lines = vec![
-            Line::from(Span::styled(format!(" {desc}"), hint_style)),
-            Line::from(Span::styled(format!(" {example}"), hint_style)),
-        ];
-        let paragraph = Paragraph::new(lines);
-        frame.render_widget(paragraph, area);
-    }
+    let lines = if let Some((desc, example)) = hint_for_entry(app) {
+        vec![
+            Line::from(""),
+            Line::from(Span::styled(format!("  {desc}"), hint_style)),
+            Line::from(Span::styled(format!("  {example}"), hint_style)),
+        ]
+    } else {
+        vec![Line::from("")]
+    };
+
+    let paragraph =
+        Paragraph::new(lines).block(Block::default().borders(Borders::LEFT | Borders::RIGHT));
+    frame.render_widget(paragraph, area);
 }
 
 fn render_help(frame: &mut Frame, app: &App, area: Rect) {

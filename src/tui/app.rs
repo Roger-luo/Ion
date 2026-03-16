@@ -202,8 +202,8 @@ impl App {
             1 // "No Ion.toml" message
         };
         let content_h = global_h.max(project_h);
-        // tabs(3) + content + hint(2) + status(1) + help(2)
-        3 + content_h + 2 + 1 + 2
+        // tabs(3) + content + status(1) + help(2)
+        3 + content_h + 1 + 2
     }
 
     pub fn current_section_name(&self) -> Option<String> {
