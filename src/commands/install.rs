@@ -58,7 +58,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     let mut errored: Vec<(String, ValidationReport)> = Vec::new();
 
     for (name, entry) in &manifest.skills {
-        let source = Manifest::resolve_entry(entry)?;
+        let source = entry.resolve()?;
 
         // Local skills bypass validation — deploy directly from project tree
         if source.source_type == SourceType::Local {

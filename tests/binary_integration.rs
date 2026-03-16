@@ -13,7 +13,7 @@ brainstorming = "anthropics/skills/brainstorming"
     assert_eq!(manifest.skills.len(), 2);
 
     let entry = manifest.skills.get("mytool").unwrap();
-    let source = ion_skill::manifest::Manifest::resolve_entry(entry).unwrap();
+    let source = entry.resolve().unwrap();
 
     assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
     assert_eq!(source.source, "owner/mytool");
@@ -77,8 +77,7 @@ local = { type = "path", source = "./my-local-skill" }
     let manifest = ion_skill::manifest::Manifest::parse(toml_content).unwrap();
     assert_eq!(manifest.skills.len(), 3);
 
-    let binary_source =
-        ion_skill::manifest::Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+    let binary_source = manifest.skills["mytool"].resolve().unwrap();
     assert_eq!(
         binary_source.source_type,
         ion_skill::source::SourceType::Binary
@@ -86,8 +85,7 @@ local = { type = "path", source = "./my-local-skill" }
     assert_eq!(binary_source.rev.as_deref(), Some("v1.0"));
     assert_eq!(binary_source.binary.as_deref(), Some("mytool"));
 
-    let regular_source =
-        ion_skill::manifest::Manifest::resolve_entry(&manifest.skills["brainstorming"]).unwrap();
+    let regular_source = manifest.skills["brainstorming"].resolve().unwrap();
     assert_eq!(
         regular_source.source_type,
         ion_skill::source::SourceType::Github
@@ -307,7 +305,7 @@ fn manifest_with_asset_pattern() {
 mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pattern = "mytool-{version}-{os}-{arch}.tar.gz" }
 "#;
     let manifest = Manifest::parse(toml_str).unwrap();
-    let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+    let source = manifest.skills["mytool"].resolve().unwrap();
     assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
     assert_eq!(source.binary.as_deref(), Some("mytool"));
     assert_eq!(

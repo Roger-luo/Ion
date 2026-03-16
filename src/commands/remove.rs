@@ -1,5 +1,4 @@
 use ion_skill::installer::{SkillInstaller, hash_simple};
-use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
 use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
@@ -65,7 +64,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
     for skill_name in &skills_to_remove {
         let entry = &manifest.skills[skill_name];
-        let entry_source = Manifest::resolve_entry(entry);
+        let entry_source = entry.resolve();
 
         if !json {
             println!("Removing skill {}...", p.bold(&format!("'{skill_name}'")));

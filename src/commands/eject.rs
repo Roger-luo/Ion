@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
 use ion_skill::source::{SkillSource, SourceType};
 
@@ -17,7 +16,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         .skills
         .get(name)
         .ok_or_else(|| anyhow::anyhow!("Skill '{}' not found in Ion.toml", name))?;
-    let source = Manifest::resolve_entry(entry)?;
+    let source = entry.resolve()?;
 
     if matches!(source.source_type, SourceType::Local | SourceType::Path) {
         anyhow::bail!("Skill '{}' is already local", name);

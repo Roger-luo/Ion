@@ -30,6 +30,68 @@ pub enum SkillEntry {
     },
 }
 
+impl SkillEntry {
+    /// Resolve this manifest entry into a fully qualified SkillSource.
+    pub fn resolve(&self) -> Result<SkillSource> {
+        match self {
+            SkillEntry::Shorthand(s) => SkillSource::infer(s),
+            SkillEntry::Full {
+                source_type,
+                source,
+                version,
+                rev,
+                path,
+                binary,
+                asset_pattern,
+                forked_from,
+            } => {
+                let mut resolved = match source_type {
+                    Some(SourceType::Local) => {
+                        let mut s = SkillSource::new(
+                            SourceType::Local,
+                            source.clone().unwrap_or_default(),
+                        );
+                        s.path = path.clone();
+                        s
+                    }
+                    Some(st) => {
+                        let src = source.as_deref().ok_or_else(|| {
+                            Error::Manifest(format!(
+                                "source is required for type {:?}",
+                                st
+                            ))
+                        })?;
+                        let mut s = SkillSource::new(st.clone(), src);
+                        s.path = path.clone();
+                        s
+                    }
+                    None => {
+                        let src = source.as_deref().ok_or_else(|| {
+                            Error::Manifest(
+                                "source is required when type is not specified".to_string(),
+                            )
+                        })?;
+                        SkillSource::infer(src)?
+                    }
+                };
+                if let Some(v) = version {
+                    resolved.version = Some(v.clone());
+                }
+                if let Some(r) = rev {
+                    resolved.rev = Some(r.clone());
+                }
+                if path.is_some() {
+                    resolved.path = path.clone();
+                }
+                resolved.binary = binary.clone();
+                resolved.asset_pattern = asset_pattern.clone();
+                resolved.forked_from = forked_from.clone();
+                Ok(resolved)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct ManifestOptions {
@@ -98,60 +160,12 @@ impl Manifest {
         toml::from_str(content).map_err(Error::TomlParse)
     }
 
+    /// Resolve a manifest entry into a SkillSource.
+    ///
+    /// Prefer calling `entry.resolve()` directly. This static method is kept
+    /// for backward compatibility.
     pub fn resolve_entry(entry: &SkillEntry) -> Result<SkillSource> {
-        match entry {
-            SkillEntry::Shorthand(s) => SkillSource::infer(s),
-            SkillEntry::Full {
-                source_type,
-                source,
-                version,
-                rev,
-                path,
-                binary,
-                asset_pattern,
-                forked_from,
-            } => {
-                let mut resolved = match source_type {
-                    Some(SourceType::Local) => {
-                        let mut s = SkillSource::new(
-                            SourceType::Local,
-                            source.clone().unwrap_or_default(),
-                        );
-                        s.path = path.clone();
-                        s
-                    }
-                    Some(st) => {
-                        let src = source.as_deref().ok_or_else(|| {
-                            Error::Manifest(format!("source is required for type {:?}", st))
-                        })?;
-                        let mut s = SkillSource::new(st.clone(), src);
-                        s.path = path.clone();
-                        s
-                    }
-                    None => {
-                        let src = source.as_deref().ok_or_else(|| {
-                            Error::Manifest(
-                                "source is required when type is not specified".to_string(),
-                            )
-                        })?;
-                        SkillSource::infer(src)?
-                    }
-                };
-                if let Some(v) = version {
-                    resolved.version = Some(v.clone());
-                }
-                if let Some(r) = rev {
-                    resolved.rev = Some(r.clone());
-                }
-                if path.is_some() {
-                    resolved.path = path.clone();
-                }
-                resolved.binary = binary.clone();
-                resolved.asset_pattern = asset_pattern.clone();
-                resolved.forked_from = forked_from.clone();
-                Ok(resolved)
-            }
-        }
+        entry.resolve()
     }
 
     pub fn empty() -> Self {
@@ -170,7 +184,7 @@ mod tests {
     fn parse_shorthand_entry() {
         let toml_str = "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["brainstorming"]).unwrap();
+        let source = manifest.skills["brainstorming"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Github);
         assert_eq!(source.source, "anthropics/skills");
         assert_eq!(source.path.as_deref(), Some("brainstorming"));
@@ -180,7 +194,7 @@ mod tests {
     fn parse_full_github_entry() {
         let toml_str = "[skills]\nmy-tool = { type = \"github\", source = \"org/skills/my-tool\", rev = \"v2.0\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["my-tool"]).unwrap();
+        let source = manifest.skills["my-tool"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Github);
         assert_eq!(source.rev.as_deref(), Some("v2.0"));
     }
@@ -189,7 +203,7 @@ mod tests {
     fn parse_full_git_entry() {
         let toml_str = "[skills]\ngitlab-skill = { type = \"git\", source = \"https://gitlab.com/org/skills.git\", path = \"my-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["gitlab-skill"]).unwrap();
+        let source = manifest.skills["gitlab-skill"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Git);
         assert_eq!(source.path.as_deref(), Some("my-skill"));
     }
@@ -199,7 +213,7 @@ mod tests {
         let toml_str =
             "[skills]\nlocal-skill = { type = \"path\", source = \"../my-local-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["local-skill"]).unwrap();
+        let source = manifest.skills["local-skill"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Path);
     }
 
@@ -243,7 +257,7 @@ mod tests {
     fn parse_version_entry() {
         let toml_str = "[skills]\nmy-skill = { type = \"github\", source = \"org/repo/my-skill\", version = \"1.0\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
+        let source = manifest.skills["my-skill"].resolve().unwrap();
         assert_eq!(source.version.as_deref(), Some("1.0"));
     }
 
@@ -262,7 +276,7 @@ mod tests {
     fn parse_binary_skill_entry() {
         let toml_str = "[skills]\nmytool = { type = \"binary\", source = \"owner/mytool\", binary = \"mytool\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+        let source = manifest.skills["mytool"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.source, "owner/mytool");
         assert_eq!(source.binary.as_deref(), Some("mytool"));
@@ -274,7 +288,7 @@ mod tests {
 mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pattern = "mytool-{version}-{os}-{arch}.tar.gz" }
 "#;
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["mytool"]).unwrap();
+        let source = manifest.skills["mytool"].resolve().unwrap();
         assert_eq!(
             source.asset_pattern.as_deref(),
             Some("mytool-{version}-{os}-{arch}.tar.gz")
@@ -294,7 +308,7 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
     fn parse_local_skill_entry() {
         let toml_str = "[skills]\nmy-skill = { type = \"local\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
+        let source = manifest.skills["my-skill"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Local);
         assert_eq!(source.source, "");
         assert!(source.forked_from.is_none());
@@ -305,7 +319,7 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
         let toml_str =
             "[skills]\nmy-skill = { type = \"local\", forked-from = \"org/original-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
-        let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
+        let source = manifest.skills["my-skill"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Local);
         assert_eq!(source.forked_from.as_deref(), Some("org/original-skill"));
     }

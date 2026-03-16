@@ -1,5 +1,3 @@
-use ion_skill::manifest::Manifest;
-
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
@@ -25,7 +23,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
             .skills
             .iter()
             .filter_map(|(name, entry)| {
-                let source = Manifest::resolve_entry(entry).ok()?;
+                let source = entry.resolve().ok()?;
                 let locked = lockfile.find(name);
                 let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
                 let version = if is_binary {
@@ -60,7 +58,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
     println!("Skills ({}):", p.bold(&manifest.skills.len().to_string()));
     for (name, entry) in &manifest.skills {
-        let source = Manifest::resolve_entry(entry)?;
+        let source = entry.resolve()?;
         let locked = lockfile.find(name);
 
         let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();

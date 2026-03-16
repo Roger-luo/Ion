@@ -1,5 +1,4 @@
 use ion_skill::lockfile::LockedSkill;
-use ion_skill::manifest::Manifest;
 use ion_skill::source::SourceType;
 use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
@@ -25,7 +24,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         .iter()
         .filter(|(skill_name, _)| name.is_none() || name == Some(skill_name.as_str()))
         .filter_map(|(skill_name, entry)| {
-            let source = Manifest::resolve_entry(entry).ok()?;
+            let source = entry.resolve().ok()?;
             Some((skill_name.clone(), source))
         })
         .collect();
