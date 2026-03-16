@@ -99,7 +99,7 @@ impl App {
                     config
                         .cache
                         .max_age_days
-                        .map_or("(unset)".to_string(), |v| v.to_string()),
+                        .map_or("1".to_string(), |v| v.to_string()),
                 )],
             },
             ConfigSection {
@@ -109,7 +109,7 @@ impl App {
                     config
                         .ui
                         .color
-                        .map_or("(unset)".to_string(), |v| v.to_string()),
+                        .map_or("true".to_string(), |v| v.to_string()),
                 )],
             },
         ]
@@ -134,7 +134,7 @@ impl App {
                         .options
                         .skills_dir
                         .clone()
-                        .unwrap_or_else(|| "(unset)".to_string()),
+                        .unwrap_or_else(|| ".agents/skills".to_string()),
                 )],
             },
         ]
@@ -242,14 +242,14 @@ impl App {
                 }
                 "cache" => {
                     for (k, v) in &section.entries {
-                        if k == "max-age-days" && v != "(unset)" {
+                        if k == "max-age-days" {
                             config.cache.max_age_days = v.parse().ok();
                         }
                     }
                 }
                 "ui" => {
                     for (k, v) in &section.entries {
-                        if k == "color" && v != "(unset)" {
+                        if k == "color" {
                             config.ui.color = v.parse().ok();
                         }
                     }
@@ -283,9 +283,10 @@ impl App {
         }
 
         // Save top-level options (skills-dir, etc.)
+        // Only write skills-dir if it differs from the default
         if let Some(section) = self.project_sections.iter().find(|s| s.name == "options") {
             for (k, v) in &section.entries {
-                if v == "(unset)" {
+                if k == "skills-dir" && v == ".agents/skills" {
                     options.remove(k.as_str());
                 } else {
                     options[k.as_str()] = toml_edit::value(v.as_str());

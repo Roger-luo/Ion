@@ -253,19 +253,19 @@ $ ion --json self update
 Create a new skill directly in the project. Use `--path` to specify where the SKILL.md should be created:
 
 ```bash
-$ ion skill new --path <skills-dir>/skills/<skill-name>
+$ ion skill new --path <skills-dir>/<skill-name>
 ```
 
-The path follows the convention `{skills-dir}/skills/{name}/`, where `skills-dir` defaults to `.agents` but may be configured differently in `Ion.toml` under `[options] skills-dir`. For example, if the project uses `skills-dir = "skills"`, create skills at `skills/skills/<name>/`.
+The path follows the convention `{skills-dir}/{name}/`, where `skills-dir` defaults to `.agents/skills` but may be configured differently in `Ion.toml` under `[options] skills-dir`.
 
 Examples:
 
 ```bash
-# Default skills-dir (.agents)
+# Default skills-dir (.agents/skills)
 $ ion skill new --path .agents/skills/my-skill
 
-# Custom skills-dir (e.g., "skills" configured in Ion.toml)
-$ ion skill new --path skills/skills/my-skill
+# Custom skills-dir (e.g., skills-dir = "skills" in Ion.toml)
+$ ion skill new --path skills/my-skill
 ```
 
 This creates a `SKILL.md` template in the target directory. The skill is NOT automatically registered in `Ion.toml` when using `--path` — it operates as a standalone file. To track it as a managed local skill, also add it to `Ion.toml` manually or use `ion skill new` without `--path` inside an Ion project (interactive mode).

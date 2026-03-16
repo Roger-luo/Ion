@@ -67,8 +67,8 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
 
         // Local skills bypass validation — deploy directly from project tree
         if source.source_type == SourceType::Local {
-            let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents");
-            let local_skill_dir = ctx.project_dir.join(skills_dir).join("skills").join(name);
+            let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents/skills");
+            let local_skill_dir = ctx.project_dir.join(skills_dir).join(name);
 
             if !local_skill_dir.exists() {
                 println!(

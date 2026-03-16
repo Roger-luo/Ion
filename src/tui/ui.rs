@@ -220,8 +220,8 @@ fn hint_for_entry(app: &App) -> Option<(&'static str, &'static str)> {
         )),
         // Project options
         (Tab::Project, "options", "skills-dir") => Some((
-            "Directory where local skills are stored. Skills live at <skills-dir>/skills/<name>/.",
-            "e.g. .agents, skills",
+            "Directory where local skills are stored. Skills live at <skills-dir>/<name>/.",
+            "e.g. .agents/skills, skills",
         )),
         _ => None,
     }

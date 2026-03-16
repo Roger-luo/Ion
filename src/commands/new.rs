@@ -5,7 +5,7 @@ use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
 use ion_skill::source::{SkillSource, SourceType};
 
-const DEFAULT_SKILLS_DIR: &str = ".agents";
+const DEFAULT_SKILLS_DIR: &str = ".agents/skills";
 
 fn slugify(name: &str) -> String {
     let slug: String = name
@@ -293,7 +293,7 @@ pub fn run(
     let name = prompt_skill_name()?;
 
     // Create the skill directory under {skills_dir}/skills/{name}/.
-    let skill_dir = cwd.join(&skills_dir).join("skills").join(&name);
+    let skill_dir = cwd.join(&skills_dir).join(&name);
     if skill_dir.exists() && !force {
         anyhow::bail!(
             "Skill directory already exists: {}. Use --force to overwrite.",

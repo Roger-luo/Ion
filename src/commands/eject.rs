@@ -23,9 +23,9 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         anyhow::bail!("Skill '{}' is already local", name);
     }
 
-    // Resolve skills-dir from merged options (default ".agents")
+    // Resolve skills-dir from merged options (default ".agents/skills")
     let merged_options = ctx.merged_options(&manifest);
-    let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents");
+    let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents/skills");
 
     // Find the current installed skill at .agents/skills/<name>
     let agents_skill = ctx.project_dir.join(".agents").join("skills").join(name);
@@ -37,7 +37,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let real_source = std::fs::canonicalize(&agents_skill)?;
 
     // Determine destination
-    let dest = ctx.project_dir.join(skills_dir).join("skills").join(name);
+    let dest = ctx.project_dir.join(skills_dir).join(name);
 
     if !json {
         println!(
@@ -46,8 +46,8 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         );
     }
 
-    // Handle the copy based on whether skills-dir is ".agents" or custom
-    if skills_dir == ".agents" {
+    // Handle the copy based on whether skills-dir is the default ".agents/skills" or custom
+    if skills_dir == ".agents/skills" {
         // dest == agents_skill path. Remove the old symlink first, then copy content there.
         if agents_skill.is_symlink() {
             std::fs::remove_file(&agents_skill)?;
