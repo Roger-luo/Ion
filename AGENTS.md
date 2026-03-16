@@ -41,7 +41,7 @@ cargo fmt                                # Format
 
 **Search system** (`ion-skill/src/search/`): Multiple backends (GitHub API, skills.sh registry, configured agent command). Interactive search uses a TUI built with ratatui/crossterm (`src/tui/`).
 
-**Local skills:** `SourceType::Local` for project-specific skills. Created via `ion skill new` (with optional `--dir` flag), or ejected from remote via `ion skill eject`. Tracked in Ion.toml as `{ type = "local" }` with optional `forked-from`. Local skills skip fetch/validation/gitignore — they're managed by git directly. Config: `skills-dir` in `[options]` (default `.agents`).
+**Local skills:** `SourceType::Local` for project-specific skills. Created via `ion skill new` (with optional `--dir` flag), or ejected from remote via `ion skill eject`. Tracked in Ion.toml as `{ type = "local" }` with optional `forked-from`. Local skills skip fetch/validation/gitignore — they're managed by git directly. Config: `skills-dir` in `[options]` (default `.agents/skills`). Skills live at `{skills-dir}/{name}/`.
 
 **Self-update system** (`src/commands/self_cmd.rs`): `ion self update` downloads pre-built binaries from GitHub Releases for the `Roger-luo/Ion` repo, using the same `binary.rs` infrastructure as skill binary installs. `ion self check` compares versions. `ion self info` shows version, build target, and exe path. Build target triple embedded via `build.rs`.
 
@@ -66,6 +66,8 @@ Subcommand groups: `skill` (new, validate, info, list, link, eject), `project` (
 ## Git & Release Conventions
 
 - **Conventional commits:** `feat:`, `fix:`, `docs:`, `test:`, `ci:`, `refactor:`, `perf:`, `build:`, `chore:`
+- **Breaking changes:** Use `feat!:` or `fix!:` (note the `!`) or add a `BREAKING CHANGE:` footer in the commit body. This triggers a minor version bump (pre-1.0) or major bump (post-1.0). Examples: changing CLI flags, renaming config keys, altering default behavior. `refactor:` alone is NOT breaking — it means internal restructuring with no behavior change.
+- **Version bumps (pre-1.0):** `fix:`/`refactor:`/`docs:` → patch, `feat:` → patch, `feat!:`/`BREAKING CHANGE` → minor
 - **Linear history:** main branch must not contain merge commits — use rebase or squash merges
 - **Automated releases:** release-plz opens version bump PRs based on conventional commits. Merging creates a tag, which triggers GitHub Actions to build binaries for 4 targets (aarch64/x86_64 × macOS/Linux)
 - **Asset naming:** `ion-{version}-{target}.tar.gz` (e.g. `ion-0.2.0-aarch64-apple-darwin.tar.gz`)
