@@ -54,3 +54,24 @@ pub enum Error {
         info_count: usize,
     },
 }
+
+impl Error {
+    /// Create a ValidationFailed error from a report.
+    pub fn validation_failed(report: crate::validate::ValidationReport) -> Self {
+        Self::ValidationFailed {
+            error_count: report.error_count,
+            warning_count: report.warning_count,
+            info_count: report.info_count,
+            report,
+        }
+    }
+
+    /// Create a ValidationWarning error from a report.
+    pub fn validation_warning(report: crate::validate::ValidationReport) -> Self {
+        Self::ValidationWarning {
+            warning_count: report.warning_count,
+            info_count: report.info_count,
+            report,
+        }
+    }
+}

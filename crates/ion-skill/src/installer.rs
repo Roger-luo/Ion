@@ -83,12 +83,7 @@ impl<'a> SkillInstaller<'a> {
         let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
 
         if report.error_count > 0 {
-            return Err(Error::ValidationFailed {
-                error_count: report.error_count,
-                warning_count: report.warning_count,
-                info_count: report.info_count,
-                report,
-            });
+            return Err(Error::validation_failed(report));
         }
 
         Ok(report)
@@ -111,20 +106,11 @@ impl<'a> SkillInstaller<'a> {
         if !validation.skip_validation {
             let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
             if report.error_count > 0 {
-                return Err(Error::ValidationFailed {
-                    error_count: report.error_count,
-                    warning_count: report.warning_count,
-                    info_count: report.info_count,
-                    report,
-                });
+                return Err(Error::validation_failed(report));
             }
 
             if report.warning_count > 0 && !validation.allow_warnings {
-                return Err(Error::ValidationWarning {
-                    warning_count: report.warning_count,
-                    info_count: report.info_count,
-                    report,
-                });
+                return Err(Error::validation_warning(report));
             }
         }
 
@@ -269,12 +255,7 @@ impl<'a> SkillInstaller<'a> {
         // Run full security validation (same as regular install path)
         let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
         if report.error_count > 0 {
-            return Err(Error::ValidationFailed {
-                error_count: report.error_count,
-                warning_count: report.warning_count,
-                info_count: report.info_count,
-                report,
-            });
+            return Err(Error::validation_failed(report));
         }
 
         // Deploy symlinks to targets
