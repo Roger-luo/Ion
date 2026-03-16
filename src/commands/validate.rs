@@ -50,22 +50,10 @@ pub fn run(path: Option<&str>, json: bool) -> anyhow::Result<()> {
             Ok((meta, body)) => {
                 let report = validate_skill_dir(skill_dir, &meta, &body);
                 if json {
-                    let findings: Vec<serde_json::Value> = report
-                        .findings
-                        .iter()
-                        .map(|f| {
-                            serde_json::json!({
-                                "severity": f.severity.to_string(),
-                                "checker": f.checker,
-                                "message": f.message,
-                                "detail": f.detail,
-                            })
-                        })
-                        .collect();
                     json_skills.push(serde_json::json!({
                         "path": skill_md.display().to_string(),
                         "name": meta.name,
-                        "findings": findings,
+                        "findings": &report.findings,
                         "errors": report.error_count,
                         "warnings": report.warning_count,
                         "infos": report.info_count,
