@@ -1,6 +1,8 @@
 use std::fmt;
 use std::path::Path;
 
+use serde::Serialize;
+
 use crate::skill::SkillMetadata;
 
 pub mod discovery;
@@ -14,10 +16,13 @@ pub mod codeblock;
 // ---------------------------------------------------------------------------
 
 /// How severe a validation finding is.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub enum Severity {
+    #[serde(rename = "INFO")]
     Info,
+    #[serde(rename = "WARN")]
     Warning,
+    #[serde(rename = "ERROR")]
     Error,
 }
 
@@ -59,16 +64,17 @@ impl PartialOrd for Severity {
 // ---------------------------------------------------------------------------
 
 /// A single validation finding produced by a checker.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Finding {
     pub severity: Severity,
     pub checker: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
 }
 
 /// Aggregated validation output for a single skill.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ValidationReport {
     pub findings: Vec<Finding>,
     pub error_count: usize,
