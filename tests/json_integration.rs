@@ -121,16 +121,15 @@ fn json_remove_yes_returns_pure_json() {
 }
 
 #[test]
-fn json_config_no_subcommand_errors() {
+fn json_config_no_subcommand_lists_global() {
     let output = ion()
         .args(["--json", "config"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
+    assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
-    assert_eq!(parsed["success"], false);
-    assert!(parsed["error"].as_str().unwrap().contains("--json mode"));
+    assert_eq!(parsed["success"], true);
 }
 
 #[test]

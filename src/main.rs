@@ -261,7 +261,7 @@ fn main() {
             commands::search::run(&query, agent, json, source.as_deref(), limit)
         }
         Commands::Update { name } => commands::update::run(name.as_deref(), json),
-        Commands::Run { name, args } => commands::run::run(&name, &args),
+        Commands::Run { name, args } => commands::run::run(&name, &args, json),
         Commands::Skill { action } => match action {
             SkillCommands::New {
                 path,

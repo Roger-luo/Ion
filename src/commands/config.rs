@@ -32,9 +32,7 @@ pub enum ConfigAction {
 
 pub fn run(action: Option<ConfigAction>, json: bool) -> anyhow::Result<()> {
     match action {
-        None if json => anyhow::bail!(
-            "Interactive config editor not available in --json mode. Use 'ion config get/set/list'."
-        ),
+        None if json => return run_list(false, json),
         None => run_interactive(),
         Some(ConfigAction::Get { key, project }) => run_get(&key, project, json),
         Some(ConfigAction::Set {

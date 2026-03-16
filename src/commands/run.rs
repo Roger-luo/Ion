@@ -2,7 +2,7 @@ use anyhow::bail;
 use ion_skill::binary;
 use ion_skill::lockfile::Lockfile;
 
-pub fn run(name: &str, args: &[String]) -> anyhow::Result<()> {
+pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
     let lockfile_path = std::path::Path::new("Ion.lock");
     if !lockfile_path.exists() {
         bail!("No Ion.lock found. Run `ion install` first.");
@@ -27,6 +27,39 @@ pub fn run(name: &str, args: &[String]) -> anyhow::Result<()> {
             "Binary '{}' v{} not found at {}. Run `ion install` to download it.",
             binary_name, version, bin_path.display()
         );
+    }
+
+    if json {
+        // In JSON mode, capture output and wrap exit code
+        let output = std::process::Command::new(&bin_path)
+            .args(args)
+            .output()
+            .map_err(|e| anyhow::anyhow!("Failed to execute {}: {}", bin_path.display(), e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let code = output.status.code().unwrap_or(1);
+
+        if output.status.success() {
+            crate::json::print_success(serde_json::json!({
+                "binary": binary_name,
+                "version": version,
+                "exit_code": code,
+                "stdout": stdout,
+                "stderr": stderr,
+            }));
+        } else {
+            println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+                "success": false,
+                "error": format!("Binary '{}' exited with code {}", binary_name, code),
+                "binary": binary_name,
+                "version": version,
+                "exit_code": code,
+                "stdout": stdout,
+                "stderr": stderr,
+            })).unwrap());
+            std::process::exit(code);
+        }
     }
 
     let status = std::process::Command::new(&bin_path)
