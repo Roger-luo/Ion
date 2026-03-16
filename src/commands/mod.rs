@@ -8,6 +8,7 @@ pub mod init;
 pub mod link;
 pub mod new;
 pub mod install;
+pub mod install_shared;
 pub mod list;
 pub mod migrate;
 pub mod remove;
