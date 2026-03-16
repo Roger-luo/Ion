@@ -179,6 +179,33 @@ impl App {
         Some((format!("{}.{}", section.name, key), value.clone()))
     }
 
+    /// Compute the number of content lines needed for a set of sections.
+    fn content_height(sections: &[ConfigSection]) -> u16 {
+        if sections.is_empty() {
+            return 1; // "No config values" message
+        }
+        let mut h: u16 = 0;
+        for section in sections {
+            h += 1; // section header
+            h += section.entries.len() as u16;
+            h += 1; // blank line after section
+        }
+        h
+    }
+
+    /// Maximum inline viewport height across both tabs.
+    pub fn viewport_height(&self) -> u16 {
+        let global_h = Self::content_height(&self.global_sections);
+        let project_h = if self.has_project {
+            Self::content_height(&self.project_sections)
+        } else {
+            1 // "No Ion.toml" message
+        };
+        let content_h = global_h.max(project_h);
+        // tabs(3) + content + hint(2) + status(1) + help(2)
+        3 + content_h + 2 + 1 + 2
+    }
+
     pub fn current_section_name(&self) -> Option<String> {
         let (si, _) = self.cursor_position()?;
         Some(self.current_sections()[si].name.clone())

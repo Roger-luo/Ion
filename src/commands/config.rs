@@ -179,11 +179,15 @@ fn set_project_value(
 }
 
 fn run_interactive() -> anyhow::Result<()> {
+    use std::io;
+
     use crossterm::event::{self, Event};
+    use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
+    use ratatui::backend::CrosstermBackend;
+    use ratatui::{Terminal, TerminalOptions, Viewport};
 
     use crate::tui::app::App;
     use crate::tui::event::handle_key;
-    use crate::tui::terminal::run_tui;
     use crate::tui::ui::render;
 
     let global_config_path = GlobalConfig::config_path()
@@ -197,8 +201,16 @@ fn run_interactive() -> anyhow::Result<()> {
     };
 
     let mut app = App::new(global_config_path, manifest_opt)?;
+    let height = app.viewport_height();
 
-    run_tui(|terminal| {
+    enable_raw_mode()?;
+    let backend = CrosstermBackend::new(io::stdout());
+    let options = TerminalOptions {
+        viewport: Viewport::Inline(height),
+    };
+    let mut terminal = Terminal::with_options(backend, options)?;
+
+    let result = (|| {
         loop {
             terminal.draw(|frame| render(frame, &app))?;
 
@@ -212,5 +224,12 @@ fn run_interactive() -> anyhow::Result<()> {
                 return Ok(());
             }
         }
-    })
+    })();
+
+    disable_raw_mode()?;
+    // Move cursor below the inline viewport so subsequent output doesn't overwrite it
+    let pos = terminal.get_cursor_position()?;
+    crossterm::execute!(io::stdout(), crossterm::cursor::MoveTo(0, pos.y + 1))?;
+
+    result
 }
