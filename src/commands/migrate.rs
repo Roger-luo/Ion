@@ -2,16 +2,16 @@ use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::migrate::{
     DiscoveredSkill, DiscoveryOrigin, MigrateOptions, ResolvedSkill, discover_from_directories,
     discover_from_lockfile, discover_leftover_skills, move_skill_to_local,
 };
-use ion_skill::registry::Registry;
 use ion_skill::search::{SearchCache, SearchSource};
 use ion_skill::source::SourceType;
 
+use crate::commands::install_shared::register_in_registry;
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
@@ -470,22 +470,6 @@ fn search_for_skill(
         }
     }
     all_results
-}
-
-fn register_in_registry(
-    source: &ion_skill::source::SkillSource,
-    project_dir: &std::path::Path,
-) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git)
-        && let Ok(url) = source.git_url()
-    {
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let project_str = project_dir.display().to_string();
-        let mut registry = Registry::load()?;
-        registry.register(&repo_hash, &url, &project_str);
-        registry.save()?;
-    }
-    Ok(())
 }
 
 fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
