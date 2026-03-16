@@ -31,7 +31,7 @@ pub fn run(
     if bin {
         source.source_type = SourceType::Binary;
         if source.binary.is_none() {
-            source.binary = Some(skill_name_from_source(&source));
+            source.binary = Some(source.display_name());
         }
     }
 
@@ -49,7 +49,7 @@ pub fn run(
 
     // Binary skills always install as a single skill — no collection fallback
     if bin {
-        let name = skill_name_from_source(&source);
+        let name = source.display_name();
         println!(
             "Adding binary skill {} from {}...",
             p.bold(&format!("'{name}'")),
@@ -64,7 +64,7 @@ pub fn run(
     // a multi-skill collection. Try to install as a single skill first; if there
     // is no root SKILL.md, discover and install all skills in the repo.
     if source.path.is_none() {
-        let name = skill_name_from_source(&source);
+        let name = source.display_name();
         println!(
             "Adding skill {} from {}...",
             p.bold(&format!("'{name}'")),
@@ -127,7 +127,7 @@ pub fn run(
     }
 
     // Source has a path — install a single skill directly
-    let name = skill_name_from_source(&source);
+    let name = source.display_name();
     println!(
         "Adding skill {} from {}...",
         p.bold(&format!("'{name}'")),
@@ -579,16 +579,3 @@ fn prompt_github_star(source: &SkillSource) {
     save_starred_repos(&starred);
 }
 
-fn skill_name_from_source(source: &SkillSource) -> String {
-    if let Some(ref path) = source.path {
-        path.rsplit('/').next().unwrap_or(path).to_string()
-    } else {
-        source
-            .source
-            .trim_end_matches(".git")
-            .rsplit('/')
-            .next()
-            .unwrap_or(&source.source)
-            .to_string()
-    }
-}
