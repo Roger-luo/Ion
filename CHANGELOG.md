@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Make --json work for all commands (b3d5244)
+
+### Documentation
+
+- Clarify breaking change conventions and skills-dir default in AGENTS.md (711c7de)
+
+### Added
+
 - Render config panel inline instead of full-screen (a115957)
 - Add contextual hints to interactive config panel (dc1621b)
 - Show skills-dir in interactive config panel (4985499)
