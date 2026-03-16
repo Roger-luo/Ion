@@ -34,8 +34,6 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let merged_options = ctx.merged_options(&manifest);
-
     if !json {
         println!(
             "Installing {} skill(s)...",
