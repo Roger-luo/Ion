@@ -1,8 +1,8 @@
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
-use ratatui::Frame;
 
 use super::app::{App, InputMode, Tab};
 
@@ -10,7 +10,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
     let rows = Layout::vertical([
-        Constraint::Length(3),  // tabs
+        Constraint::Length(3), // tabs
         Constraint::Min(3),    // content + hint (2-column)
         Constraint::Length(1), // status
         Constraint::Length(2), // help
@@ -20,11 +20,8 @@ pub fn render(frame: &mut Frame, app: &App) {
     render_tabs(frame, app, rows[0]);
 
     // Split the middle area into two columns: left for entries, right for hint
-    let columns = Layout::horizontal([
-        Constraint::Percentage(55),
-        Constraint::Percentage(45),
-    ])
-    .split(rows[1]);
+    let columns =
+        Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).split(rows[1]);
 
     render_content(frame, app, columns[0]);
     render_hint(frame, app, columns[1]);
@@ -161,10 +158,7 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
         )),
         InputMode::Normal => {
             if let Some(ref msg) = app.status_message {
-                Line::from(Span::styled(
-                    msg.clone(),
-                    Style::default().fg(Color::Green),
-                ))
+                Line::from(Span::styled(msg.clone(), Style::default().fg(Color::Green)))
             } else if app.dirty {
                 Line::from(Span::styled(
                     " [unsaved changes]",
@@ -215,10 +209,9 @@ fn hint_for_entry(app: &App) -> Option<(&'static str, &'static str)> {
             "e.g. 1, 7",
         )),
         // Global UI
-        (Tab::Global, "ui", "color") => Some((
-            "Enable or disable colored output.",
-            "e.g. true, false",
-        )),
+        (Tab::Global, "ui", "color") => {
+            Some(("Enable or disable colored output.", "e.g. true, false"))
+        }
         // Project targets
         (Tab::Project, "targets", _) => Some((
             "Project-level override for this agent target directory.",
@@ -258,9 +251,7 @@ fn render_help(frame: &mut Frame, app: &App, area: Rect) {
         }
         InputMode::ConfirmDelete => "y Confirm  n Cancel",
         InputMode::ConfirmQuit => "y Save & quit  n Quit without saving  Esc Cancel",
-        InputMode::Normal => {
-            "↑↓ Navigate  ←→ Tab  Enter Edit  a Add  d Delete  s Save  q Quit"
-        }
+        InputMode::Normal => "↑↓ Navigate  ←→ Tab  Enter Edit  a Add  d Delete  s Save  q Quit",
     };
 
     let help = Paragraph::new(Line::from(Span::styled(

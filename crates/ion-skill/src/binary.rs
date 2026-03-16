@@ -145,10 +145,7 @@ pub fn fetch_latest_release_by_tag_prefix(
     repo: &str,
     prefix: &str,
 ) -> crate::Result<GitHubRelease> {
-    let url = format!(
-        "https://api.github.com/repos/{}/releases?per_page=10",
-        repo
-    );
+    let url = format!("https://api.github.com/repos/{}/releases?per_page=10", repo);
     let client = reqwest::blocking::Client::new();
     let resp = client
         .get(&url)
@@ -227,9 +224,9 @@ pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> crate::Result<Vec
             .path()
             .map_err(|e| crate::Error::Other(format!("Bad path: {}", e)))?
             .into_owned();
-        entry
-            .unpack_in(dest_dir)
-            .map_err(|e| crate::Error::Other(format!("Failed to extract {}: {}", path.display(), e)))?;
+        entry.unpack_in(dest_dir).map_err(|e| {
+            crate::Error::Other(format!("Failed to extract {}: {}", path.display(), e))
+        })?;
         extracted.push(dest_dir.join(&path));
     }
     Ok(extracted)
@@ -283,8 +280,9 @@ pub fn install_binary_file(
     }
     let current_link = bin_root.join(name).join("current");
     if current_link.exists() || current_link.is_symlink() {
-        fs::remove_file(&current_link)
-            .map_err(|e| crate::Error::Other(format!("Failed to remove stale current link: {}", e)))?;
+        fs::remove_file(&current_link).map_err(|e| {
+            crate::Error::Other(format!("Failed to remove stale current link: {}", e))
+        })?;
     }
     #[cfg(unix)]
     std::os::unix::fs::symlink(version, &current_link)
@@ -294,8 +292,8 @@ pub fn install_binary_file(
 
 pub fn file_checksum(path: &Path) -> crate::Result<String> {
     use sha2::{Digest, Sha256};
-    let bytes =
-        fs::read(path).map_err(|e| crate::Error::Other(format!("Failed to read file for checksum: {}", e)))?;
+    let bytes = fs::read(path)
+        .map_err(|e| crate::Error::Other(format!("Failed to read file for checksum: {}", e)))?;
     let hash = Sha256::digest(&bytes);
     Ok(format!("sha256:{:x}", hash))
 }
@@ -621,8 +619,9 @@ pub fn install_binary_from_url(
 pub fn remove_binary_version(name: &str, version: &str) -> crate::Result<()> {
     let version_dir = bin_dir().join(name).join(version);
     if version_dir.exists() {
-        fs::remove_dir_all(&version_dir)
-            .map_err(|e| crate::Error::Other(format!("Failed to remove binary version dir: {}", e)))?;
+        fs::remove_dir_all(&version_dir).map_err(|e| {
+            crate::Error::Other(format!("Failed to remove binary version dir: {}", e))
+        })?;
     }
     Ok(())
 }
@@ -647,7 +646,8 @@ pub fn list_installed_binaries() -> crate::Result<Vec<String>> {
     for entry in fs::read_dir(&dir)
         .map_err(|e| crate::Error::Other(format!("Failed to read bin dir: {}", e)))?
     {
-        let entry = entry.map_err(|e| crate::Error::Other(format!("Failed to read entry: {}", e)))?;
+        let entry =
+            entry.map_err(|e| crate::Error::Other(format!("Failed to read entry: {}", e)))?;
         if entry.path().is_dir() {
             if let Some(name) = entry.file_name().to_str() {
                 names.push(name.to_string());
@@ -851,8 +851,8 @@ fi
 
     #[test]
     fn test_extract_tar_gz() {
-        use flate2::write::GzEncoder;
         use flate2::Compression;
+        use flate2::write::GzEncoder;
 
         let tmp = tempfile::tempdir().unwrap();
 
@@ -886,13 +886,25 @@ fi
         fs::write(&fake_binary, "#!/bin/sh\necho hello").unwrap();
 
         // Not installed yet
-        assert!(!bin_root.join("mytool").join("1.0.0").join("mytool").exists());
+        assert!(
+            !bin_root
+                .join("mytool")
+                .join("1.0.0")
+                .join("mytool")
+                .exists()
+        );
 
         // Install it
         install_binary_file(&fake_binary, "mytool", "1.0.0", &bin_root).unwrap();
 
         // Now it should exist
-        assert!(bin_root.join("mytool").join("1.0.0").join("mytool").exists());
+        assert!(
+            bin_root
+                .join("mytool")
+                .join("1.0.0")
+                .join("mytool")
+                .exists()
+        );
     }
 
     #[test]
@@ -971,15 +983,9 @@ fi
         ];
         // With pattern, expand_url_template should produce an exact match
         let platform = Platform::detect();
-        let expanded = expand_url_template(
-            "mytool-{version}-{os}-{arch}.tar.gz",
-            "mytool",
-            "1.0.0",
-        );
-        let expected = format!(
-            "mytool-1.0.0-{}-{}.tar.gz",
-            platform.os, platform.arch
-        );
+        let expanded =
+            expand_url_template("mytool-{version}-{os}-{arch}.tar.gz", "mytool", "1.0.0");
+        let expected = format!("mytool-1.0.0-{}-{}.tar.gz", platform.os, platform.arch);
         assert_eq!(expanded, expected);
         // The expanded name should match one of the assets if our platform is in the list
         if assets.contains(&expanded) {
@@ -989,11 +995,7 @@ fi
 
     #[test]
     fn test_expand_url_template_no_placeholders() {
-        let url = expand_url_template(
-            "https://example.com/static/tool.tar.gz",
-            "tool",
-            "1.0.0",
-        );
+        let url = expand_url_template("https://example.com/static/tool.tar.gz", "tool", "1.0.0");
         assert_eq!(url, "https://example.com/static/tool.tar.gz");
     }
 

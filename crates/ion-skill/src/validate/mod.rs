@@ -5,11 +5,11 @@ use serde::Serialize;
 
 use crate::skill::SkillMetadata;
 
+pub mod codeblock;
 pub mod discovery;
 pub mod markdown;
 pub mod security;
 pub mod structure;
-pub mod codeblock;
 
 // ---------------------------------------------------------------------------
 // Severity
@@ -125,11 +125,7 @@ pub trait SkillChecker {
 
 /// Run every registered checker and return all findings sorted by severity
 /// descending (errors first).
-pub fn run_all_checkers(
-    skill_dir: &Path,
-    meta: &SkillMetadata,
-    body: &str,
-) -> Vec<Finding> {
+pub fn run_all_checkers(skill_dir: &Path, meta: &SkillMetadata, body: &str) -> Vec<Finding> {
     let checkers: Vec<Box<dyn SkillChecker>> = vec![
         Box::new(security::PromptInjectionChecker),
         Box::new(security::DangerousCommandChecker),

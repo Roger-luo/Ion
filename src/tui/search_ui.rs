@@ -1,8 +1,8 @@
+use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
-use ratatui::Frame;
 
 use ion_skill::search::skill_dir_name;
 
@@ -143,16 +143,13 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
 }
 
 fn render_detail(frame: &mut Frame, app: &SearchApp, area: Rect) {
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" Details ");
+    let block = Block::default().borders(Borders::ALL).title(" Details ");
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
     let Some(row) = app.rows.get(app.selected) else {
-        let msg =
-            Paragraph::new("No result selected.").style(Style::default().fg(Color::DarkGray));
+        let msg = Paragraph::new("No result selected.").style(Style::default().fg(Color::DarkGray));
         frame.render_widget(msg, inner);
         return;
     };
@@ -257,7 +254,12 @@ fn render_repo_detail(
 }
 
 /// Append a labeled wrapped-text section to `lines` if text is non-empty.
-fn push_wrapped_section<'a>(lines: &mut Vec<Line<'a>>, label: &'a str, text: &str, wrap_width: usize) {
+fn push_wrapped_section<'a>(
+    lines: &mut Vec<Line<'a>>,
+    label: &'a str,
+    text: &str,
+    wrap_width: usize,
+) {
     if text.is_empty() {
         return;
     }

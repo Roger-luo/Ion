@@ -194,10 +194,7 @@ mod tests {
             loaded.repos["abc123"].url,
             "https://github.com/org/repo.git"
         );
-        assert_eq!(
-            loaded.repos["abc123"].projects,
-            vec!["/home/user/project"]
-        );
+        assert_eq!(loaded.repos["abc123"].projects, vec!["/home/user/project"]);
     }
 
     #[test]

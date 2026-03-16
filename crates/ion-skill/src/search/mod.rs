@@ -4,13 +4,13 @@ mod github;
 mod registry;
 mod skills_sh;
 
-pub use agent::{parse_agent_output, AgentSource};
+pub use agent::{AgentSource, parse_agent_output};
 pub use cache::SearchCache;
 pub use github::{
-    enrich_github_results, parse_gh_code_response, parse_gh_repo_response, GitHubSource,
+    GitHubSource, enrich_github_results, parse_gh_code_response, parse_gh_repo_response,
 };
-pub use registry::{parse_registry_response, RegistrySource};
-pub use skills_sh::{parse_skills_sh_page, SkillsShSource};
+pub use registry::{RegistrySource, parse_registry_response};
+pub use skills_sh::{SkillsShSource, parse_skills_sh_page};
 
 /// Extract "owner/repo" from a source string.
 /// `"obra/superpowers/skills/brainstorming"` → `"obra/superpowers"`.
@@ -82,8 +82,7 @@ pub trait SearchSource {
 /// Returns `(owner_repo, indices_into_results)` pairs.
 pub fn group_by_owner_repo(results: &[SearchResult]) -> Vec<(String, Vec<usize>)> {
     let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
-    let mut key_to_idx: std::collections::HashMap<&str, usize> =
-        std::collections::HashMap::new();
+    let mut key_to_idx: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
 
     for (i, r) in results.iter().enumerate() {
         let key = owner_repo_of(&r.source);

@@ -7,9 +7,7 @@ use ion_skill::manifest_writer;
 use ion_skill::source::{SkillSource, SourceType};
 
 use crate::commands::install_shared::SkillEntry;
-use crate::commands::validation::{
-    confirm_proceed_with_collection, select_warned_skills,
-};
+use crate::commands::validation::{confirm_proceed_with_collection, select_warned_skills};
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
@@ -88,7 +86,10 @@ pub fn run(
             }
             Err(SkillError::ValidationWarning { report, .. }) => {
                 crate::commands::install_shared::handle_validation_warnings(
-                    &name, &report, json, allow_warnings,
+                    &name,
+                    &report,
+                    json,
+                    allow_warnings,
                 )?;
                 let locked = installer.install_with_options(
                     &name,
@@ -135,7 +136,11 @@ pub fn run(
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
     let locked = crate::commands::install_shared::install_with_warning_prompt(
-        &installer, &name, &source, json, allow_warnings,
+        &installer,
+        &name,
+        &source,
+        json,
+        allow_warnings,
     )?;
 
     finish_single_install(&ctx, &p, &merged_options, &name, &source, locked, json)
@@ -454,7 +459,10 @@ fn finish_collection_skill_install(
     }
 
     crate::commands::install_shared::add_gitignore_entries(
-        &ctx.project_dir, name, source, merged_options,
+        &ctx.project_dir,
+        name,
+        source,
+        merged_options,
     )?;
 
     Ok(())
@@ -471,7 +479,10 @@ fn finish_single_install(
 ) -> anyhow::Result<()> {
     // Add per-skill gitignore entries for remote skills only
     crate::commands::install_shared::add_gitignore_entries(
-        &ctx.project_dir, name, source, merged_options,
+        &ctx.project_dir,
+        name,
+        source,
+        merged_options,
     )?;
 
     // Register in global registry for git-based sources
@@ -529,7 +540,10 @@ fn save_starred_repos(repos: &[String]) {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&path, serde_json::to_string_pretty(repos).unwrap_or_default());
+        let _ = std::fs::write(
+            &path,
+            serde_json::to_string_pretty(repos).unwrap_or_default(),
+        );
     }
 }
 
@@ -552,8 +566,7 @@ fn prompt_github_star(source: &SkillSource) {
         return;
     }
     let answer = answer.trim();
-    if answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes")
-    {
+    if answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes") {
         let _ = std::process::Command::new("gh")
             .args(["repo", "star", repo])
             .stdout(std::process::Stdio::null())

@@ -62,7 +62,10 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
 
         // Local skills bypass validation — deploy directly from project tree
         if source.source_type == SourceType::Local {
-            let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents/skills");
+            let skills_dir = merged_options
+                .skills_dir
+                .as_deref()
+                .unwrap_or(".agents/skills");
             let local_skill_dir = ctx.project_dir.join(skills_dir).join(name);
 
             if !local_skill_dir.exists() {
@@ -201,7 +204,12 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             InstallValidationOptions::default(),
         )?;
 
-        add_gitignore_entries(&ctx.project_dir, &entry.name, &entry.source, &merged_options)?;
+        add_gitignore_entries(
+            &ctx.project_dir,
+            &entry.name,
+            &entry.source,
+            &merged_options,
+        )?;
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
         json_installed.push(serde_json::json!({ "name": entry.name }));
@@ -229,7 +237,12 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             },
         )?;
 
-        add_gitignore_entries(&ctx.project_dir, &entry.name, &entry.source, &merged_options)?;
+        add_gitignore_entries(
+            &ctx.project_dir,
+            &entry.name,
+            &entry.source,
+            &merged_options,
+        )?;
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
         json_installed.push(serde_json::json!({ "name": entry.name }));

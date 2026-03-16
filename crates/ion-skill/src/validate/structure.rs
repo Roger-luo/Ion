@@ -81,10 +81,7 @@ impl SkillChecker for ToolDeclarationConsistencyChecker {
             .map(ToString::to_string)
             .collect();
 
-        let missing: Vec<String> = mentioned
-            .difference(&declared)
-            .cloned()
-            .collect();
+        let missing: Vec<String> = mentioned.difference(&declared).cloned().collect();
 
         if missing.is_empty() {
             return vec![];
@@ -126,9 +123,11 @@ mod tests {
 
         let findings = checker.check(root.path(), &meta_with_allowed_tools(None), body);
 
-        assert!(findings.iter().any(|f| {
-            f.severity == Severity::Warning && f.checker == "reference-integrity"
-        }));
+        assert!(
+            findings
+                .iter()
+                .any(|f| { f.severity == Severity::Warning && f.checker == "reference-integrity" })
+        );
     }
 
     #[test]
@@ -139,9 +138,11 @@ mod tests {
 
         let findings = checker.check(root.path(), &meta_with_allowed_tools(None), body);
 
-        assert!(findings.iter().any(|f| {
-            f.severity == Severity::Warning && f.message.contains("Path traversal")
-        }));
+        assert!(
+            findings.iter().any(|f| {
+                f.severity == Severity::Warning && f.message.contains("Path traversal")
+            })
+        );
     }
 
     #[test]

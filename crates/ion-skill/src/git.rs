@@ -147,7 +147,9 @@ pub fn reset_to_remote_head(repo_path: &Path) -> Result<()> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Git(format!("git reset --hard {remote_ref} failed: {stderr}")));
+        return Err(Error::Git(format!(
+            "git reset --hard {remote_ref} failed: {stderr}"
+        )));
     }
     Ok(())
 }
@@ -172,8 +174,16 @@ mod tests {
     fn default_branch_of_fresh_repo() {
         let tmp = tempfile::tempdir().unwrap();
         let repo = tmp.path();
-        std::process::Command::new("git").args(["init"]).current_dir(repo).output().unwrap();
-        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "init"]).current_dir(repo).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(repo)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "init"])
+            .current_dir(repo)
+            .output()
+            .unwrap();
         let branch = default_branch(repo).unwrap();
         assert!(branch == "main" || branch == "master", "got: {branch}");
     }
@@ -195,14 +205,26 @@ mod tests {
 
         let upstream = tmp.path().join("upstream");
         std::fs::create_dir(&upstream).unwrap();
-        std::process::Command::new("git").args(["init"]).current_dir(&upstream).output().unwrap();
-        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "first"]).current_dir(&upstream).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(&upstream)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "first"])
+            .current_dir(&upstream)
+            .output()
+            .unwrap();
 
         let clone_dir = tmp.path().join("clone");
         clone_or_fetch(&upstream.display().to_string(), &clone_dir).unwrap();
         let commit1 = head_commit(&clone_dir).unwrap();
 
-        std::process::Command::new("git").args(["commit", "--allow-empty", "-m", "second"]).current_dir(&upstream).output().unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "--allow-empty", "-m", "second"])
+            .current_dir(&upstream)
+            .output()
+            .unwrap();
 
         clone_or_fetch(&upstream.display().to_string(), &clone_dir).unwrap();
         reset_to_remote_head(&clone_dir).unwrap();

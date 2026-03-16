@@ -192,10 +192,12 @@ fn migrate_with_local_git_repo() {
     );
     assert!(project.path().join("Ion.toml").exists());
     assert!(project.path().join("Ion.lock").exists());
-    assert!(project
-        .path()
-        .join(".agents/skills/my-skill/SKILL.md")
-        .exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/my-skill/SKILL.md")
+            .exists()
+    );
 }
 
 #[test]
@@ -256,10 +258,12 @@ fn migrate_with_yes_skips_prompts() {
     );
     assert!(project.path().join("Ion.toml").exists());
     assert!(project.path().join("Ion.lock").exists());
-    assert!(project
-        .path()
-        .join(".agents/skills/auto-skill/SKILL.md")
-        .exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/auto-skill/SKILL.md")
+            .exists()
+    );
     // Gitignore should be updated
     let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
     assert!(gitignore.contains(".agents/skills/auto-skill"));
@@ -554,10 +558,12 @@ fn migrate_leftover_custom_skill() {
     assert_eq!(custom[0]["name"], "my-custom-project-skill");
 
     // Custom skill should now exist in .agents/skills/
-    assert!(project
-        .path()
-        .join(".agents/skills/my-custom-project-skill/SKILL.md")
-        .exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/my-custom-project-skill/SKILL.md")
+            .exists()
+    );
 
     // Original location should now be a symlink
     assert!(custom_dir.is_symlink());

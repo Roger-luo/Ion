@@ -69,16 +69,17 @@ pub fn select_warned_skills(skills: &[(String, usize)]) -> anyhow::Result<Option
 fn fallback_select(skills: &[(String, usize)]) -> anyhow::Result<Vec<bool>> {
     let mut selected = Vec::with_capacity(skills.len());
     for (name, count) in skills {
-        print!(
-            "  Install '{}' with {} warning(s)? [Y/n] ",
-            name, count
-        );
+        print!("  Install '{}' with {} warning(s)? [Y/n] ", name, count);
         io::stdout().flush()?;
         let mut answer = String::new();
         io::stdin().read_line(&mut answer)?;
         let answer = answer.trim();
         // Default is yes (opt-out model)
-        selected.push(answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes"));
+        selected.push(
+            answer.is_empty()
+                || answer.eq_ignore_ascii_case("y")
+                || answer.eq_ignore_ascii_case("yes"),
+        );
     }
     Ok(selected)
 }
@@ -158,7 +159,10 @@ fn run_select_loop(
     render_select(stdout, skills, selected, *cursor_pos, 0)?;
 
     loop {
-        if let Event::Key(KeyEvent { code, modifiers, .. }) = event::read()? {
+        if let Event::Key(KeyEvent {
+            code, modifiers, ..
+        }) = event::read()?
+        {
             // Ctrl+C cancels
             if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
                 return Ok(false);

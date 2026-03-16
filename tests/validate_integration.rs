@@ -8,16 +8,17 @@ fn write_skill(path: &std::path::Path, name: &str, body: &str) {
     std::fs::create_dir_all(path).unwrap();
     std::fs::write(
         path.join("SKILL.md"),
-        format!(
-            "---\nname: {name}\ndescription: Integration test skill.\n---\n\n{body}\n"
-        ),
+        format!("---\nname: {name}\ndescription: Integration test skill.\n---\n\n{body}\n"),
     )
     .unwrap();
 }
 
 #[test]
 fn validate_help_is_exposed() {
-    let output = ion_cmd().args(["skill", "validate", "--help"]).output().unwrap();
+    let output = ion_cmd()
+        .args(["skill", "validate", "--help"])
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
     assert!(stdout.contains("Validate local skill definitions"));

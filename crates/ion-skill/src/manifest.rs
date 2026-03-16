@@ -124,10 +124,7 @@ impl Manifest {
                     },
                     Some(st) => {
                         let src = source.as_deref().ok_or_else(|| {
-                            Error::Manifest(format!(
-                                "source is required for type {:?}",
-                                st
-                            ))
+                            Error::Manifest(format!("source is required for type {:?}", st))
                         })?;
                         SkillSource {
                             source_type: st.clone(),
@@ -190,8 +187,7 @@ mod tests {
 
     #[test]
     fn parse_full_github_entry() {
-        let toml_str =
-            "[skills]\nmy-tool = { type = \"github\", source = \"org/skills/my-tool\", rev = \"v2.0\" }\n";
+        let toml_str = "[skills]\nmy-tool = { type = \"github\", source = \"org/skills/my-tool\", rev = \"v2.0\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = Manifest::resolve_entry(&manifest.skills["my-tool"]).unwrap();
         assert_eq!(source.source_type, SourceType::Github);
@@ -320,10 +316,7 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = Manifest::resolve_entry(&manifest.skills["my-skill"]).unwrap();
         assert_eq!(source.source_type, SourceType::Local);
-        assert_eq!(
-            source.forked_from.as_deref(),
-            Some("org/original-skill")
-        );
+        assert_eq!(source.forked_from.as_deref(), Some("org/original-skill"));
     }
 
     #[test]

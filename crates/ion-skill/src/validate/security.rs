@@ -132,7 +132,10 @@ impl SkillChecker for SuspiciousFileChecker {
 
             let rel = path.strip_prefix(skill_dir).unwrap_or(&path);
             let rel_str = rel.to_string_lossy();
-            let in_scripts = rel.components().next().is_some_and(|c| c.as_os_str() == "scripts");
+            let in_scripts = rel
+                .components()
+                .next()
+                .is_some_and(|c| c.as_os_str() == "scripts");
 
             if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 let lower = ext.to_ascii_lowercase();
@@ -166,7 +169,10 @@ impl SkillChecker for SuspiciousFileChecker {
                     let is_script_ext = path
                         .extension()
                         .and_then(|e| e.to_str())
-                        .map(|e| ["sh", "py", "rb", "js", "ts", "pl", "php"].contains(&e.to_ascii_lowercase().as_str()))
+                        .map(|e| {
+                            ["sh", "py", "rb", "js", "ts", "pl", "php"]
+                                .contains(&e.to_ascii_lowercase().as_str())
+                        })
                         .unwrap_or(false);
                     if !is_script_ext {
                         findings.push(Finding {
@@ -189,7 +195,8 @@ mod tests {
     use std::collections::HashMap;
 
     use super::{
-        DangerousCommandChecker, PromptInjectionChecker, SensitivePathChecker, SuspiciousFileChecker,
+        DangerousCommandChecker, PromptInjectionChecker, SensitivePathChecker,
+        SuspiciousFileChecker,
     };
     use crate::skill::SkillMetadata;
     use crate::validate::{Severity, SkillChecker};

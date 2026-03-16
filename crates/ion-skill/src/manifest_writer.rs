@@ -55,8 +55,8 @@ pub fn write_targets(
     manifest_path: &Path,
     targets: &std::collections::BTreeMap<String, String>,
 ) -> Result<String> {
-    let content = std::fs::read_to_string(manifest_path)
-        .unwrap_or_else(|_| "[skills]\n".to_string());
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
     let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
 
     if !doc.contains_key("skills") {
@@ -243,9 +243,10 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
-        let targets = std::collections::BTreeMap::from([
-            ("claude".to_string(), ".claude/skills".to_string()),
-        ]);
+        let targets = std::collections::BTreeMap::from([(
+            "claude".to_string(),
+            ".claude/skills".to_string(),
+        )]);
         write_targets(&path, &targets).unwrap();
 
         let content = std::fs::read_to_string(&path).unwrap();
@@ -259,11 +260,16 @@ mod tests {
     fn write_targets_preserves_existing_skills() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Ion.toml");
-        std::fs::write(&path, "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+        )
+        .unwrap();
 
-        let targets = std::collections::BTreeMap::from([
-            ("claude".to_string(), ".claude/skills".to_string()),
-        ]);
+        let targets = std::collections::BTreeMap::from([(
+            "claude".to_string(),
+            ".claude/skills".to_string(),
+        )]);
         write_targets(&path, &targets).unwrap();
 
         let content = std::fs::read_to_string(&path).unwrap();
@@ -276,9 +282,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Ion.toml");
 
-        let targets = std::collections::BTreeMap::from([
-            ("claude".to_string(), ".claude/skills".to_string()),
-        ]);
+        let targets = std::collections::BTreeMap::from([(
+            "claude".to_string(),
+            ".claude/skills".to_string(),
+        )]);
         write_targets(&path, &targets).unwrap();
 
         let content = std::fs::read_to_string(&path).unwrap();
@@ -306,7 +313,10 @@ mod tests {
         let result = add_skill(&path, "my-local-skill", &source).unwrap();
         assert!(result.contains("my-local-skill"));
         assert!(result.contains("type = \"local\""));
-        assert!(!result.contains("source"), "local skills should not have a source field");
+        assert!(
+            !result.contains("source"),
+            "local skills should not have a source field"
+        );
     }
 
     #[test]
@@ -329,18 +339,28 @@ mod tests {
         let result = add_skill(&path, "my-forked-skill", &source).unwrap();
         assert!(result.contains("type = \"local\""));
         assert!(result.contains("forked-from = \"org/original-skill\""));
-        assert!(!result.contains("source ="), "local skills should not have a source field");
+        assert!(
+            !result.contains("source ="),
+            "local skills should not have a source field"
+        );
     }
 
     #[test]
     fn write_skills_dir_to_manifest() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Ion.toml");
-        std::fs::write(&path, "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+        )
+        .unwrap();
 
         let result = write_skills_dir(&path, "my-skills").unwrap();
         assert!(result.contains("[options]"));
         assert!(result.contains("skills-dir = \"my-skills\""));
-        assert!(result.contains("brainstorming"), "existing skills should be preserved");
+        assert!(
+            result.contains("brainstorming"),
+            "existing skills should be preserved"
+        );
     }
 }

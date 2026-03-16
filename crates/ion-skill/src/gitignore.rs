@@ -41,7 +41,11 @@ pub fn append_to_gitignore(project_dir: &Path, entries: &[&str]) -> Result<()> {
 /// Add per-skill gitignore entries for a remotely installed skill.
 /// Creates entries for `.agents/skills/<name>` and `<target>/<name>` for each target.
 /// Idempotent — won't duplicate existing entries.
-pub fn add_skill_entries(project_dir: &Path, skill_name: &str, target_paths: &[&str]) -> Result<()> {
+pub fn add_skill_entries(
+    project_dir: &Path,
+    skill_name: &str,
+    target_paths: &[&str],
+) -> Result<()> {
     let gitignore_path = project_dir.join(".gitignore");
     let mut content = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
 

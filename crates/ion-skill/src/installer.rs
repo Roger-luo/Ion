@@ -65,7 +65,11 @@ impl<'a> SkillInstaller<'a> {
     /// Returns the validation report on success (even if it has warnings).
     /// Returns `Error::ValidationFailed` if there are errors,
     /// or `Error::InvalidSkill` if there's no SKILL.md.
-    pub fn validate(&self, _name: &str, source: &SkillSource) -> Result<validate::ValidationReport> {
+    pub fn validate(
+        &self,
+        _name: &str,
+        source: &SkillSource,
+    ) -> Result<validate::ValidationReport> {
         let skill_dir = self.fetch(source)?;
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
         let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
@@ -168,7 +172,11 @@ impl<'a> SkillInstaller<'a> {
         fetch_skill(source)
     }
 
-    fn validate_spec(&self, skill_dir: &Path, source: &SkillSource) -> Result<(SkillMetadata, String)> {
+    fn validate_spec(
+        &self,
+        skill_dir: &Path,
+        source: &SkillSource,
+    ) -> Result<(SkillMetadata, String)> {
         let skill_md = skill_dir.join("SKILL.md");
         if !skill_md.exists() {
             return Err(Error::InvalidSkill(format!(
@@ -343,22 +351,22 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(
-                    "Local path does not exist: {}", source.source
+                    "Local path does not exist: {}",
+                    source.source
                 )));
             }
             Ok(path)
         }
-        SourceType::Http => {
-            Err(Error::Source("HTTP source not yet implemented".to_string()))
-        }
-        SourceType::Binary => {
-            Err(Error::Source("Binary source uses dedicated installer".to_string()))
-        }
+        SourceType::Http => Err(Error::Source("HTTP source not yet implemented".to_string())),
+        SourceType::Binary => Err(Error::Source(
+            "Binary source uses dedicated installer".to_string(),
+        )),
         SourceType::Local => {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(
-                    "Local path does not exist: {}", source.source
+                    "Local path does not exist: {}",
+                    source.source
                 )));
             }
             Ok(path)
@@ -409,10 +417,13 @@ fn create_skill_symlink(original: &Path, link: &Path) -> Result<()> {
 
     // Compute relative path from link's parent to the original
     let link_parent = link.parent().unwrap();
-    let relative = pathdiff::diff_paths(original, link_parent)
-        .ok_or_else(|| Error::Io(std::io::Error::other(
-            format!("Cannot compute relative path from {} to {}", link_parent.display(), original.display()),
-        )))?;
+    let relative = pathdiff::diff_paths(original, link_parent).ok_or_else(|| {
+        Error::Io(std::io::Error::other(format!(
+            "Cannot compute relative path from {} to {}",
+            link_parent.display(),
+            original.display()
+        )))
+    })?;
 
     #[cfg(unix)]
     std::os::unix::fs::symlink(&relative, link).map_err(Error::Io)?;
@@ -485,7 +496,10 @@ mod tests {
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets, skills_dir: None };
+        let options = ManifestOptions {
+            targets,
+            skills_dir: None,
+        };
 
         let installer = SkillInstaller::new(project.path(), &options);
         installer.uninstall("test").unwrap();
@@ -517,7 +531,10 @@ mod tests {
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets, skills_dir: None };
+        let options = ManifestOptions {
+            targets,
+            skills_dir: None,
+        };
 
         let installer = SkillInstaller::new(project.path(), &options);
         let _locked = installer.install("sym-test", &source).unwrap();
@@ -630,10 +647,12 @@ mod tests {
             .unwrap();
 
         assert_eq!(locked.name, "warning-ok");
-        assert!(project
-            .path()
-            .join(".agents/skills/warning-ok/SKILL.md")
-            .exists());
+        assert!(
+            project
+                .path()
+                .join(".agents/skills/warning-ok/SKILL.md")
+                .exists()
+        );
     }
 
     #[test]
@@ -641,7 +660,11 @@ mod tests {
         // Binary skills write directly into .agents/skills/{name}.
         // deploy() must not create a symlink from that path to itself.
         let project = tempfile::tempdir().unwrap();
-        let skill_dir = project.path().join(".agents").join("skills").join("ion-cli");
+        let skill_dir = project
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("ion-cli");
         std::fs::create_dir_all(&skill_dir).unwrap();
         std::fs::write(
             skill_dir.join("SKILL.md"),
@@ -651,7 +674,10 @@ mod tests {
 
         let mut targets = std::collections::BTreeMap::new();
         targets.insert("claude".to_string(), ".claude/skills".to_string());
-        let options = ManifestOptions { targets, skills_dir: None };
+        let options = ManifestOptions {
+            targets,
+            skills_dir: None,
+        };
 
         let installer = SkillInstaller::new(project.path(), &options);
         installer.deploy("ion-cli", &skill_dir).unwrap();
@@ -659,12 +685,24 @@ mod tests {
         // .agents/skills/ion-cli should remain a real directory, NOT a symlink
         let agents_path = project.path().join(".agents/skills/ion-cli");
         assert!(agents_path.exists(), ".agents/skills/ion-cli should exist");
-        assert!(!agents_path.is_symlink(), ".agents/skills/ion-cli should NOT be a symlink");
-        assert!(agents_path.join("SKILL.md").exists(), "SKILL.md should be readable");
+        assert!(
+            !agents_path.is_symlink(),
+            ".agents/skills/ion-cli should NOT be a symlink"
+        );
+        assert!(
+            agents_path.join("SKILL.md").exists(),
+            "SKILL.md should be readable"
+        );
 
         // .claude/skills/ion-cli should be a symlink pointing to .agents/skills/ion-cli
         let claude_path = project.path().join(".claude/skills/ion-cli");
-        assert!(claude_path.is_symlink(), ".claude/skills/ion-cli should be a symlink");
-        assert!(claude_path.join("SKILL.md").exists(), "SKILL.md should be readable via symlink");
+        assert!(
+            claude_path.is_symlink(),
+            ".claude/skills/ion-cli should be a symlink"
+        );
+        assert!(
+            claude_path.join("SKILL.md").exists(),
+            "SKILL.md should be readable via symlink"
+        );
     }
 }

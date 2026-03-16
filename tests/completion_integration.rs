@@ -13,7 +13,10 @@ fn completion_bash_produces_output() {
     assert!(output.status.success(), "exit code was not 0");
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(!stdout.is_empty(), "completion output was empty");
-    assert!(stdout.contains("ion"), "completion should reference the binary name");
+    assert!(
+        stdout.contains("ion"),
+        "completion should reference the binary name"
+    );
 }
 
 #[test]
@@ -63,8 +66,14 @@ fn completion_help_shows_setup_instructions() {
         .output()
         .expect("failed to run ion");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Setup:"), "help should include setup section");
+    assert!(
+        stdout.contains("Setup:"),
+        "help should include setup section"
+    );
     assert!(stdout.contains(".bashrc"), "help should show bash setup");
     assert!(stdout.contains(".zfunc"), "help should show zsh setup");
-    assert!(stdout.contains("completions/ion.fish"), "help should show fish setup");
+    assert!(
+        stdout.contains("completions/ion.fish"),
+        "help should show fish setup"
+    );
 }

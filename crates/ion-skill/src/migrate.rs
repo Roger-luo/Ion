@@ -58,8 +58,8 @@ pub struct DiscoveredSkill {
 /// Parse a skills-lock.json file and return discovered skills.
 pub fn discover_from_lockfile(lockfile_path: &Path) -> Result<Vec<DiscoveredSkill>> {
     let content = std::fs::read_to_string(lockfile_path).map_err(Error::Io)?;
-    let lock: SkillsLockFile =
-        serde_json::from_str(&content).map_err(|e| Error::Manifest(format!("Invalid skills-lock.json: {e}")))?;
+    let lock: SkillsLockFile = serde_json::from_str(&content)
+        .map_err(|e| Error::Manifest(format!("Invalid skills-lock.json: {e}")))?;
 
     let mut skills = Vec::new();
 
@@ -105,8 +105,14 @@ pub fn discover_from_directories(project_dir: &Path) -> Result<Vec<DiscoveredSki
     let mut skills = BTreeMap::new();
 
     for (dir, origin) in [
-        (project_dir.join(".agents").join("skills"), DiscoveryOrigin::AgentsDir),
-        (project_dir.join(".claude").join("skills"), DiscoveryOrigin::ClaudeDir),
+        (
+            project_dir.join(".agents").join("skills"),
+            DiscoveryOrigin::AgentsDir,
+        ),
+        (
+            project_dir.join(".claude").join("skills"),
+            DiscoveryOrigin::ClaudeDir,
+        ),
     ] {
         if !dir.exists() {
             continue;
@@ -125,10 +131,7 @@ pub fn discover_from_directories(project_dir: &Path) -> Result<Vec<DiscoveredSki
                 continue;
             }
 
-            let name = entry
-                .file_name()
-                .to_string_lossy()
-                .to_string();
+            let name = entry.file_name().to_string_lossy().to_string();
 
             // Don't overwrite if already found from .agents/skills/
             if skills.contains_key(&name) {
@@ -499,7 +502,11 @@ mod tests {
     fn discover_from_directories_scans_claude_dir() {
         let dir = tempfile::tempdir().unwrap();
 
-        let skill_dir = dir.path().join(".claude").join("skills").join("claude-skill");
+        let skill_dir = dir
+            .path()
+            .join(".claude")
+            .join("skills")
+            .join("claude-skill");
         std::fs::create_dir_all(&skill_dir).unwrap();
         std::fs::write(
             skill_dir.join("SKILL.md"),
@@ -517,7 +524,11 @@ mod tests {
     fn discover_from_directories_skips_without_skill_md() {
         let dir = tempfile::tempdir().unwrap();
 
-        let skill_dir = dir.path().join(".agents").join("skills").join("no-manifest");
+        let skill_dir = dir
+            .path()
+            .join(".agents")
+            .join("skills")
+            .join("no-manifest");
         std::fs::create_dir_all(&skill_dir).unwrap();
         std::fs::write(skill_dir.join("README.md"), "not a skill").unwrap();
 

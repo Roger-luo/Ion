@@ -1,4 +1,4 @@
-use ion_skill::search::{group_by_owner_repo, SearchResult};
+use ion_skill::search::{SearchResult, group_by_owner_repo};
 
 /// A row in the left-panel list. Groups of 2+ skills from the same repo get a
 /// `RepoHeader` followed by indented `Skill` rows; standalone skills appear as

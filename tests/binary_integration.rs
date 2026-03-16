@@ -223,7 +223,7 @@ fn test_list_installed_binaries() {
 /// Test URL template expansion replaces all placeholders with platform values.
 #[test]
 fn url_template_expansion() {
-    use ion_skill::binary::{expand_url_template, Platform};
+    use ion_skill::binary::{Platform, expand_url_template};
 
     let platform = Platform::detect();
     let url = expand_url_template(
@@ -242,7 +242,7 @@ fn url_template_expansion() {
 /// Test that all supported placeholders are expanded correctly.
 #[test]
 fn url_template_all_placeholders() {
-    use ion_skill::binary::{expand_url_template, Platform};
+    use ion_skill::binary::{Platform, expand_url_template};
 
     let platform = Platform::detect();
     let url = expand_url_template(
@@ -264,7 +264,7 @@ fn url_template_all_placeholders() {
 /// Test asset pattern matching against expanded URL templates.
 #[test]
 fn asset_pattern_matching() {
-    use ion_skill::binary::{expand_url_template, Platform};
+    use ion_skill::binary::{Platform, expand_url_template};
 
     let platform = Platform::detect();
     let pattern = "mytool-{version}-{os}-{arch}.tar.gz";

@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::{base64_decode, owner_repo_of, parse_skill_description, SearchResult, SearchSource};
+use super::{SearchResult, SearchSource, base64_decode, owner_repo_of, parse_skill_description};
 
 /// JSON entry from `gh search code --json path,repository`
 #[derive(Deserialize)]
@@ -209,8 +209,7 @@ impl SearchSource for GitHubSource {
                     continue;
                 }
                 if looks_skill_related(repo) {
-                    let mut skills =
-                        enumerate_repo_skills(&repo.source, limit * 3, &seen_sources);
+                    let mut skills = enumerate_repo_skills(&repo.source, limit * 3, &seen_sources);
                     if !skills.is_empty() {
                         log::debug!(
                             "github: enumerated {} skills in {}",
@@ -545,8 +544,7 @@ mod tests {
 
     #[test]
     fn gh_repo_search_includes_stars() {
-        let json =
-            r#"[{"fullName": "org/repo", "description": "A repo", "stargazersCount": 42}]"#;
+        let json = r#"[{"fullName": "org/repo", "description": "A repo", "stargazersCount": 42}]"#;
         let results = parse_gh_repo_response(json, 10).unwrap();
         assert_eq!(results[0].stars, Some(42));
     }

@@ -26,11 +26,7 @@ pub fn extract_code_blocks(body: &str) -> Vec<CodeBlock> {
                     CodeBlockKind::Indented => String::new(),
                 };
 
-                let start_line = body[..range.start]
-                    .bytes()
-                    .filter(|b| *b == b'\n')
-                    .count()
-                    + 1;
+                let start_line = body[..range.start].bytes().filter(|b| *b == b'\n').count() + 1;
 
                 current = Some(CodeBlock {
                     lang,
@@ -117,7 +113,10 @@ mod tests {
 
         let links = extract_local_links(body);
 
-        assert_eq!(links, vec!["./references/setup.md".to_string(), "#usage".to_string()]);
+        assert_eq!(
+            links,
+            vec!["./references/setup.md".to_string(), "#usage".to_string()]
+        );
     }
 
     #[test]

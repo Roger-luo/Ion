@@ -23,8 +23,8 @@ fn generate_skill_md() {
     // Rebuild when the template changes
     println!("cargo:rerun-if-changed=templates/ion-cli.md.j2");
 
-    let template_src = std::fs::read_to_string(&template_path)
-        .expect("failed to read templates/ion-cli.md.j2");
+    let template_src =
+        std::fs::read_to_string(&template_path).expect("failed to read templates/ion-cli.md.j2");
 
     let mut env = minijinja::Environment::new();
     env.add_template("skill.md", &template_src).unwrap();

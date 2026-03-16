@@ -25,7 +25,10 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
 
     // Resolve skills-dir from merged options (default ".agents/skills")
     let merged_options = ctx.merged_options(&manifest);
-    let skills_dir = merged_options.skills_dir.as_deref().unwrap_or(".agents/skills");
+    let skills_dir = merged_options
+        .skills_dir
+        .as_deref()
+        .unwrap_or(".agents/skills");
 
     // Find the current installed skill at .agents/skills/<name>
     let agents_skill = ctx.project_dir.join(".agents").join("skills").join(name);

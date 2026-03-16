@@ -25,7 +25,8 @@ pub struct UpdateContext<'a> {
 /// Trait for source-type-specific update logic.
 pub trait Updater {
     /// Check if an update is available. Returns `Some(UpdateInfo)` if yes, `None` if up to date.
-    fn check(&self, skill: &LockedSkill, source: &SkillSource) -> crate::Result<Option<UpdateInfo>>;
+    fn check(&self, skill: &LockedSkill, source: &SkillSource)
+    -> crate::Result<Option<UpdateInfo>>;
 
     /// Apply the update: fetch new version, validate, deploy, return updated lock entry.
     fn apply(

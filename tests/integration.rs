@@ -31,10 +31,12 @@ fn add_and_remove_local_skill() {
         output.status.success(),
         "add failed: stdout={stdout}\nstderr={stderr}"
     );
-    assert!(project
-        .path()
-        .join(".agents/skills/test-skill/SKILL.md")
-        .exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/test-skill/SKILL.md")
+            .exists()
+    );
     assert!(project.path().join("Ion.toml").exists());
     assert!(project.path().join("Ion.lock").exists());
 
@@ -98,10 +100,18 @@ fn install_from_manifest() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "add (install all) failed: {stderr}");
+    assert!(
+        output.status.success(),
+        "add (install all) failed: {stderr}"
+    );
 
     // Canonical copy exists as real directory
-    assert!(project.path().join(".agents/skills/manifest-skill/SKILL.md").exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/manifest-skill/SKILL.md")
+            .exists()
+    );
 
     // Target is a symlink
     let target = project.path().join(".claude/skills/manifest-skill");
@@ -189,10 +199,12 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
         stdout.contains("warning(s)? [Y/n]"),
         "expected batch warning prompt: stdout={stdout}"
     );
-    assert!(project
-        .path()
-        .join(".agents/skills/warning-manifest-skill/SKILL.md")
-        .exists());
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/warning-manifest-skill/SKILL.md")
+            .exists()
+    );
 }
 
 #[test]
@@ -239,7 +251,11 @@ fn self_uninstall_json_without_yes_returns_action_required() {
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(output.status.code(), Some(2), "should exit 2 for action_required");
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "should exit 2 for action_required"
+    );
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(parsed["success"], false);
     assert_eq!(parsed["action_required"], "confirm_uninstall");
@@ -258,7 +274,10 @@ fn init_creates_manifest_with_target_flag() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
 
     let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
     assert!(manifest.contains("[skills]"));
@@ -271,7 +290,12 @@ fn init_with_custom_target_path() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude:.claude/commands/skills"])
+        .args([
+            "project",
+            "init",
+            "--target",
+            "claude:.claude/commands/skills",
+        ])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -287,7 +311,8 @@ fn init_preserves_existing_skills() {
     std::fs::write(
         project.path().join("Ion.toml"),
         "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let output = ion_cmd()
         .args(["project", "init", "--target", "claude"])
@@ -297,7 +322,10 @@ fn init_preserves_existing_skills() {
 
     assert!(output.status.success());
     let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
-    assert!(manifest.contains("brainstorming"), "existing skills preserved");
+    assert!(
+        manifest.contains("brainstorming"),
+        "existing skills preserved"
+    );
     assert!(manifest.contains("claude"), "target added");
 }
 
@@ -307,7 +335,8 @@ fn init_errors_when_targets_exist_without_force() {
     std::fs::write(
         project.path().join("Ion.toml"),
         "[skills]\n\n[options]\n[options.targets]\nclaude = \".claude/skills\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let output = ion_cmd()
         .args(["project", "init", "--target", "cursor"])
@@ -326,7 +355,8 @@ fn init_force_overwrites_existing_targets() {
     std::fs::write(
         project.path().join("Ion.toml"),
         "[skills]\n\n[options]\n[options.targets]\nclaude = \".claude/skills\"\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let output = ion_cmd()
         .args(["project", "init", "--target", "cursor", "--force"])
@@ -354,11 +384,17 @@ fn init_with_target_flag_creates_targets() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
     assert!(project.path().join("Ion.toml").exists());
 
     let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
-    assert!(manifest.contains("claude"), ".claude dir should be configured");
+    assert!(
+        manifest.contains("claude"),
+        ".claude dir should be configured"
+    );
     assert!(manifest.contains(".claude/skills"));
 }
 
@@ -368,11 +404,9 @@ fn init_renames_legacy_lowercase_files() {
     std::fs::write(
         project.path().join("ion.toml"),
         "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
-    ).unwrap();
-    std::fs::write(
-        project.path().join("ion.lock"),
-        "version = 1\n\n[skills]\n",
-    ).unwrap();
+    )
+    .unwrap();
+    std::fs::write(project.path().join("ion.lock"), "version = 1\n\n[skills]\n").unwrap();
 
     let output = ion_cmd()
         .args(["project", "init", "--target", "claude"])
@@ -382,7 +416,10 @@ fn init_renames_legacy_lowercase_files() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
 
     // Legacy files should be gone, new files exist
     assert!(project.path().join("Ion.toml").exists());
@@ -487,11 +524,7 @@ fn remove_local_skill_preserves_directory() {
     .unwrap();
 
     // Write Ion.lock
-    std::fs::write(
-        project.path().join("Ion.lock"),
-        "version = 1\n\n[skills]\n",
-    )
-    .unwrap();
+    std::fs::write(project.path().join("Ion.lock"), "version = 1\n\n[skills]\n").unwrap();
 
     // Run ion remove
     let output = ion_cmd()
@@ -569,7 +602,10 @@ fn eject_converts_remote_to_local() {
 
     // The skill directory should exist and NOT be a symlink
     let agents_skill = project.path().join(".agents/skills/eject-skill");
-    assert!(agents_skill.exists(), ".agents/skills/eject-skill should exist");
+    assert!(
+        agents_skill.exists(),
+        ".agents/skills/eject-skill should exist"
+    );
     assert!(
         !agents_skill.is_symlink(),
         ".agents/skills/eject-skill should NOT be a symlink after eject"
@@ -642,7 +678,8 @@ fn link_shows_hint_when_no_targets_configured() {
     std::fs::write(
         skill_dir.join("SKILL.md"),
         "---\nname: my-skill\ndescription: A test skill.\n---\nA test skill.\n",
-    ).unwrap();
+    )
+    .unwrap();
 
     let output = ion_cmd()
         .args(["skill", "link", skill_dir.to_str().unwrap()])
@@ -652,7 +689,10 @@ fn link_shows_hint_when_no_targets_configured() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(output.status.success(), "failed: stdout={stdout}\nstderr={stderr}");
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
     assert!(
         stdout.contains("ion project init"),
         "should show hint about ion project init when no targets configured. stdout: {stdout}"

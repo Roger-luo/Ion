@@ -29,10 +29,7 @@ fn json_error_is_structured() {
 
 #[test]
 fn json_self_info() {
-    let output = ion()
-        .args(["--json", "self", "info"])
-        .output()
-        .unwrap();
+    let output = ion().args(["--json", "self", "info"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
@@ -114,18 +111,15 @@ fn json_remove_yes_returns_pure_json() {
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("stdout should be valid JSON with no extra text");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("stdout should be valid JSON with no extra text");
     assert_eq!(parsed["success"], true);
     assert!(parsed["data"]["removed"].is_array());
 }
 
 #[test]
 fn json_config_no_subcommand_lists_global() {
-    let output = ion()
-        .args(["--json", "config"])
-        .output()
-        .unwrap();
+    let output = ion().args(["--json", "config"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");

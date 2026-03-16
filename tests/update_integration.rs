@@ -146,7 +146,9 @@ fn update_git_skill_pulls_latest_commit() {
 
     // 7. Read lockfile again — commit should have changed
     let lock_after = read_lockfile(&project);
-    let skill_after = lock_after.find("test-skill").expect("skill in lockfile after update");
+    let skill_after = lock_after
+        .find("test-skill")
+        .expect("skill in lockfile after update");
     let commit_after = skill_after.commit.clone().expect("commit after update");
 
     assert_ne!(
@@ -199,7 +201,11 @@ fn update_skips_pinned_git_skill() {
     let commit_before = skill_before.commit.clone().expect("commit in lockfile");
 
     // 4. Make new commit upstream
-    push_upstream_commit(&upstream, "pinned-skill", "New content that should be ignored.");
+    push_upstream_commit(
+        &upstream,
+        "pinned-skill",
+        "New content that should be ignored.",
+    );
 
     // 5. Run `ion update`
     let output = ion_cmd()
@@ -222,7 +228,9 @@ fn update_skips_pinned_git_skill() {
 
     // 7. Verify lockfile commit hasn't changed
     let lock_after = read_lockfile(&project);
-    let skill_after = lock_after.find("pinned-skill").expect("skill in lockfile after update");
+    let skill_after = lock_after
+        .find("pinned-skill")
+        .expect("skill in lockfile after update");
     let commit_after = skill_after.commit.clone().expect("commit after update");
 
     assert_eq!(
@@ -306,7 +314,9 @@ fn update_preserves_old_version_on_validation_failure() {
 
     // 5. Read Ion.lock (after) — should be unchanged
     let lock_after = read_lockfile(&project);
-    let skill_after = lock_after.find("fail-skill").expect("skill in lockfile after update");
+    let skill_after = lock_after
+        .find("fail-skill")
+        .expect("skill in lockfile after update");
     let commit_after = skill_after.commit.clone().expect("commit after update");
 
     assert_eq!(

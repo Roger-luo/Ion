@@ -105,7 +105,12 @@ mod tests {
             cache_dir: dir.path().to_path_buf(),
         };
 
-        let results = vec![SearchResult::new("test-skill", "A test", "owner/repo", "github")];
+        let results = vec![SearchResult::new(
+            "test-skill",
+            "A test",
+            "owner/repo",
+            "github",
+        )];
         cache.put("github", "test", &results);
 
         let cached = cache.get("github", "test", 3600).unwrap();

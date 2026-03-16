@@ -25,9 +25,10 @@ pub fn discover_skill_files(root: &Path) -> Result<Vec<PathBuf>> {
 
     for entry in walker {
         let entry = entry.map_err(|err| {
-            crate::Error::Io(err.into_io_error().unwrap_or_else(|| {
-                std::io::Error::other("failed to walk skill directories")
-            }))
+            crate::Error::Io(
+                err.into_io_error()
+                    .unwrap_or_else(|| std::io::Error::other("failed to walk skill directories")),
+            )
         })?;
 
         if entry.file_type().is_file() && entry.file_name() == "SKILL.md" {

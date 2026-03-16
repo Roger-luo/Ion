@@ -191,7 +191,10 @@ impl App {
         let (si, ei) = self.cursor_position()?;
         let section = &self.current_sections()[si];
         let entry = &section.entries[ei];
-        Some((format!("{}.{}", section.name, entry.key), entry.value.clone()))
+        Some((
+            format!("{}.{}", section.name, entry.key),
+            entry.value.clone(),
+        ))
     }
 
     pub fn current_entry_is_default(&self) -> bool {

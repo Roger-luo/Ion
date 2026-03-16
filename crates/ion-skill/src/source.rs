@@ -31,10 +31,7 @@ impl SkillSource {
     /// Infer a SkillSource from a raw source string (no explicit type).
     pub fn infer(source: &str) -> Result<Self> {
         // Local paths
-        if source.starts_with('/')
-            || source.starts_with("./")
-            || source.starts_with("../")
-        {
+        if source.starts_with('/') || source.starts_with("./") || source.starts_with("../") {
             return Ok(Self {
                 source_type: SourceType::Path,
                 source: source.to_string(),

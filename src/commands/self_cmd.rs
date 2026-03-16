@@ -293,9 +293,7 @@ pub fn uninstall(yes: bool, json: bool) -> anyhow::Result<()> {
         std::io::stdout().flush()?;
         let mut answer = String::new();
         std::io::stdin().read_line(&mut answer)?;
-        if !answer.trim().eq_ignore_ascii_case("y")
-            && !answer.trim().eq_ignore_ascii_case("yes")
-        {
+        if !answer.trim().eq_ignore_ascii_case("y") && !answer.trim().eq_ignore_ascii_case("yes") {
             bail!("Aborted.");
         }
     }

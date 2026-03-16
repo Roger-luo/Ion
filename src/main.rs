@@ -285,11 +285,9 @@ fn main() {
         },
         Commands::Project { action } => match action {
             ProjectCommands::Init { target, force } => commands::init::run(&target, force, json),
-            ProjectCommands::Migrate {
-                from,
-                dry_run,
-                yes,
-            } => commands::migrate::run(from.as_deref(), dry_run, json, yes),
+            ProjectCommands::Migrate { from, dry_run, yes } => {
+                commands::migrate::run(from.as_deref(), dry_run, json, yes)
+            }
         },
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),

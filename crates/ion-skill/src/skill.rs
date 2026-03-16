@@ -38,8 +38,7 @@ impl SkillMetadata {
         let yaml = &after_first[..end];
         let body = after_first[end + 4..].trim_start_matches('\n').to_string();
 
-        let meta: SkillMetadata =
-            serde_yaml::from_str(yaml).map_err(Error::YamlParse)?;
+        let meta: SkillMetadata = serde_yaml::from_str(yaml).map_err(Error::YamlParse)?;
 
         Self::validate_name(&meta.name)?;
 
@@ -84,7 +83,10 @@ impl SkillMetadata {
                 "name must not contain consecutive hyphens".to_string(),
             ));
         }
-        if !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+        if !name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
             return Err(Error::InvalidSkill(
                 "name must contain only lowercase letters, digits, and hyphens".to_string(),
             ));
@@ -111,7 +113,10 @@ mod tests {
         let content = "---\nname: my-skill\ndescription: A test skill.\nmetadata:\n  author: test-org\n  version: \"1.0\"\n---\n\nBody.\n";
         let (meta, _body) = SkillMetadata::parse(content).unwrap();
         assert_eq!(meta.version(), Some("1.0"));
-        assert_eq!(meta.metadata.as_ref().unwrap().get("author").unwrap(), "test-org");
+        assert_eq!(
+            meta.metadata.as_ref().unwrap().get("author").unwrap(),
+            "test-org"
+        );
     }
 
     #[test]

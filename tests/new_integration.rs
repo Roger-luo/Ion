@@ -92,7 +92,10 @@ fn new_force_overwrites_existing_skill_md() {
     assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
 
     let content = std::fs::read_to_string(dir.path().join("SKILL.md")).unwrap();
-    assert!(content.contains("## Overview"), "should have new template content");
+    assert!(
+        content.contains("## Overview"),
+        "should have new template content"
+    );
     assert!(!content.contains("old content"));
 }
 
@@ -118,18 +121,36 @@ fn new_bin_creates_cargo_project_and_skill_md() {
     // SKILL.md should have binary metadata
     let skill_content = std::fs::read_to_string(target.join("SKILL.md")).unwrap();
     assert!(skill_content.contains("name: my-bin-skill"));
-    assert!(skill_content.contains("binary: my-bin-skill"), "SKILL.md should have binary metadata");
-    assert!(skill_content.contains("ion run my-bin-skill"), "SKILL.md should reference ion run");
+    assert!(
+        skill_content.contains("binary: my-bin-skill"),
+        "SKILL.md should have binary metadata"
+    );
+    assert!(
+        skill_content.contains("ion run my-bin-skill"),
+        "SKILL.md should reference ion run"
+    );
 
     // Cargo.toml should have clap dependency
     let cargo_content = std::fs::read_to_string(target.join("Cargo.toml")).unwrap();
-    assert!(cargo_content.contains("clap"), "Cargo.toml should have clap dependency");
+    assert!(
+        cargo_content.contains("clap"),
+        "Cargo.toml should have clap dependency"
+    );
 
     // src/main.rs should have skill subcommand
     let main_content = std::fs::read_to_string(target.join("src/main.rs")).unwrap();
-    assert!(main_content.contains("Skill"), "main.rs should have Skill command variant");
-    assert!(main_content.contains("print_skill"), "main.rs should have print_skill function");
-    assert!(main_content.contains("include_str!"), "main.rs should include SKILL.md");
+    assert!(
+        main_content.contains("Skill"),
+        "main.rs should have Skill command variant"
+    );
+    assert!(
+        main_content.contains("print_skill"),
+        "main.rs should have print_skill function"
+    );
+    assert!(
+        main_content.contains("include_str!"),
+        "main.rs should include SKILL.md"
+    );
 }
 
 #[test]
@@ -146,8 +167,14 @@ fn new_collection_creates_skills_dir_and_readme() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
 
-    assert!(dir.path().join("skills").is_dir(), "skills/ directory should be created");
-    assert!(dir.path().join("README.md").exists(), "README.md should be created");
+    assert!(
+        dir.path().join("skills").is_dir(),
+        "skills/ directory should be created"
+    );
+    assert!(
+        dir.path().join("README.md").exists(),
+        "README.md should be created"
+    );
 
     let readme = std::fs::read_to_string(dir.path().join("README.md")).unwrap();
     assert!(readme.contains("collection of skills"));
@@ -160,7 +187,13 @@ fn new_collection_with_path_creates_in_specified_dir() {
     let target = base.path().join("my-collection");
 
     let output = ion_cmd()
-        .args(["skill", "new", "--collection", "--path", target.to_str().unwrap()])
+        .args([
+            "skill",
+            "new",
+            "--collection",
+            "--path",
+            target.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 

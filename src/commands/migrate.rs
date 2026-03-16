@@ -15,12 +15,7 @@ use ion_skill::source::SourceType;
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
-pub fn run(
-    from: Option<&str>,
-    dry_run: bool,
-    json: bool,
-    yes: bool,
-) -> anyhow::Result<()> {
+pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
     let project_dir = &ctx.project_dir;
@@ -283,15 +278,16 @@ pub fn run(
                 if should_switch {
                     match ion_skill::source::SkillSource::infer(source_str) {
                         Ok(source) => {
-                            let installer =
-                                SkillInstaller::new(project_dir, &merged_options);
+                            let installer = SkillInstaller::new(project_dir, &merged_options);
                             let validation = InstallValidationOptions {
                                 skip_validation: false,
                                 allow_warnings: true,
                             };
-                            match installer
-                                .install_with_options(&leftover.name, &source, validation)
-                            {
+                            match installer.install_with_options(
+                                &leftover.name,
+                                &source,
+                                validation,
+                            ) {
                                 Ok(entry) => {
                                     ion_skill::manifest_writer::add_skill(
                                         &ctx.manifest_path,
@@ -319,10 +315,7 @@ pub fn run(
                                 }
                                 Err(e) => {
                                     if !json {
-                                        eprintln!(
-                                            "    Failed to install '{}': {e}",
-                                            leftover.name
-                                        );
+                                        eprintln!("    Failed to install '{}': {e}", leftover.name);
                                     }
                                     // Fall through to treat as custom
                                     handle_custom_skill(
@@ -483,7 +476,11 @@ fn search_for_skill(
                 all_results.extend(results);
             }
             Err(e) => {
-                log::debug!("search source '{}' failed for '{}': {e}", source.name(), skill_name);
+                log::debug!(
+                    "search source '{}' failed for '{}': {e}",
+                    source.name(),
+                    skill_name
+                );
             }
         }
     }
@@ -508,12 +505,7 @@ fn register_in_registry(
 
 fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
     // Stage all ion-related files
-    let files_to_stage = [
-        "Ion.toml",
-        "Ion.lock",
-        ".gitignore",
-        ".agents/",
-    ];
+    let files_to_stage = ["Ion.toml", "Ion.lock", ".gitignore", ".agents/"];
 
     for file in &files_to_stage {
         let path = project_dir.join(file);

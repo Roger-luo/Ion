@@ -70,7 +70,10 @@ impl GlobalConfig {
     }
 
     /// Merge global targets with project targets. Project wins on key collision.
-    pub fn resolve_targets(&self, project: &crate::manifest::ManifestOptions) -> BTreeMap<String, String> {
+    pub fn resolve_targets(
+        &self,
+        project: &crate::manifest::ManifestOptions,
+    ) -> BTreeMap<String, String> {
         let mut merged = self.targets.clone();
         for (key, value) in &project.targets {
             merged.insert(key.clone(), value.clone());
@@ -141,7 +144,9 @@ impl GlobalConfig {
         use toml_edit::{DocumentMut, Item, Table};
 
         let (section, field) = key.split_once('.').ok_or_else(|| {
-            Error::Manifest(format!("Invalid key format '{key}': expected 'section.key'"))
+            Error::Manifest(format!(
+                "Invalid key format '{key}': expected 'section.key'"
+            ))
         })?;
 
         match section {
@@ -197,7 +202,9 @@ impl GlobalConfig {
         use toml_edit::DocumentMut;
 
         let (section, field) = key.split_once('.').ok_or_else(|| {
-            Error::Manifest(format!("Invalid key format '{key}': expected 'section.key'"))
+            Error::Manifest(format!(
+                "Invalid key format '{key}': expected 'section.key'"
+            ))
         })?;
 
         let content = std::fs::read_to_string(path).map_err(Error::Io)?;
@@ -255,7 +262,9 @@ mod tests {
     fn load_parses_all_sections() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, r#"
+        std::fs::write(
+            &path,
+            r#"
 [targets]
 claude = ".claude/skills"
 cursor = ".cursor/skills"
@@ -268,7 +277,9 @@ max-age-days = 30
 
 [ui]
 color = true
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         let config = GlobalConfig::load_from(&path).unwrap();
         assert_eq!(config.targets.len(), 2);
@@ -293,11 +304,17 @@ color = true
     #[test]
     fn resolve_targets_merges_global_and_project() {
         let mut global = GlobalConfig::default();
-        global.targets.insert("claude".to_string(), ".claude/skills".to_string());
-        global.targets.insert("cursor".to_string(), ".cursor/skills".to_string());
+        global
+            .targets
+            .insert("claude".to_string(), ".claude/skills".to_string());
+        global
+            .targets
+            .insert("cursor".to_string(), ".cursor/skills".to_string());
 
         let mut project = crate::manifest::ManifestOptions::default();
-        project.targets.insert("claude".to_string(), ".claude/custom".to_string());
+        project
+            .targets
+            .insert("claude".to_string(), ".claude/custom".to_string());
 
         let merged = global.resolve_targets(&project);
         // Project wins on collision
@@ -311,7 +328,9 @@ color = true
     fn resolve_targets_empty_global() {
         let global = GlobalConfig::default();
         let mut project = crate::manifest::ManifestOptions::default();
-        project.targets.insert("claude".to_string(), ".claude/skills".to_string());
+        project
+            .targets
+            .insert("claude".to_string(), ".claude/skills".to_string());
 
         let merged = global.resolve_targets(&project);
         assert_eq!(merged.len(), 1);
@@ -321,7 +340,9 @@ color = true
     #[test]
     fn resolve_source_expands_alias() {
         let mut global = GlobalConfig::default();
-        global.sources.insert("superpowers".to_string(), "obra/superpowers".to_string());
+        global
+            .sources
+            .insert("superpowers".to_string(), "obra/superpowers".to_string());
 
         assert_eq!(
             global.resolve_source("superpowers/brainstorming"),
@@ -342,7 +363,9 @@ color = true
     #[test]
     fn resolve_source_passes_through_urls() {
         let mut global = GlobalConfig::default();
-        global.sources.insert("superpowers".to_string(), "obra/superpowers".to_string());
+        global
+            .sources
+            .insert("superpowers".to_string(), "obra/superpowers".to_string());
 
         assert_eq!(
             global.resolve_source("https://github.com/org/repo.git"),
@@ -353,12 +376,11 @@ color = true
     #[test]
     fn resolve_source_passes_through_paths() {
         let mut global = GlobalConfig::default();
-        global.sources.insert("superpowers".to_string(), "obra/superpowers".to_string());
+        global
+            .sources
+            .insert("superpowers".to_string(), "obra/superpowers".to_string());
 
-        assert_eq!(
-            global.resolve_source("./local-skill"),
-            "./local-skill"
-        );
+        assert_eq!(global.resolve_source("./local-skill"), "./local-skill");
     }
 
     #[test]
@@ -367,8 +389,12 @@ color = true
         let path = dir.path().join("config.toml");
 
         let mut config = GlobalConfig::default();
-        config.targets.insert("claude".to_string(), ".claude/skills".to_string());
-        config.sources.insert("superpowers".to_string(), "obra/superpowers".to_string());
+        config
+            .targets
+            .insert("claude".to_string(), ".claude/skills".to_string());
+        config
+            .sources
+            .insert("superpowers".to_string(), "obra/superpowers".to_string());
         config.cache.max_age_days = Some(7);
         config.ui.color = Some(false);
 
@@ -384,12 +410,20 @@ color = true
     #[test]
     fn get_value_dot_notation() {
         let mut config = GlobalConfig::default();
-        config.targets.insert("claude".to_string(), ".claude/skills".to_string());
+        config
+            .targets
+            .insert("claude".to_string(), ".claude/skills".to_string());
         config.cache.max_age_days = Some(30);
         config.ui.color = Some(true);
 
-        assert_eq!(config.get_value("targets.claude"), Some(".claude/skills".to_string()));
-        assert_eq!(config.get_value("cache.max-age-days"), Some("30".to_string()));
+        assert_eq!(
+            config.get_value("targets.claude"),
+            Some(".claude/skills".to_string())
+        );
+        assert_eq!(
+            config.get_value("cache.max-age-days"),
+            Some("30".to_string())
+        );
         assert_eq!(config.get_value("ui.color"), Some("true".to_string()));
         assert_eq!(config.get_value("targets.nonexistent"), None);
         assert_eq!(config.get_value("invalid"), None);
@@ -399,7 +433,11 @@ color = true
     fn set_value_preserves_formatting() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, "# My config\n[targets]\nclaude = \".claude/skills\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "# My config\n[targets]\nclaude = \".claude/skills\"\n",
+        )
+        .unwrap();
 
         GlobalConfig::set_value_in_file(&path, "targets.cursor", ".cursor/skills").unwrap();
 
@@ -440,7 +478,11 @@ color = true
     fn delete_value_from_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, "[targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n").unwrap();
+        std::fs::write(
+            &path,
+            "[targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n",
+        )
+        .unwrap();
 
         GlobalConfig::delete_value_in_file(&path, "targets.cursor").unwrap();
 
@@ -463,7 +505,9 @@ color = true
     fn load_registries_config() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
-        std::fs::write(&path, r#"
+        std::fs::write(
+            &path,
+            r#"
 [registries.skills-sh]
 url = "https://skills.sh/api"
 default = true
@@ -473,13 +517,18 @@ url = "https://skills.internal.co/api"
 
 [search]
 agent-command = "claude -p 'search: {query}'"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         let config = GlobalConfig::load_from(&path).unwrap();
         assert_eq!(config.registries.len(), 2);
         assert_eq!(config.registries["skills-sh"].url, "https://skills.sh/api");
         assert_eq!(config.registries["skills-sh"].default, Some(true));
-        assert_eq!(config.search.agent_command, Some("claude -p 'search: {query}'".to_string()));
+        assert_eq!(
+            config.search.agent_command,
+            Some("claude -p 'search: {query}'".to_string())
+        );
     }
 
     #[test]
@@ -496,13 +545,22 @@ agent-command = "claude -p 'search: {query}'"
     #[test]
     fn get_value_registries_and_search() {
         let mut config = GlobalConfig::default();
-        config.registries.insert("skills-sh".to_string(), RegistryConfig {
-            url: "https://skills.sh/api".to_string(),
-            default: Some(true),
-        });
+        config.registries.insert(
+            "skills-sh".to_string(),
+            RegistryConfig {
+                url: "https://skills.sh/api".to_string(),
+                default: Some(true),
+            },
+        );
         config.search.agent_command = Some("claude search {query}".to_string());
 
-        assert_eq!(config.get_value("registries.skills-sh"), Some("https://skills.sh/api".to_string()));
-        assert_eq!(config.get_value("search.agent-command"), Some("claude search {query}".to_string()));
+        assert_eq!(
+            config.get_value("registries.skills-sh"),
+            Some("https://skills.sh/api".to_string())
+        );
+        assert_eq!(
+            config.get_value("search.agent-command"),
+            Some("claude search {query}".to_string())
+        );
     }
 }

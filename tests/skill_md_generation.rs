@@ -66,7 +66,9 @@ fn json_init_no_targets_structure() {
 fn json_init_with_targets_structure() {
     let dir = tempfile::tempdir().unwrap();
     let out = parse(&capture_json(
-        &["--json", "project", "init", "--target", "claude", "--target", "cursor"],
+        &[
+            "--json", "project", "init", "--target", "claude", "--target", "cursor",
+        ],
         dir.path(),
     ));
 
@@ -78,10 +80,17 @@ fn json_init_with_targets_structure() {
 #[test]
 fn json_remove_confirm_structure() {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("Ion.toml"), "[skills]\ntest-skill = \"owner/repo\"\n").unwrap();
+    std::fs::write(
+        dir.path().join("Ion.toml"),
+        "[skills]\ntest-skill = \"owner/repo\"\n",
+    )
+    .unwrap();
     std::fs::write(dir.path().join("Ion.lock"), "").unwrap();
 
-    let out = parse(&capture_json(&["--json", "remove", "test-skill"], dir.path()));
+    let out = parse(&capture_json(
+        &["--json", "remove", "test-skill"],
+        dir.path(),
+    ));
 
     assert_eq!(out["success"], false);
     assert_eq!(out["action_required"], "confirm_removal");
@@ -91,7 +100,11 @@ fn json_remove_confirm_structure() {
 #[test]
 fn json_remove_yes_structure() {
     let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("Ion.toml"), "[skills]\ntest-skill = \"owner/repo\"\n").unwrap();
+    std::fs::write(
+        dir.path().join("Ion.toml"),
+        "[skills]\ntest-skill = \"owner/repo\"\n",
+    )
+    .unwrap();
     std::fs::write(dir.path().join("Ion.lock"), "").unwrap();
     std::fs::create_dir_all(dir.path().join(".agents/skills/test-skill")).unwrap();
 
@@ -127,7 +140,12 @@ fn json_validate_structure() {
     .unwrap();
 
     let out = parse(&capture_json(
-        &["--json", "skill", "validate", &skill_dir.display().to_string()],
+        &[
+            "--json",
+            "skill",
+            "validate",
+            &skill_dir.display().to_string(),
+        ],
         dir.path(),
     ));
 
@@ -185,7 +203,14 @@ fn json_config_set_structure() {
     .unwrap();
 
     let out = parse(&capture_json(
-        &["--json", "config", "set", "targets.claude", ".claude/commands", "--project"],
+        &[
+            "--json",
+            "config",
+            "set",
+            "targets.claude",
+            ".claude/commands",
+            "--project",
+        ],
         dir.path(),
     ));
 

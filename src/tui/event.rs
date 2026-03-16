@@ -124,14 +124,14 @@ fn handle_adding_key(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            let (section_name, field_name) =
-                if let Some((s, f)) = app.input_buffer.split_once('.') {
-                    (s.to_string(), f.to_string())
-                } else if let Some(name) = app.current_section_name() {
-                    (name, app.input_buffer.clone())
-                } else {
-                    ("targets".to_string(), app.input_buffer.clone())
-                };
+            let (section_name, field_name) = if let Some((s, f)) = app.input_buffer.split_once('.')
+            {
+                (s.to_string(), f.to_string())
+            } else if let Some(name) = app.current_section_name() {
+                (name, app.input_buffer.clone())
+            } else {
+                ("targets".to_string(), app.input_buffer.clone())
+            };
 
             app.adding_key_buffer = format!("{section_name}.{field_name}");
             app.input_buffer.clear();
@@ -163,9 +163,7 @@ fn handle_adding_value(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
                 let section = sections.iter_mut().find(|s| s.name == section_name);
 
                 if let Some(section) = section {
-                    section
-                        .entries
-                        .push(ConfigEntry::new(field_name, &value));
+                    section.entries.push(ConfigEntry::new(field_name, &value));
                 } else {
                     sections.push(ConfigSection {
                         name: section_name.to_string(),

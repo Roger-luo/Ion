@@ -36,9 +36,8 @@ impl Lockfile {
     }
 
     pub fn write_to(&self, path: &Path) -> Result<()> {
-        let content = toml::to_string_pretty(self).map_err(|e| {
-            Error::Manifest(format!("Failed to serialize lockfile: {e}"))
-        })?;
+        let content = toml::to_string_pretty(self)
+            .map_err(|e| Error::Manifest(format!("Failed to serialize lockfile: {e}")))?;
         std::fs::write(path, content).map_err(Error::Io)
     }
 
@@ -109,14 +108,26 @@ checksum = "sha256:deadbeef"
     fn upsert_updates_existing() {
         let mut lockfile = Lockfile::default();
         lockfile.upsert(LockedSkill {
-            name: "s".to_string(), source: "a".to_string(), path: None,
-            version: None, commit: Some("old".to_string()), checksum: None,
-            binary: None, binary_version: None, binary_checksum: None,
+            name: "s".to_string(),
+            source: "a".to_string(),
+            path: None,
+            version: None,
+            commit: Some("old".to_string()),
+            checksum: None,
+            binary: None,
+            binary_version: None,
+            binary_checksum: None,
         });
         lockfile.upsert(LockedSkill {
-            name: "s".to_string(), source: "a".to_string(), path: None,
-            version: None, commit: Some("new".to_string()), checksum: None,
-            binary: None, binary_version: None, binary_checksum: None,
+            name: "s".to_string(),
+            source: "a".to_string(),
+            path: None,
+            version: None,
+            commit: Some("new".to_string()),
+            checksum: None,
+            binary: None,
+            binary_version: None,
+            binary_checksum: None,
         });
         assert_eq!(lockfile.skills.len(), 1);
         assert_eq!(lockfile.skills[0].commit.as_deref(), Some("new"));
@@ -126,9 +137,15 @@ checksum = "sha256:deadbeef"
     fn remove_skill() {
         let mut lockfile = Lockfile::default();
         lockfile.upsert(LockedSkill {
-            name: "a".to_string(), source: "x".to_string(), path: None,
-            version: None, commit: None, checksum: None,
-            binary: None, binary_version: None, binary_checksum: None,
+            name: "a".to_string(),
+            source: "x".to_string(),
+            path: None,
+            version: None,
+            commit: None,
+            checksum: None,
+            binary: None,
+            binary_version: None,
+            binary_checksum: None,
         });
         lockfile.remove("a");
         assert!(lockfile.skills.is_empty());
@@ -156,7 +173,10 @@ checksum = "sha256:deadbeef"
         let loaded = Lockfile::from_file(&path).unwrap();
         assert_eq!(loaded.skills[0].binary.as_deref(), Some("mytool"));
         assert_eq!(loaded.skills[0].binary_version.as_deref(), Some("1.2.0"));
-        assert_eq!(loaded.skills[0].binary_checksum.as_deref(), Some("sha256:abc123"));
+        assert_eq!(
+            loaded.skills[0].binary_checksum.as_deref(),
+            Some("sha256:abc123")
+        );
     }
 
     #[test]
