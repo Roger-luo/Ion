@@ -57,4 +57,15 @@ impl ProjectContext {
         }
         Ok(())
     }
+
+    /// Ensure the built-in ion-cli skill is deployed, logging a warning on failure.
+    pub fn ensure_builtin_skill(&self, merged_options: &ManifestOptions) {
+        if let Err(e) = crate::builtin_skill::ensure_installed(
+            &self.project_dir,
+            &self.manifest_path,
+            merged_options,
+        ) {
+            log::warn!("Failed to install built-in ion-cli skill: {e}");
+        }
+    }
 }

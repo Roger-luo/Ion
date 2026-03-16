@@ -145,13 +145,7 @@ pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     // Install the built-in ion-cli skill so agents can discover Ion's JSON interface
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
-    if let Err(e) = crate::builtin_skill::ensure_installed(
-        &ctx.project_dir,
-        &ctx.manifest_path,
-        &merged_options,
-    ) {
-        log::warn!("Failed to install built-in ion-cli skill: {e}");
-    }
+    ctx.ensure_builtin_skill(&merged_options);
 
     if json {
         crate::json::print_success(serde_json::json!({

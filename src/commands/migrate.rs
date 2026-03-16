@@ -370,13 +370,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
     }
 
     // ── Phase 8: Ensure built-in ion-cli skill ────────────────────────────
-    if let Err(e) = crate::builtin_skill::ensure_installed(
-        &ctx.project_dir,
-        &ctx.manifest_path,
-        &merged_options,
-    ) {
-        log::warn!("Failed to install built-in ion-cli skill: {e}");
-    }
+    ctx.ensure_builtin_skill(&merged_options);
 
     // ── Phase 9: Git commit ───────────────────────────────────────────────
     let commit_hash = create_migration_commit(project_dir);
