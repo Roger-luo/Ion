@@ -9,9 +9,11 @@ use super::app::{App, InputMode, Tab};
 pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
 
+    let hint_lines = hint_height(app);
     let chunks = Layout::vertical([
         Constraint::Length(3),
         Constraint::Min(3),
+        Constraint::Length(hint_lines),
         Constraint::Length(1),
         Constraint::Length(2),
     ])
@@ -19,8 +21,9 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     render_tabs(frame, app, chunks[0]);
     render_content(frame, app, chunks[1]);
-    render_status(frame, app, chunks[2]);
-    render_help(frame, app, chunks[3]);
+    render_hint(frame, app, chunks[2]);
+    render_status(frame, app, chunks[3]);
+    render_help(frame, app, chunks[4]);
 }
 
 fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
@@ -169,6 +172,82 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
 
     let paragraph = Paragraph::new(content);
     frame.render_widget(paragraph, area);
+}
+
+/// Return (description, example) for the currently selected config entry.
+fn hint_for_entry(app: &App) -> Option<(&'static str, &'static str)> {
+    let (si, ei) = app.cursor_position()?;
+    let section = &app.current_sections()[si];
+    let key = section.entries[ei].0.as_str();
+
+    match (app.tab, section.name.as_str(), key) {
+        // Global targets
+        (Tab::Global, "targets", "claude") => Some((
+            "Directory where skills are deployed for Claude Code.",
+            "e.g. .claude/skills",
+        )),
+        (Tab::Global, "targets", "cursor") => Some((
+            "Directory where skills are deployed for Cursor.",
+            "e.g. .cursor/rules",
+        )),
+        (Tab::Global, "targets", "windsurf") => Some((
+            "Directory where skills are deployed for Windsurf.",
+            "e.g. .windsurf/rules",
+        )),
+        (Tab::Global, "targets", _) => Some((
+            "Directory where skills are deployed for this agent target.",
+            "e.g. .agent/skills",
+        )),
+        // Global sources
+        (Tab::Global, "sources", _) => Some((
+            "A named search source. Value is a GitHub owner or owner/repo.",
+            "e.g. obra/skills, anthropics",
+        )),
+        // Global cache
+        (Tab::Global, "cache", "max-age-days") => Some((
+            "How many days to cache search results before re-fetching.",
+            "e.g. 1, 7",
+        )),
+        // Global UI
+        (Tab::Global, "ui", "color") => Some((
+            "Enable or disable colored output.",
+            "e.g. true, false",
+        )),
+        // Project targets
+        (Tab::Project, "targets", _) => Some((
+            "Project-level override for this agent target directory.",
+            "e.g. .claude/skills",
+        )),
+        // Project options
+        (Tab::Project, "options", "skills-dir") => Some((
+            "Directory where local skills are stored. Skills live at <skills-dir>/skills/<name>/.",
+            "e.g. .agents, skills",
+        )),
+        _ => None,
+    }
+}
+
+fn hint_height(app: &App) -> u16 {
+    if app.input_mode != InputMode::Normal {
+        return 0;
+    }
+    if hint_for_entry(app).is_some() { 2 } else { 0 }
+}
+
+fn render_hint(frame: &mut Frame, app: &App, area: Rect) {
+    if app.input_mode != InputMode::Normal {
+        return;
+    }
+
+    if let Some((desc, example)) = hint_for_entry(app) {
+        let hint_style = Style::default().fg(Color::DarkGray);
+        let lines = vec![
+            Line::from(Span::styled(format!(" {desc}"), hint_style)),
+            Line::from(Span::styled(format!(" {example}"), hint_style)),
+        ];
+        let paragraph = Paragraph::new(lines);
+        frame.render_widget(paragraph, area);
+    }
 }
 
 fn render_help(frame: &mut Frame, app: &App, area: Rect) {
