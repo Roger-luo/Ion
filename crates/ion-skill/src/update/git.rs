@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use crate::installer::{SkillInstaller, data_dir, hash_simple};
+use crate::installer::{SkillInstaller, data_dir, hash_simple, resolve_skill_dir};
 use crate::lockfile::LockedSkill;
 use crate::skill::SkillMetadata;
 use crate::source::SkillSource;
@@ -97,26 +95,6 @@ impl Updater for GitUpdater {
             binary_version: None,
             binary_checksum: None,
         })
-    }
-}
-
-/// Resolve the skill directory within a repo, handling subdirectory skills.
-fn resolve_skill_dir(repo_dir: &Path, path: Option<&str>) -> crate::Result<PathBuf> {
-    match path {
-        None => Ok(repo_dir.to_path_buf()),
-        Some(p) => {
-            let direct = repo_dir.join(p);
-            if direct.exists() {
-                return Ok(direct);
-            }
-            let fallback = repo_dir.join("skills").join(p);
-            if fallback.exists() {
-                return Ok(fallback);
-            }
-            Err(Error::Source(format!(
-                "Skill path '{p}' not found in repository (also tried 'skills/{p}')"
-            )))
-        }
     }
 }
 

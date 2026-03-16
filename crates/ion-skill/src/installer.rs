@@ -366,27 +366,31 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
     }
 }
 
+/// Resolve the skill directory within a repo, handling subdirectory skills.
+/// Tries `repo_dir/path` first, then falls back to `repo_dir/skills/path`.
+pub fn resolve_skill_dir(repo_dir: &Path, path: Option<&str>) -> Result<PathBuf> {
+    match path {
+        None => Ok(repo_dir.to_path_buf()),
+        Some(p) => {
+            let direct = repo_dir.join(p);
+            if direct.exists() {
+                return Ok(direct);
+            }
+            let fallback = repo_dir.join("skills").join(p);
+            if fallback.exists() {
+                return Ok(fallback);
+            }
+            Err(Error::Source(format!(
+                "Skill path '{p}' not found in repository (also tried 'skills/{p}')"
+            )))
+        }
+    }
+}
+
 /// Fetch a skill source to a local directory. Returns the path to the skill directory.
 fn fetch_skill(source: &SkillSource) -> Result<PathBuf> {
     let base_dir = fetch_skill_base(source)?;
-
-    match (&source.source_type, &source.path) {
-        (SourceType::Github | SourceType::Git, Some(path)) => {
-            let skill_dir = base_dir.join(path);
-            if skill_dir.exists() {
-                return Ok(skill_dir);
-            }
-            // Fallback: try skills/<path> (common convention)
-            let fallback_dir = base_dir.join("skills").join(path);
-            if fallback_dir.exists() {
-                return Ok(fallback_dir);
-            }
-            Err(Error::Source(format!(
-                "Skill path '{path}' not found in repository (also tried 'skills/{path}')"
-            )))
-        }
-        _ => Ok(base_dir),
-    }
+    resolve_skill_dir(&base_dir, source.path.as_deref())
 }
 
 /// Create a relative symlink from `link` pointing to `original`.
