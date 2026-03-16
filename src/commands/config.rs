@@ -227,9 +227,13 @@ fn run_interactive() -> anyhow::Result<()> {
     })();
 
     disable_raw_mode()?;
-    // Move cursor below the inline viewport so subsequent output doesn't overwrite it
+    // Move cursor below the inline viewport and clear any leftover rendered lines
     let pos = terminal.get_cursor_position()?;
-    crossterm::execute!(io::stdout(), crossterm::cursor::MoveTo(0, pos.y + 1))?;
+    crossterm::execute!(
+        io::stdout(),
+        crossterm::cursor::MoveTo(0, pos.y + 1),
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::FromCursorDown)
+    )?;
 
     result
 }
