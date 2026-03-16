@@ -1,8 +1,9 @@
 use crate::binary;
+use crate::installer::SkillInstaller;
 use crate::lockfile::LockedSkill;
 use crate::source::SkillSource;
 
-use super::{UpdateContext, UpdateInfo, Updater};
+use super::{UpdateInfo, Updater};
 
 /// Updater for binary skills installed from GitHub Releases.
 pub struct BinaryUpdater;
@@ -41,7 +42,7 @@ impl Updater for BinaryUpdater {
         &self,
         skill: &LockedSkill,
         source: &SkillSource,
-        ctx: &UpdateContext,
+        installer: &SkillInstaller,
     ) -> crate::Result<LockedSkill> {
         if source.source.starts_with("http://") || source.source.starts_with("https://") {
             // URL-based binary sources don't support automatic updates
@@ -49,8 +50,8 @@ impl Updater for BinaryUpdater {
         }
 
         let binary_name = source.binary.as_deref().unwrap_or(&skill.name);
-        let skill_dir = ctx
-            .project_dir
+        let skill_dir = installer
+            .project_dir()
             .join(".agents")
             .join("skills")
             .join(&skill.name);

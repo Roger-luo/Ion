@@ -1,8 +1,9 @@
+use ion_skill::installer::SkillInstaller;
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::source::SourceType;
 use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
-use ion_skill::update::{UpdateContext, Updater};
+use ion_skill::update::Updater;
 
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -14,10 +15,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
     let mut lockfile = ctx.lockfile()?;
 
     let options = ctx.merged_options(&manifest);
-    let update_ctx = UpdateContext {
-        project_dir: &ctx.project_dir,
-        options: &options,
-    };
+    let installer = SkillInstaller::new(&ctx.project_dir, &options);
 
     let skills_to_check: Vec<(String, _)> = manifest
         .skills
@@ -139,7 +137,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         };
 
         // Apply update
-        match updater.apply(&locked, source, &update_ctx) {
+        match updater.apply(&locked, source, &installer) {
             Ok(new_locked) => {
                 if !json {
                     let binary_suffix = if source.source_type == SourceType::Binary {

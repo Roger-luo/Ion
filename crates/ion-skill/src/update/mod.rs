@@ -1,10 +1,8 @@
 pub mod binary;
 pub mod git;
 
-use std::path::Path;
-
+use crate::installer::SkillInstaller;
 use crate::lockfile::LockedSkill;
-use crate::manifest::ManifestOptions;
 use crate::source::SkillSource;
 
 /// Information about an available update.
@@ -14,12 +12,6 @@ pub struct UpdateInfo {
     pub old_version: String,
     /// Human-readable description of the new version.
     pub new_version: String,
-}
-
-/// Context passed to updaters for performing the update.
-pub struct UpdateContext<'a> {
-    pub project_dir: &'a Path,
-    pub options: &'a ManifestOptions,
 }
 
 /// Trait for source-type-specific update logic.
@@ -33,6 +25,6 @@ pub trait Updater {
         &self,
         skill: &LockedSkill,
         source: &SkillSource,
-        ctx: &UpdateContext,
+        installer: &SkillInstaller,
     ) -> crate::Result<LockedSkill>;
 }

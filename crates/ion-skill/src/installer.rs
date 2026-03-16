@@ -57,6 +57,14 @@ impl<'a> SkillInstaller<'a> {
         }
     }
 
+    pub fn project_dir(&self) -> &Path {
+        self.project_dir
+    }
+
+    pub fn options(&self) -> &ManifestOptions {
+        self.options
+    }
+
     pub fn install(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
         self.install_with_options(name, source, InstallValidationOptions::default())
     }

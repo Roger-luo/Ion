@@ -4,7 +4,7 @@ use crate::skill::SkillMetadata;
 use crate::source::SkillSource;
 use crate::{Error, git, validate};
 
-use super::{UpdateContext, UpdateInfo, Updater};
+use super::{UpdateInfo, Updater};
 
 /// Updater for Git and GitHub-sourced skills.
 pub struct GitUpdater;
@@ -39,7 +39,7 @@ impl Updater for GitUpdater {
         &self,
         skill: &LockedSkill,
         source: &SkillSource,
-        ctx: &UpdateContext,
+        installer: &SkillInstaller,
     ) -> crate::Result<LockedSkill> {
         let url = source.git_url()?;
         let repo_hash = format!("{:x}", hash_simple(&url));
@@ -73,7 +73,6 @@ impl Updater for GitUpdater {
         }
 
         // Deploy symlinks via the installer
-        let installer = SkillInstaller::new(ctx.project_dir, ctx.options);
         installer.deploy(&skill.name, &skill_dir)?;
 
         // Build updated lock entry
