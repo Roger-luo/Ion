@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+### Documentation
+
+- Add Why Ion section comparing with npx skills (8dc6e00)
+
+### Fixed
+
+- Remove redundant merged_options computation in install (ae669e2)
+
+### Refactored
+
+- Use ProjectContext in run command (d77a927)
+- Remove duplicated register_in_registry from migrate (d286244)
+- Add ProjectContext::ensure_builtin_skill() method (ca9691e)
+- Remove UpdateContext in favor of SkillInstaller (2b79674)
+- Move resolve_entry from Manifest to SkillEntry (07872c6)
+- Add SkillSource::display_name() method (ffc3564)
+- Add SkillSource constructors and builder methods (d813c83)
+- Use Finding's Serialize impl in validate command (283d303)
+- Use install_shared helpers in add command (ff8b092)
+- Use install_shared helpers in install command (c3fe425)
+- Create install_shared module with shared install helpers (92f8e41)
+
+### Style
+
+- Remove unused imports after merge (a62a6a2)
+- Apply cargo fmt (e366115)
+
 ### Added
 
 - Make --json work for all commands (b3d5244)
