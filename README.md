@@ -4,6 +4,23 @@ Agent skill manager for AI coding tools (Claude, Cursor, Windsurf, etc.).
 
 Ion manages installation, validation, and organization of **skills** — reusable prompts and instructions that enhance AI agent capabilities.
 
+## Why Ion
+
+The agent skills ecosystem has grown rapidly. Tools like Vercel's [`npx skills`](https://github.com/vercel-labs/skills) pioneered the idea of an "npm for agent skills." Ion takes a different approach — it's a standalone binary with no runtime dependency, built for reproducible installs and agent-driven workflows.
+
+| | Ion | `npx skills` |
+|---|---|---|
+| **Runtime** | Single binary (Rust) | Node.js / npx |
+| **Manifest & lockfile** | `Ion.toml` + `Ion.lock` with checksums | No lockfile |
+| **Reproducibility** | Pinned revisions, lockfile checksums | Latest-only |
+| **Validation** | Built-in security, structure, and markdown checks | None |
+| **Agent interface** | `--json` mode on every command with structured envelope | None |
+| **Local skills** | First-class `type = "local"`, eject from remote | Copy-based |
+| **Binary skills** | Download, checksum, and run compiled tools via `ion run` | Not supported |
+| **Self-update** | `ion self update` with signed GitHub Release binaries | npm/npx update |
+
+Ion is designed for teams that want their skill dependencies to be **versioned, validated, and reproducible** — the same properties you expect from a package manager, applied to agent instructions.
+
 ## Installation
 
 ```bash
