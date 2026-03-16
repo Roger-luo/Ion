@@ -9,8 +9,6 @@ use ion_skill::migrate::{
     discover_from_lockfile, discover_leftover_skills, move_skill_to_local,
 };
 use ion_skill::search::{SearchCache, SearchSource};
-use ion_skill::source::SourceType;
-
 use crate::commands::install_shared::register_in_registry;
 use crate::context::ProjectContext;
 use crate::style::Paint;

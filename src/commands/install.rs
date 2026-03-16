@@ -1,7 +1,6 @@
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::lockfile::LockedSkill;
-use ion_skill::manifest::Manifest;
 use ion_skill::source::SourceType;
 use ion_skill::validate::ValidationReport;
 
