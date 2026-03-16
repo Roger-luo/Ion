@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Render config panel inline instead of full-screen (a115957)
+- Add contextual hints to interactive config panel (dc1621b)
+- Show skills-dir in interactive config panel (4985499)
+- Install.sh detects conflicting ion installs and offers alias (4282756)
+- Detect package manager and block self update when managed externally (6bb5e29)
+
+### Documentation
+
+- Document local skill creation and eject in builtin SKILL.md (d9f4e14)
+
+### Fixed
+
+- Clear leftover lines after quitting inline config panel (dafb715)
+- Show default config values in hint color, not green (354456b)
+- Change skills-dir default to .agents/skills and show defaults in config (0224a1b)
+
+### Refactored
+
+- Two-column config panel with hints on the right (a0d0f28)
+
+### Added
+
 - Auto-refresh global ion-cli SKILL.md on every invocation (e68712c)
 - Generate SKILL.md from minijinja template with real JSON examples (c3710f3)
 - Add minijinja template for SKILL.md generation (d733a9d)
