@@ -1,11 +1,11 @@
 use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::manifest::Manifest;
-use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
 use ion_skill::validate::ValidationReport;
 
+use crate::commands::install_shared::{SkillEntry, add_gitignore_entries, register_in_registry};
 use crate::commands::validation::{print_validation_report, select_warned_skills};
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -53,11 +53,6 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
 
     // Phase 1: Validate all skills upfront
-    struct SkillEntry {
-        name: String,
-        source: ion_skill::source::SkillSource,
-    }
-
     let mut clean: Vec<SkillEntry> = Vec::new();
     let mut warned: Vec<(SkillEntry, ValidationReport)> = Vec::new();
     let mut errored: Vec<(String, ValidationReport)> = Vec::new();
@@ -157,21 +152,10 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             let skills_data: Vec<serde_json::Value> = warned
                 .iter()
                 .map(|(entry, report)| {
-                    let findings: Vec<serde_json::Value> = report
-                        .findings
-                        .iter()
-                        .map(|f| {
-                            serde_json::json!({
-                                "severity": f.severity.to_string(),
-                                "checker": f.checker,
-                                "message": f.message,
-                            })
-                        })
-                        .collect();
                     serde_json::json!({
                         "name": entry.name,
                         "warning_count": report.warning_count,
-                        "findings": findings,
+                        "findings": &report.findings,
                     })
                 })
                 .collect();
@@ -217,18 +201,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             InstallValidationOptions::default(),
         )?;
 
-        if !matches!(
-            entry.source.source_type,
-            SourceType::Path | SourceType::Local
-        ) {
-            let target_paths: Vec<&str> = merged_options
-                .targets
-                .values()
-                .map(|s| s.as_str())
-                .collect();
-            ion_skill::gitignore::add_skill_entries(&ctx.project_dir, &entry.name, &target_paths)?;
-        }
-
+        add_gitignore_entries(&ctx.project_dir, &entry.name, &entry.source, &merged_options)?;
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
         json_installed.push(serde_json::json!({ "name": entry.name }));
@@ -256,18 +229,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             },
         )?;
 
-        if !matches!(
-            entry.source.source_type,
-            SourceType::Path | SourceType::Local
-        ) {
-            let target_paths: Vec<&str> = merged_options
-                .targets
-                .values()
-                .map(|s| s.as_str())
-                .collect();
-            ion_skill::gitignore::add_skill_entries(&ctx.project_dir, &entry.name, &target_paths)?;
-        }
-
+        add_gitignore_entries(&ctx.project_dir, &entry.name, &entry.source, &merged_options)?;
         register_in_registry(&entry.source, &ctx.project_dir)?;
         lockfile.upsert(locked);
         json_installed.push(serde_json::json!({ "name": entry.name }));
@@ -294,21 +256,5 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     println!("Updated {}", p.dim("Ion.lock"));
     println!("{}", p.success("Done!"));
 
-    Ok(())
-}
-
-fn register_in_registry(
-    source: &ion_skill::source::SkillSource,
-    project_dir: &std::path::Path,
-) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git)
-        && let Ok(url) = source.git_url()
-    {
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let project_str = project_dir.display().to_string();
-        let mut registry = Registry::load()?;
-        registry.register(&repo_hash, &url, &project_str);
-        registry.save()?;
-    }
     Ok(())
 }
