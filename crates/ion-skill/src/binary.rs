@@ -427,6 +427,91 @@ pub struct BinaryInstallResult {
     pub warnings: Vec<String>,
 }
 
+/// Check cache and return early result if binary is already installed.
+fn check_already_installed(
+    binary_name: &str,
+    version: &str,
+    skill_dir: &Path,
+) -> crate::Result<Option<BinaryInstallResult>> {
+    if !is_binary_installed(binary_name, version) {
+        return Ok(None);
+    }
+    let installed_binary = binary_path(binary_name, version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    if !skill_dir.join("SKILL.md").exists() {
+        let skill_md_content = generate_skill_md(&installed_binary)?;
+        fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+            .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+    }
+
+    Ok(Some(BinaryInstallResult {
+        version: version.to_string(),
+        binary_checksum: checksum,
+        warnings: Vec::new(),
+    }))
+}
+
+/// Core binary installation from a resolved download URL.
+/// Shared between `install_binary_from_github` and `install_binary_from_url`.
+fn install_binary_core(
+    binary_name: &str,
+    version: &str,
+    download_url: &str,
+    asset_name: &str,
+    skill_dir: &Path,
+) -> crate::Result<BinaryInstallResult> {
+    let tmp_dir = tempfile::tempdir()
+        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
+    let archive_path = tmp_dir.path().join(asset_name);
+    download_file(download_url, &archive_path)?;
+
+    let extract_dir = tmp_dir.path().join("extracted");
+    extract_tar_gz(&archive_path, &extract_dir)?;
+
+    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
+    let bin_root = bin_dir();
+    install_binary_file(&found_binary, binary_name, version, &bin_root)?;
+
+    let installed_binary = binary_path(binary_name, version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
+        fs::read_to_string(&bundled)
+            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
+    } else {
+        generate_skill_md(&installed_binary)?
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    let mut warnings = Vec::new();
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
+        }
+        if !validation.has_skill_command {
+            warnings.push(format!(
+                "Binary '{}' does not have a 'skill' subcommand",
+                binary_name
+            ));
+        }
+    }
+
+    Ok(BinaryInstallResult {
+        version: version.to_string(),
+        binary_checksum: checksum,
+        warnings,
+    })
+}
+
 /// Full binary skill installation from GitHub Releases.
 pub fn install_binary_from_github(
     repo: &str,
@@ -440,25 +525,8 @@ pub fn install_binary_from_github(
     let version = parse_version_from_tag(&release.tag_name).to_string();
 
     // Check if already installed at this version
-    if is_binary_installed(binary_name, &version) {
-        let installed_binary = binary_path(binary_name, &version);
-        let checksum = file_checksum(&installed_binary)?;
-
-        // Still need to ensure SKILL.md exists
-        fs::create_dir_all(skill_dir)
-            .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
-
-        if !skill_dir.join("SKILL.md").exists() {
-            let skill_md_content = generate_skill_md(&installed_binary)?;
-            fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
-                .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
-        }
-
-        return Ok(BinaryInstallResult {
-            version,
-            binary_checksum: checksum,
-            warnings: Vec::new(),
-        });
+    if let Some(result) = check_already_installed(binary_name, &version, skill_dir)? {
+        return Ok(result);
     }
 
     let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
@@ -495,53 +563,13 @@ pub fn install_binary_from_github(
             ))
         })?;
 
-    let tmp_dir = tempfile::tempdir()
-        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
-    let archive_path = tmp_dir.path().join(&asset_name);
-    download_file(&asset.browser_download_url, &archive_path)?;
-
-    let extract_dir = tmp_dir.path().join("extracted");
-    extract_tar_gz(&archive_path, &extract_dir)?;
-
-    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
-    let bin_root = bin_dir();
-    install_binary_file(&found_binary, binary_name, &version, &bin_root)?;
-
-    let installed_binary = binary_path(binary_name, &version);
-    let checksum = file_checksum(&installed_binary)?;
-
-    fs::create_dir_all(skill_dir)
-        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
-
-    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
-        fs::read_to_string(&bundled)
-            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
-    } else {
-        generate_skill_md(&installed_binary)?
-    };
-
-    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
-        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
-
-    // Validate the installed binary (warnings only, don't fail)
-    let mut warnings = Vec::new();
-    if let Ok(validation) = validate_binary(&installed_binary) {
-        if !validation.is_executable {
-            warnings.push(format!("Binary '{}' may not be executable", binary_name));
-        }
-        if !validation.has_skill_command {
-            warnings.push(format!(
-                "Binary '{}' does not have a 'skill' subcommand",
-                binary_name
-            ));
-        }
-    }
-
-    Ok(BinaryInstallResult {
-        version,
-        binary_checksum: checksum,
-        warnings,
-    })
+    install_binary_core(
+        binary_name,
+        &version,
+        &asset.browser_download_url,
+        &asset_name,
+        skill_dir,
+    )
 }
 
 /// Expand placeholders in a URL template using detected platform info.
@@ -568,24 +596,8 @@ pub fn install_binary_from_url(
     skill_dir: &Path,
 ) -> crate::Result<BinaryInstallResult> {
     // Check if already installed at this version
-    if is_binary_installed(binary_name, version) {
-        let installed_binary = binary_path(binary_name, version);
-        let checksum = file_checksum(&installed_binary)?;
-
-        fs::create_dir_all(skill_dir)
-            .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
-
-        if !skill_dir.join("SKILL.md").exists() {
-            let skill_md_content = generate_skill_md(&installed_binary)?;
-            fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
-                .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
-        }
-
-        return Ok(BinaryInstallResult {
-            version: version.to_string(),
-            binary_checksum: checksum,
-            warnings: Vec::new(),
-        });
+    if let Some(result) = check_already_installed(binary_name, version, skill_dir)? {
+        return Ok(result);
     }
 
     let url = expand_url_template(url_template, binary_name, version);
@@ -596,53 +608,13 @@ pub fn install_binary_from_url(
         )));
     }
 
-    let tmp_dir = tempfile::tempdir()
-        .map_err(|e| crate::Error::Other(format!("Failed to create temp dir: {}", e)))?;
-    let archive_path = tmp_dir.path().join(format!("{}.tar.gz", binary_name));
-    download_file(&url, &archive_path)?;
-
-    let extract_dir = tmp_dir.path().join("extracted");
-    extract_tar_gz(&archive_path, &extract_dir)?;
-
-    let found_binary = find_binary_in_dir(&extract_dir, binary_name)?;
-    let bin_root = bin_dir();
-    install_binary_file(&found_binary, binary_name, version, &bin_root)?;
-
-    let installed_binary = binary_path(binary_name, version);
-    let checksum = file_checksum(&installed_binary)?;
-
-    fs::create_dir_all(skill_dir)
-        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
-
-    let skill_md_content = if let Some(bundled) = find_bundled_skill_md(&extract_dir) {
-        fs::read_to_string(&bundled)
-            .map_err(|e| crate::Error::Other(format!("Failed to read bundled SKILL.md: {}", e)))?
-    } else {
-        generate_skill_md(&installed_binary)?
-    };
-
-    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
-        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
-
-    // Validate the installed binary (warnings only, don't fail)
-    let mut warnings = Vec::new();
-    if let Ok(validation) = validate_binary(&installed_binary) {
-        if !validation.is_executable {
-            warnings.push(format!("Binary '{}' may not be executable", binary_name));
-        }
-        if !validation.has_skill_command {
-            warnings.push(format!(
-                "Binary '{}' does not have a 'skill' subcommand",
-                binary_name
-            ));
-        }
-    }
-
-    Ok(BinaryInstallResult {
-        version: version.to_string(),
-        binary_checksum: checksum,
-        warnings,
-    })
+    install_binary_core(
+        binary_name,
+        version,
+        &url,
+        &format!("{}.tar.gz", binary_name),
+        skill_dir,
+    )
 }
 
 /// Remove a specific version of a binary from storage.
