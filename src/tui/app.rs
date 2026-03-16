@@ -116,15 +116,28 @@ impl App {
     }
 
     fn build_project_sections(manifest: &Manifest) -> Vec<ConfigSection> {
-        vec![ConfigSection {
-            name: "targets".to_string(),
-            entries: manifest
-                .options
-                .targets
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-        }]
+        vec![
+            ConfigSection {
+                name: "targets".to_string(),
+                entries: manifest
+                    .options
+                    .targets
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect(),
+            },
+            ConfigSection {
+                name: "options".to_string(),
+                entries: vec![(
+                    "skills-dir".to_string(),
+                    manifest
+                        .options
+                        .skills_dir
+                        .clone()
+                        .unwrap_or_else(|| "(unset)".to_string()),
+                )],
+            },
+        ]
     }
 
     pub fn current_sections(&self) -> &[ConfigSection] {
@@ -233,13 +246,22 @@ impl App {
             .as_table_mut()
             .ok_or_else(|| anyhow::anyhow!("[options] is not a table"))?;
 
+        // Save targets
         options["targets"] = Item::Table(Table::new());
-        let targets_table = options["targets"].as_table_mut().unwrap();
+        if let Some(section) = self.project_sections.iter().find(|s| s.name == "targets") {
+            let targets_table = options["targets"].as_table_mut().unwrap();
+            for (k, v) in &section.entries {
+                targets_table[k.as_str()] = toml_edit::value(v.as_str());
+            }
+        }
 
-        for section in &self.project_sections {
-            if section.name == "targets" {
-                for (k, v) in &section.entries {
-                    targets_table[k.as_str()] = toml_edit::value(v.as_str());
+        // Save top-level options (skills-dir, etc.)
+        if let Some(section) = self.project_sections.iter().find(|s| s.name == "options") {
+            for (k, v) in &section.entries {
+                if v == "(unset)" {
+                    options.remove(k.as_str());
+                } else {
+                    options[k.as_str()] = toml_edit::value(v.as_str());
                 }
             }
         }

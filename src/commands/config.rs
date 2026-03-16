@@ -147,10 +147,6 @@ fn set_project_value(
         .split_once('.')
         .ok_or_else(|| anyhow::anyhow!("Invalid key format '{key}': expected 'section.key'"))?;
 
-    if section != "targets" {
-        anyhow::bail!("Project config only supports 'targets' section, got '{section}'");
-    }
-
     let content = std::fs::read_to_string(manifest_path)?;
     let mut doc: DocumentMut = content.parse()?;
 
@@ -161,11 +157,23 @@ fn set_project_value(
         .as_table_mut()
         .ok_or_else(|| anyhow::anyhow!("[options] is not a table"))?;
 
-    if !options.contains_key(section) {
-        options[section] = Item::Table(Table::new());
+    match section {
+        "targets" => {
+            if !options.contains_key(section) {
+                options[section] = Item::Table(Table::new());
+            }
+            options[section][field] = toml_edit::value(value);
+        }
+        "options" => {
+            options[field] = toml_edit::value(value);
+        }
+        _ => {
+            anyhow::bail!(
+                "Project config only supports 'targets' and 'options' sections, got '{section}'"
+            );
+        }
     }
 
-    options[section][field] = toml_edit::value(value);
     std::fs::write(manifest_path, doc.to_string())?;
     Ok(())
 }
