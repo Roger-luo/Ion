@@ -65,6 +65,11 @@ impl<'a> SkillInstaller<'a> {
         self.options
     }
 
+    /// Compute the canonical skill directory path: `{project_dir}/.agents/skills/{name}`.
+    pub fn skill_dir(&self, name: &str) -> PathBuf {
+        self.project_dir.join(".agents").join("skills").join(name)
+    }
+
     pub fn install(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
         self.install_with_options(name, source, InstallValidationOptions::default())
     }
@@ -143,7 +148,7 @@ impl<'a> SkillInstaller<'a> {
     }
 
     pub fn uninstall(&self, name: &str) -> Result<()> {
-        let agents_dir = self.project_dir.join(".agents").join("skills").join(name);
+        let agents_dir = self.skill_dir(name);
         if agents_dir.is_symlink() {
             std::fs::remove_file(&agents_dir).map_err(Error::Io)?;
         } else if agents_dir.exists() {
@@ -194,7 +199,7 @@ impl<'a> SkillInstaller<'a> {
     }
 
     pub fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
-        let agents_target = self.project_dir.join(".agents").join("skills").join(name);
+        let agents_target = self.skill_dir(name);
 
         // Only create the .agents/skills/ symlink if skill_dir is a different location.
         // Binary skills write directly into .agents/skills/{name}, so symlinking
@@ -203,7 +208,7 @@ impl<'a> SkillInstaller<'a> {
             create_skill_symlink(skill_dir, &agents_target)?;
         }
 
-        let canonical = self.project_dir.join(".agents").join("skills").join(name);
+        let canonical = self.skill_dir(name);
         for target_path in self.options.targets.values() {
             let target_skill_dir = self.project_dir.join(target_path).join(name);
             if target_skill_dir == agents_target {
@@ -219,7 +224,7 @@ impl<'a> SkillInstaller<'a> {
         use crate::binary;
 
         let binary_name = source.binary.as_deref().unwrap_or(name);
-        let skill_dir = self.project_dir.join(".agents").join("skills").join(name);
+        let skill_dir = self.skill_dir(name);
 
         let is_url = source.source.starts_with("http://") || source.source.starts_with("https://");
 
