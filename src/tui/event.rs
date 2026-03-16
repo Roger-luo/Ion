@@ -1,6 +1,6 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-use super::app::{App, InputMode, Tab};
+use super::app::{App, ConfigEntry, ConfigSection, InputMode, Tab};
 
 pub fn handle_key(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
@@ -54,7 +54,7 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
             if app.total_entries() > 0
                 && let Some((_, value)) = app.current_entry()
             {
-                app.input_buffer = if value == "(unset)" {
+                app.input_buffer = if app.current_entry_is_default() {
                     String::new()
                 } else {
                     value
@@ -92,7 +92,9 @@ fn handle_editing(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
         KeyCode::Enter => {
             if let Some((si, ei)) = app.cursor_position() {
                 let new_value = app.input_buffer.clone();
-                app.current_sections_mut()[si].entries[ei].1 = new_value;
+                let entry = &mut app.current_sections_mut()[si].entries[ei];
+                entry.value = new_value;
+                entry.is_default = false;
                 app.dirty = true;
                 app.status_message = Some("Value updated.".to_string());
             }
@@ -163,11 +165,11 @@ fn handle_adding_value(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
                 if let Some(section) = section {
                     section
                         .entries
-                        .push((field_name.to_string(), value));
+                        .push(ConfigEntry::new(field_name, &value));
                 } else {
-                    sections.push(super::app::ConfigSection {
+                    sections.push(ConfigSection {
                         name: section_name.to_string(),
-                        entries: vec![(field_name.to_string(), value)],
+                        entries: vec![ConfigEntry::new(field_name, &value)],
                     });
                 }
                 app.dirty = true;
@@ -199,7 +201,7 @@ fn handle_confirm_delete(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
         KeyCode::Char('y') => {
             if let Some((si, ei)) = app.cursor_position() {
                 let sections = app.current_sections_mut();
-                let removed_key = sections[si].entries.remove(ei).0;
+                let removed = sections[si].entries.remove(ei);
 
                 if sections[si].entries.is_empty()
                     && sections[si].name != "cache"
@@ -214,7 +216,7 @@ fn handle_confirm_delete(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
                 }
 
                 app.dirty = true;
-                app.status_message = Some(format!("Deleted '{removed_key}'."));
+                app.status_message = Some(format!("Deleted '{}'.", removed.key));
             }
             app.input_mode = InputMode::Normal;
         }

@@ -20,9 +20,34 @@ pub enum InputMode {
 }
 
 #[derive(Debug, Clone)]
+pub struct ConfigEntry {
+    pub key: String,
+    pub value: String,
+    pub is_default: bool,
+}
+
+impl ConfigEntry {
+    pub fn new(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            value: value.into(),
+            is_default: false,
+        }
+    }
+
+    fn with_default(key: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            key: key.into(),
+            value: value.into(),
+            is_default: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ConfigSection {
     pub name: String,
-    pub entries: Vec<(String, String)>,
+    pub entries: Vec<ConfigEntry>,
 }
 
 pub struct App {
@@ -81,7 +106,7 @@ impl App {
                 entries: config
                     .targets
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .map(|(k, v)| ConfigEntry::new(k, v))
                     .collect(),
             },
             ConfigSection {
@@ -89,28 +114,22 @@ impl App {
                 entries: config
                     .sources
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .map(|(k, v)| ConfigEntry::new(k, v))
                     .collect(),
             },
             ConfigSection {
                 name: "cache".to_string(),
-                entries: vec![(
-                    "max-age-days".to_string(),
-                    config
-                        .cache
-                        .max_age_days
-                        .map_or("1".to_string(), |v| v.to_string()),
-                )],
+                entries: vec![match config.cache.max_age_days {
+                    Some(v) => ConfigEntry::new("max-age-days", v.to_string()),
+                    None => ConfigEntry::with_default("max-age-days", "1"),
+                }],
             },
             ConfigSection {
                 name: "ui".to_string(),
-                entries: vec![(
-                    "color".to_string(),
-                    config
-                        .ui
-                        .color
-                        .map_or("true".to_string(), |v| v.to_string()),
-                )],
+                entries: vec![match config.ui.color {
+                    Some(v) => ConfigEntry::new("color", v.to_string()),
+                    None => ConfigEntry::with_default("color", "true"),
+                }],
             },
         ]
     }
@@ -123,19 +142,15 @@ impl App {
                     .options
                     .targets
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .map(|(k, v)| ConfigEntry::new(k, v))
                     .collect(),
             },
             ConfigSection {
                 name: "options".to_string(),
-                entries: vec![(
-                    "skills-dir".to_string(),
-                    manifest
-                        .options
-                        .skills_dir
-                        .clone()
-                        .unwrap_or_else(|| ".agents/skills".to_string()),
-                )],
+                entries: vec![match &manifest.options.skills_dir {
+                    Some(v) => ConfigEntry::new("skills-dir", v),
+                    None => ConfigEntry::with_default("skills-dir", ".agents/skills"),
+                }],
             },
         ]
     }
@@ -175,8 +190,16 @@ impl App {
     pub fn current_entry(&self) -> Option<(String, String)> {
         let (si, ei) = self.cursor_position()?;
         let section = &self.current_sections()[si];
-        let (key, value) = &section.entries[ei];
-        Some((format!("{}.{}", section.name, key), value.clone()))
+        let entry = &section.entries[ei];
+        Some((format!("{}.{}", section.name, entry.key), entry.value.clone()))
+    }
+
+    pub fn current_entry_is_default(&self) -> bool {
+        if let Some((si, ei)) = self.cursor_position() {
+            self.current_sections()[si].entries[ei].is_default
+        } else {
+            false
+        }
     }
 
     /// Compute the number of content lines needed for a set of sections.
@@ -231,26 +254,26 @@ impl App {
         for section in &self.global_sections {
             match section.name.as_str() {
                 "targets" => {
-                    for (k, v) in &section.entries {
-                        config.targets.insert(k.clone(), v.clone());
+                    for e in &section.entries {
+                        config.targets.insert(e.key.clone(), e.value.clone());
                     }
                 }
                 "sources" => {
-                    for (k, v) in &section.entries {
-                        config.sources.insert(k.clone(), v.clone());
+                    for e in &section.entries {
+                        config.sources.insert(e.key.clone(), e.value.clone());
                     }
                 }
                 "cache" => {
-                    for (k, v) in &section.entries {
-                        if k == "max-age-days" {
-                            config.cache.max_age_days = v.parse().ok();
+                    for e in &section.entries {
+                        if e.key == "max-age-days" && !e.is_default {
+                            config.cache.max_age_days = e.value.parse().ok();
                         }
                     }
                 }
                 "ui" => {
-                    for (k, v) in &section.entries {
-                        if k == "color" {
-                            config.ui.color = v.parse().ok();
+                    for e in &section.entries {
+                        if e.key == "color" && !e.is_default {
+                            config.ui.color = e.value.parse().ok();
                         }
                     }
                 }
@@ -277,19 +300,19 @@ impl App {
         options["targets"] = Item::Table(Table::new());
         if let Some(section) = self.project_sections.iter().find(|s| s.name == "targets") {
             let targets_table = options["targets"].as_table_mut().unwrap();
-            for (k, v) in &section.entries {
-                targets_table[k.as_str()] = toml_edit::value(v.as_str());
+            for e in &section.entries {
+                targets_table[e.key.as_str()] = toml_edit::value(e.value.as_str());
             }
         }
 
         // Save top-level options (skills-dir, etc.)
-        // Only write skills-dir if it differs from the default
+        // Don't write values that are still at their default
         if let Some(section) = self.project_sections.iter().find(|s| s.name == "options") {
-            for (k, v) in &section.entries {
-                if k == "skills-dir" && v == ".agents/skills" {
-                    options.remove(k.as_str());
+            for e in &section.entries {
+                if e.is_default {
+                    options.remove(e.key.as_str());
                 } else {
-                    options[k.as_str()] = toml_edit::value(v.as_str());
+                    options[e.key.as_str()] = toml_edit::value(e.value.as_str());
                 }
             }
         }

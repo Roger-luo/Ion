@@ -84,10 +84,10 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
                 .add_modifier(Modifier::BOLD),
         )));
 
-        for (key, value) in &section.entries {
+        for entry in &section.entries {
             let is_selected = entry_index == app.cursor;
             let prefix = if is_selected { "  > " } else { "    " };
-            let dots = ".".repeat(24usize.saturating_sub(key.len()));
+            let dots = ".".repeat(24usize.saturating_sub(entry.key.len()));
 
             let style = if is_selected {
                 Style::default()
@@ -97,7 +97,9 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White)
             };
 
-            let value_style = if is_selected {
+            let value_style = if entry.is_default {
+                Style::default().fg(Color::DarkGray)
+            } else if is_selected {
                 Style::default()
                     .fg(Color::Green)
                     .add_modifier(Modifier::BOLD)
@@ -106,9 +108,9 @@ fn render_content(frame: &mut Frame, app: &App, area: Rect) {
             };
 
             lines.push(Line::from(vec![
-                Span::styled(format!("{prefix}{key} "), style),
+                Span::styled(format!("{prefix}{} ", entry.key), style),
                 Span::styled(format!("{dots} "), Style::default().fg(Color::DarkGray)),
-                Span::styled(value.to_string(), value_style),
+                Span::styled(&entry.value, value_style),
             ]));
 
             entry_index += 1;
@@ -182,7 +184,7 @@ fn render_status(frame: &mut Frame, app: &App, area: Rect) {
 fn hint_for_entry(app: &App) -> Option<(&'static str, &'static str)> {
     let (si, ei) = app.cursor_position()?;
     let section = &app.current_sections()[si];
-    let key = section.entries[ei].0.as_str();
+    let key = section.entries[ei].key.as_str();
 
     match (app.tab, section.name.as_str(), key) {
         // Global targets
