@@ -2,14 +2,13 @@ use std::io::{IsTerminal, Write};
 use std::path::PathBuf;
 
 use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple};
+use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest_writer;
-use ion_skill::registry::Registry;
 use ion_skill::source::{SkillSource, SourceType};
 
+use crate::commands::install_shared::SkillEntry;
 use crate::commands::validation::{
-    confirm_install_on_warnings, confirm_proceed_with_collection, print_validation_report,
-    select_warned_skills,
+    confirm_proceed_with_collection, select_warned_skills,
 };
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -88,25 +87,9 @@ pub fn run(
                 );
             }
             Err(SkillError::ValidationWarning { report, .. }) => {
-                if json && !allow_warnings {
-                    crate::json::print_action_required(
-                        "validation_warnings",
-                        serde_json::json!({
-                            "skill": name,
-                            "warnings": report.findings.iter().map(|f| serde_json::json!({
-                                "severity": f.severity.to_string(),
-                                "checker": &f.checker,
-                                "message": &f.message,
-                            })).collect::<Vec<_>>(),
-                        }),
-                    );
-                }
-                if !json {
-                    print_validation_report(&name, &report);
-                    if !confirm_install_on_warnings()? {
-                        anyhow::bail!("Installation cancelled due to validation warnings.");
-                    }
-                }
+                crate::commands::install_shared::handle_validation_warnings(
+                    &name, &report, json, allow_warnings,
+                )?;
                 let locked = installer.install_with_options(
                     &name,
                     &source,
@@ -151,39 +134,9 @@ pub fn run(
     );
 
     let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
-    let locked = match installer.install(&name, &source) {
-        Ok(locked) => locked,
-        Err(SkillError::ValidationWarning { report, .. }) => {
-            if json && !allow_warnings {
-                crate::json::print_action_required(
-                    "validation_warnings",
-                    serde_json::json!({
-                        "skill": name,
-                        "warnings": report.findings.iter().map(|f| serde_json::json!({
-                            "severity": f.severity.to_string(),
-                            "checker": &f.checker,
-                            "message": &f.message,
-                        })).collect::<Vec<_>>(),
-                    }),
-                );
-            }
-            if !json {
-                print_validation_report(&name, &report);
-                if !confirm_install_on_warnings()? {
-                    anyhow::bail!("Installation cancelled due to validation warnings.");
-                }
-            }
-            installer.install_with_options(
-                &name,
-                &source,
-                InstallValidationOptions {
-                    skip_validation: false,
-                    allow_warnings: true,
-                },
-            )?
-        }
-        Err(err) => return Err(err.into()),
-    };
+    let locked = crate::commands::install_shared::install_with_warning_prompt(
+        &installer, &name, &source, json, allow_warnings,
+    )?;
 
     finish_single_install(&ctx, &p, &merged_options, &name, &source, locked, json)
 }
@@ -223,11 +176,6 @@ fn install_collection(
 
     // Phase 1: Validate all skills upfront
     let installer = SkillInstaller::new(&ctx.project_dir, merged_options);
-
-    struct SkillEntry {
-        name: String,
-        source: SkillSource,
-    }
 
     let mut clean: Vec<SkillEntry> = Vec::new();
     let mut warned: Vec<(SkillEntry, ValidationReport)> = Vec::new();
@@ -343,11 +291,7 @@ fn install_collection(
                             serde_json::json!({
                                 "skills": warned_in_selection.iter().map(|(e, r)| serde_json::json!({
                                     "name": e.name,
-                                    "warnings": r.findings.iter().map(|f| serde_json::json!({
-                                        "severity": f.severity.to_string(),
-                                        "checker": &f.checker,
-                                        "message": &f.message,
-                                    })).collect::<Vec<_>>(),
+                                    "warnings": &r.findings,
                                 })).collect::<Vec<_>>(),
                             }),
                         );
@@ -445,7 +389,7 @@ fn install_collection(
     }
 
     // Register in global registry (once for the base source)
-    register_in_registry(base_source, &ctx.project_dir)?;
+    crate::commands::install_shared::register_in_registry(base_source, &ctx.project_dir)?;
 
     lockfile.write_to(&ctx.lockfile_path)?;
 
@@ -509,14 +453,9 @@ fn finish_collection_skill_install(
         println!("    Linked to {}", p.info(target_name));
     }
 
-    if source.source_type != SourceType::Path {
-        let target_paths: Vec<&str> = merged_options
-            .targets
-            .values()
-            .map(|s| s.as_str())
-            .collect();
-        ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
-    }
+    crate::commands::install_shared::add_gitignore_entries(
+        &ctx.project_dir, name, source, merged_options,
+    )?;
 
     Ok(())
 }
@@ -531,17 +470,12 @@ fn finish_single_install(
     json: bool,
 ) -> anyhow::Result<()> {
     // Add per-skill gitignore entries for remote skills only
-    if source.source_type != SourceType::Path {
-        let target_paths: Vec<&str> = merged_options
-            .targets
-            .values()
-            .map(|s| s.as_str())
-            .collect();
-        ion_skill::gitignore::add_skill_entries(&ctx.project_dir, name, &target_paths)?;
-    }
+    crate::commands::install_shared::add_gitignore_entries(
+        &ctx.project_dir, name, source, merged_options,
+    )?;
 
     // Register in global registry for git-based sources
-    register_in_registry(source, &ctx.project_dir)?;
+    crate::commands::install_shared::register_in_registry(source, &ctx.project_dir)?;
 
     manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
 
@@ -576,19 +510,6 @@ fn finish_single_install(
     println!("{}", p.success("Done!"));
     prompt_github_star(source);
     crate::commands::init::print_no_targets_hint(merged_options, p, json);
-    Ok(())
-}
-
-fn register_in_registry(source: &SkillSource, project_dir: &std::path::Path) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git)
-        && let Ok(url) = source.git_url()
-    {
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let project_str = project_dir.display().to_string();
-        let mut registry = Registry::load()?;
-        registry.register(&repo_hash, &url, &project_str);
-        registry.save()?;
-    }
     Ok(())
 }
 
