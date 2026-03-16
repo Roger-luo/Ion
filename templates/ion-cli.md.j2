@@ -248,6 +248,41 @@ $ ion --json self update
 {{ example_self_update }}
 ```
 
+### Create a local skill
+
+Create a new skill directly in the project. Use `--path` to specify where the SKILL.md should be created:
+
+```bash
+$ ion skill new --path <skills-dir>/skills/<skill-name>
+```
+
+The path follows the convention `{skills-dir}/skills/{name}/`, where `skills-dir` defaults to `.agents` but may be configured differently in `Ion.toml` under `[options] skills-dir`. For example, if the project uses `skills-dir = "skills"`, create skills at `skills/skills/<name>/`.
+
+Examples:
+
+```bash
+# Default skills-dir (.agents)
+$ ion skill new --path .agents/skills/my-skill
+
+# Custom skills-dir (e.g., "skills" configured in Ion.toml)
+$ ion skill new --path skills/skills/my-skill
+```
+
+This creates a `SKILL.md` template in the target directory. The skill is NOT automatically registered in `Ion.toml` when using `--path` — it operates as a standalone file. To track it as a managed local skill, also add it to `Ion.toml` manually or use `ion skill new` without `--path` inside an Ion project (interactive mode).
+
+### Eject a remote skill to local
+
+Copy an installed remote skill into the project for local editing:
+
+```bash
+$ ion --json skill eject <skill-name>
+```
+```json
+{"success": true, "data": {"name": "<skill-name>", "path": "<skills-dir>/skills/<skill-name>", "forked_from": "owner/repo/path"}}
+```
+
+This copies the skill content locally, updates Ion.toml to `type = "local"` with a `forked-from` reference, and removes gitignore entries so the skill is tracked by git.
+
 ## Typical Agent Workflow
 
 Here is a complete example showing how to search for and install a skill:
@@ -289,4 +324,5 @@ $ ion --json remove old-skill --yes
 | `--skills a,b,c` | `add` | Select specific skills from a collection |
 | `--yes` / `-y` | `remove` | Skip removal confirmation |
 | `--target name` | `project init` | Specify targets non-interactively |
+| `--path <dir>` | `skill new` | Target directory for new skill |
 | `--force` | `project init`, `skill new` | Overwrite existing files |
