@@ -47,9 +47,10 @@ pub fn run(
     }
 
     // Human mode: TUI picker if TTY, otherwise plain text list
-    print_results(&results);
     if std::io::stdout().is_terminal() {
         pick_and_install(&results)?;
+    } else {
+        print_results(&results);
     }
 
     Ok(())
@@ -422,18 +423,16 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
         Ok(())
     })?;
 
+    // Drain any leftover key events from the TUI (e.g. the Enter that triggered install)
+    while crossterm::event::poll(std::time::Duration::from_millis(10))? {
+        let _ = crossterm::event::read();
+    }
+
     if app.should_install
         && let Some(source) = app.selected_install_source()
     {
         log::debug!("user selected install source: {source}");
-        println!("\nInstalling '{source}'...");
-        let status = std::process::Command::new("ion")
-            .arg("add")
-            .arg(source)
-            .status()?;
-        if !status.success() {
-            anyhow::bail!("ion add failed");
-        }
+        crate::commands::add::run(source, None, false, false, false, None)?;
     }
 
     Ok(())

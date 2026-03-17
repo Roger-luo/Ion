@@ -11,7 +11,18 @@ Start by initializing Ion in your project directory. Choose a target agent:
 ion project init --target claude
 ```
 
-This creates an `Ion.toml` manifest file in your project root.
+This creates an `Ion.toml` manifest file with targets configured:
+
+```toml
+[options.targets]
+claude = ".claude/skills"
+```
+
+Skills will be symlinked into `.claude/skills/` on install. You can add multiple targets:
+
+```bash
+ion project init --target claude --target cursor
+```
 
 ## Add Skills
 
@@ -25,7 +36,7 @@ ion add obra/superpowers/brainstorming
 ion add owner/repo
 ```
 
-Ion will fetch the skill, validate it, and install it to the appropriate target directory (e.g., `.claude/commands/` for Claude).
+Ion will fetch the skill, validate it, and install it to the appropriate target directory (e.g., `.claude/skills/` for Claude).
 
 ## Install All Skills
 

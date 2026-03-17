@@ -1,3 +1,6 @@
+[options.targets]
+claude = ".claude/skills"
+
 [skills]
 brainstorming = { source = "obra/superpowers/brainstorming" }
 dispatching-parallel-agents = { source = "obra/superpowers/dispatching-parallel-agents" }
