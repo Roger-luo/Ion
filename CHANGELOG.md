@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+### Added
+
+- Add documentation website with Astro Starlight (df7eac4)
+
+### Fixed
+
+- Show source registry in search TUI detail panel and fix owner display (12bfc7f)
+- Call add directly from search TUI and update docs with accurate specs (69e108b)
+
 ### Fixed
 
 - Use semver comparison for self-update version check (87086de)
