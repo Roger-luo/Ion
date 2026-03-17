@@ -10,6 +10,7 @@ pub enum ListRow {
         stars: Option<u64>,
         description: String,
         skill_count: usize,
+        registry: String,
     },
     /// An individual skill. `grouped` is true when it sits under a `RepoHeader`.
     Skill { result_idx: usize, grouped: bool },
@@ -86,6 +87,7 @@ fn build_rows(results: &[SearchResult]) -> Vec<ListRow> {
                 stars: first.stars,
                 description: first.description.clone(),
                 skill_count: indices.len(),
+                registry: first.registry.clone(),
             });
             for idx in indices {
                 rows.push(ListRow::Skill {

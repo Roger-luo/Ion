@@ -161,7 +161,8 @@ fn render_detail(frame: &mut Frame, app: &SearchApp, area: Rect) {
             stars,
             description,
             skill_count,
-        } => render_repo_detail(frame, inner, owner_repo, *stars, description, *skill_count),
+            registry,
+        } => render_repo_detail(frame, inner, owner_repo, *stars, description, *skill_count, registry),
     }
 }
 
@@ -171,13 +172,20 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
     };
 
     let owner = r
-        .name
+        .source
         .split_once('/')
-        .map_or(r.name.as_str(), |(owner, _)| owner);
+        .map_or(r.source.as_str(), |(owner, _)| owner);
     let stars_str = r.stars.map_or("—".to_string(), |n| n.to_string());
     let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
+        Line::from(vec![
+            Span::styled("Source: ", LABEL_STYLE),
+            Span::styled(
+                registry_label(&r.registry),
+                Style::new().fg(registry_color(&r.registry)),
+            ),
+        ]),
         Line::from(vec![
             Span::styled("Owner: ", LABEL_STYLE),
             Span::styled(owner, VALUE_STYLE),
@@ -214,6 +222,7 @@ fn render_repo_detail(
     stars: Option<u64>,
     description: &str,
     skill_count: usize,
+    registry: &str,
 ) {
     let owner = owner_repo
         .split_once('/')
@@ -222,6 +231,13 @@ fn render_repo_detail(
     let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
+        Line::from(vec![
+            Span::styled("Source: ", LABEL_STYLE),
+            Span::styled(
+                registry_label(registry),
+                Style::new().fg(registry_color(registry)),
+            ),
+        ]),
         Line::from(vec![
             Span::styled("Repo: ", LABEL_STYLE),
             Span::styled(owner_repo, VALUE_STYLE),
@@ -280,10 +296,21 @@ fn format_stars_compact(stars: Option<u64>) -> String {
     }
 }
 
+fn registry_label(registry: &str) -> &str {
+    match registry {
+        "github" => "GitHub",
+        "skills.sh" | "skills-sh" => "skills.sh",
+        "agent" => "Agent",
+        "http" => "HTTP",
+        other => other,
+    }
+}
+
 fn registry_color(registry: &str) -> Color {
     match registry {
         "github" => Color::White,
         "agent" => Color::Magenta,
+        "http" => Color::Green,
         _ => Color::Blue,
     }
 }
