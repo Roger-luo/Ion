@@ -68,7 +68,7 @@ mod tests {
         let content = r#"
 [[skill]]
 name = "brainstorming"
-source = "https://github.com/anthropics/skills.git"
+source = "https://github.com/obra/superpowers.git"
 path = "brainstorming"
 version = "1.0"
 commit = "abc123"

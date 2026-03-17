@@ -1,0 +1,286 @@
+---
+import '../styles/global.css';
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Ion - Agent Skill Manager</title>
+		<meta name="description" content="A fast, reproducible skill manager for AI coding agents. Built in Rust." />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+	</head>
+	<body class="bg-slate-950 text-slate-200" style="font-family: 'Inter', system-ui, sans-serif;">
+		<!-- Nav -->
+		<nav class="fixed top-0 w-full z-50 border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-xl">
+			<div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+				<a href="/" class="text-xl font-bold text-white">Ion</a>
+				<div class="flex items-center gap-8">
+					<a href="/guides/installation" class="text-sm text-slate-400 hover:text-white transition-colors">Docs</a>
+					<a href="https://github.com/Roger-luo/Ion" class="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 rounded-lg px-3 py-1.5 transition-colors">
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+						Star
+						<span id="star-count" class="text-xs text-slate-500">-</span>
+					</a>
+					<a href="/guides/installation" class="text-sm font-medium px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-500 transition-colors">Get Started</a>
+				</div>
+			</div>
+		</nav>
+
+		<!-- Hero -->
+		<section class="landing-hero min-h-screen flex items-center pt-16">
+			<div class="relative z-10 max-w-6xl mx-auto px-6 py-32">
+				<div class="max-w-3xl">
+					<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-slate-700 bg-slate-800/50 text-sm text-slate-300 mb-8">
+						<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+						v0.2 &mdash; Now with binary skills &amp; search cache
+					</div>
+					<h1 class="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-tight tracking-tight text-white mb-6">
+						Skills for your<br />
+						<span class="glow-text">AI agents</span>,<br />
+						managed right.
+					</h1>
+					<p class="text-lg sm:text-xl text-slate-400 max-w-2xl mb-10 leading-relaxed">
+						Ion is a fast, reproducible skill manager for AI coding tools.
+						Single binary. Lockfile. Validation. Works with Claude, Cursor, Windsurf, and more.
+					</p>
+					<div class="flex flex-col sm:flex-row gap-4 mb-12">
+						<div class="install-cmd flex items-center gap-3 px-5 py-3 text-sm">
+							<span class="text-slate-500">$</span>
+							<code class="text-indigo-300">curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh</code>
+						</div>
+					</div>
+					<div class="flex gap-4">
+						<a href="/guides/quick-start" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors">
+							Quick Start
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+						</a>
+						<a href="https://github.com/Roger-luo/Ion" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-slate-700 text-slate-300 font-medium hover:border-slate-500 hover:text-white transition-colors">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+							Star on GitHub
+							<span class="star-count text-sm text-slate-500">-</span>
+						</a>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Features -->
+		<section class="py-32 bg-slate-950">
+			<div class="max-w-6xl mx-auto px-6">
+				<div class="text-center mb-20">
+					<h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">Why Ion?</h2>
+					<p class="text-slate-400 text-lg max-w-2xl mx-auto">
+						The agent skills ecosystem needs the same rigor as your code dependencies.
+					</p>
+				</div>
+				<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Single Binary</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Built in Rust. No runtime dependencies. Download and run &mdash; works on macOS and Linux, ARM and x86.</p>
+					</div>
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Reproducible Installs</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Ion.toml manifest with Ion.lock lockfile. Pinned revisions and checksums ensure everyone gets the same skills.</p>
+					</div>
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Built-in Validation</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Security scanning, structure checks, and markdown validation catch issues before skills reach your agents.</p>
+					</div>
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Agent-Native</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Every command has <code class="text-amber-300 text-xs">--json</code> mode with structured output. Built for AI agents and CI pipelines.</p>
+					</div>
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Multi-Agent Support</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Target skills to Claude, Cursor, Windsurf, or any agent. One manifest, multiple targets.</p>
+					</div>
+					<div class="feature-card rounded-xl p-6">
+						<div class="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center mb-4">
+							<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+						</div>
+						<h3 class="text-lg font-semibold text-white mb-2">Binary Skills</h3>
+						<p class="text-slate-400 text-sm leading-relaxed">Download, verify, and run compiled tools directly. GitHub Release binaries with checksum verification.</p>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Code Example -->
+		<section class="py-32 bg-slate-900/50">
+			<div class="max-w-6xl mx-auto px-6">
+				<div class="grid lg:grid-cols-2 gap-16 items-center">
+					<div>
+						<h2 class="text-3xl sm:text-4xl font-bold text-white mb-6">Get started in seconds</h2>
+						<p class="text-slate-400 text-lg mb-8 leading-relaxed">
+							Initialize a project, add skills from GitHub or registries, and let your agents work smarter.
+						</p>
+						<ul class="space-y-4">
+							<li class="flex items-start gap-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								<span class="text-slate-300">Search skills across GitHub and registries</span>
+							</li>
+							<li class="flex items-start gap-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								<span class="text-slate-300">Lockfile ensures reproducible installs across your team</span>
+							</li>
+							<li class="flex items-start gap-3">
+								<svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+								<span class="text-slate-300">Create and eject local skills for full customization</span>
+							</li>
+						</ul>
+					</div>
+					<div class="code-block-wrapper">
+						<div class="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+							<div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+							<div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+							<div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+							<span class="ml-2 text-xs text-slate-500">Terminal</span>
+						</div>
+						<pre class="text-sm" style="font-family: 'JetBrains Mono', monospace;"><code><span class="text-slate-500"># Initialize a project with a target</span>
+<span class="text-emerald-400">$</span> <span class="text-white">ion project init --target claude</span>
+
+<span class="text-slate-500"># Add a skill from GitHub</span>
+<span class="text-emerald-400">$</span> <span class="text-white">ion add obra/superpowers/brainstorming</span>
+
+<span class="text-slate-500"># Search for skills</span>
+<span class="text-emerald-400">$</span> <span class="text-white">ion search "code review"</span>
+
+<span class="text-slate-500"># Install all skills from Ion.toml</span>
+<span class="text-emerald-400">$</span> <span class="text-white">ion add</span>
+
+<span class="text-slate-500"># Update everything</span>
+<span class="text-emerald-400">$</span> <span class="text-white">ion update</span></code></pre>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- Comparison -->
+		<section class="py-32 bg-slate-950">
+			<div class="max-w-4xl mx-auto px-6">
+				<div class="text-center mb-16">
+					<h2 class="text-3xl sm:text-4xl font-bold text-white mb-4">How Ion compares</h2>
+					<p class="text-slate-400 text-lg">Package manager guarantees for agent skills.</p>
+				</div>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-slate-800">
+								<th class="text-left py-4 px-4 text-slate-400 font-medium"></th>
+								<th class="text-left py-4 px-4 text-indigo-400 font-semibold">Ion</th>
+								<th class="text-left py-4 px-4 text-slate-400 font-medium">npx skills</th>
+							</tr>
+						</thead>
+						<tbody class="text-slate-300">
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Runtime</td>
+								<td class="py-3 px-4">Single binary (Rust)</td>
+								<td class="py-3 px-4">Node.js / npx</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Manifest & lockfile</td>
+								<td class="py-3 px-4"><code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">Ion.toml</code> + <code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">Ion.lock</code> with checksums</td>
+								<td class="py-3 px-4">No lockfile</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Reproducibility</td>
+								<td class="py-3 px-4">Pinned revisions, lockfile checksums</td>
+								<td class="py-3 px-4">Latest-only</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Validation</td>
+								<td class="py-3 px-4">Built-in security, structure, and markdown checks</td>
+								<td class="py-3 px-4">None</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Agent interface</td>
+								<td class="py-3 px-4"><code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">--json</code> mode on every command with structured envelope</td>
+								<td class="py-3 px-4">None</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Local skills</td>
+								<td class="py-3 px-4">First-class <code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">type = "local"</code>, eject from remote</td>
+								<td class="py-3 px-4">Symlink/copy from path</td>
+							</tr>
+							<tr class="border-b border-slate-800/50">
+								<td class="py-3 px-4 text-slate-400">Binary skills</td>
+								<td class="py-3 px-4">Download, checksum, and run compiled tools via <code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">ion run</code></td>
+								<td class="py-3 px-4">Not supported</td>
+							</tr>
+							<tr>
+								<td class="py-3 px-4 text-slate-400">Self-update</td>
+								<td class="py-3 px-4"><code class="text-xs bg-slate-800 px-1.5 py-0.5 rounded">ion self update</code> with signed GitHub Release binaries</td>
+								<td class="py-3 px-4">npm/npx update</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		<!-- CTA -->
+		<section class="py-32 bg-slate-950">
+			<div class="max-w-3xl mx-auto px-6 text-center">
+				<h2 class="text-3xl sm:text-4xl font-bold text-white mb-6">Ready to manage your agent skills?</h2>
+				<p class="text-slate-400 text-lg mb-10">Install Ion in one command and start building better AI workflows.</p>
+				<div class="install-cmd inline-flex items-center gap-3 px-6 py-4 text-sm mb-8">
+					<span class="text-slate-500">$</span>
+					<code class="text-indigo-300">curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh</code>
+				</div>
+				<div class="flex justify-center gap-4">
+					<a href="/guides/quick-start" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-500 transition-colors">
+						Read the Docs
+					</a>
+					<a href="https://github.com/Roger-luo/Ion" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg border border-slate-700 text-slate-300 font-medium hover:border-slate-500 hover:text-white transition-colors">
+						<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+						Star on GitHub
+						<span class="star-count text-sm text-slate-500">-</span>
+					</a>
+				</div>
+			</div>
+		</section>
+
+		<!-- Footer -->
+		<footer class="border-t border-slate-800 py-12">
+			<div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+				<div class="text-sm text-slate-500">MIT License</div>
+				<div class="flex items-center gap-6">
+					<a href="/guides/installation" class="text-sm text-slate-500 hover:text-slate-300 transition-colors">Docs</a>
+					<a href="https://github.com/Roger-luo/Ion" class="text-sm text-slate-500 hover:text-slate-300 transition-colors">GitHub</a>
+				</div>
+			</div>
+		</footer>
+		<script>
+			fetch('https://api.github.com/repos/Roger-luo/Ion')
+				.then(r => r.json())
+				.then(data => {
+					if (data.stargazers_count != null) {
+						const count = data.stargazers_count >= 1000
+							? (data.stargazers_count / 1000).toFixed(1) + 'k'
+							: data.stargazers_count.toString();
+						document.getElementById('star-count').textContent = count;
+						document.querySelectorAll('.star-count').forEach(el => el.textContent = count);
+					}
+				})
+				.catch(() => {});
+		</script>
+	</body>
+</html>

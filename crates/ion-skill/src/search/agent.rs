@@ -67,12 +67,12 @@ mod tests {
 
     #[test]
     fn parse_agent_output_tab_separated() {
-        let output = "brainstorming\tCollaborative brainstorming\tanthropics/skills/brainstorming\ntdd\tTest driven development\tanthropics/skills/tdd\n";
+        let output = "brainstorming\tCollaborative brainstorming\tobra/superpowers/brainstorming\ntdd\tTest driven development\tobra/superpowers/tdd\n";
         let results = parse_agent_output(output, 10);
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "brainstorming");
         assert_eq!(results[0].description, "Collaborative brainstorming");
-        assert_eq!(results[0].source, "anthropics/skills/brainstorming");
+        assert_eq!(results[0].source, "obra/superpowers/brainstorming");
         assert_eq!(results[0].registry, "agent");
     }
 

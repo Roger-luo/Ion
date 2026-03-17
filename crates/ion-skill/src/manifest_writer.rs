@@ -192,12 +192,12 @@ mod tests {
         let result = add_skill(
             &path,
             "brainstorming",
-            &SkillSource::infer("anthropics/skills/brainstorming").unwrap(),
+            &SkillSource::infer("obra/superpowers/brainstorming").unwrap(),
         )
         .unwrap();
 
         assert!(result.contains("brainstorming"));
-        assert!(result.contains("anthropics/skills/brainstorming"));
+        assert!(result.contains("obra/superpowers/brainstorming"));
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(
             &path,
-            "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+            "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
         )
         .unwrap();
 
@@ -262,7 +262,7 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(
             &path,
-            "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+            "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
         )
         .unwrap();
 
@@ -334,7 +334,7 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(
             &path,
-            "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+            "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
         )
         .unwrap();
 

@@ -154,9 +154,9 @@ mod tests {
 
     #[test]
     fn infer_github_three_segments() {
-        let s = SkillSource::infer("anthropics/skills/brainstorming").unwrap();
+        let s = SkillSource::infer("obra/superpowers/brainstorming").unwrap();
         assert_eq!(s.source_type, SourceType::Github);
-        assert_eq!(s.source, "anthropics/skills");
+        assert_eq!(s.source, "obra/superpowers");
         assert_eq!(s.path.as_deref(), Some("brainstorming"));
     }
 

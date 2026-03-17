@@ -71,14 +71,14 @@ mod tests {
     #[test]
     fn registry_source_parses_json_response() {
         let json = r#"[
-            {"name": "brainstorming", "description": "Brainstorm ideas", "source": "anthropics/skills/brainstorming"},
-            {"name": "tdd", "description": "Test driven dev", "source": "anthropics/skills/tdd"}
+            {"name": "brainstorming", "description": "Brainstorm ideas", "source": "obra/superpowers/brainstorming"},
+            {"name": "tdd", "description": "Test driven dev", "source": "obra/superpowers/tdd"}
         ]"#;
         let results = parse_registry_response(json, "skills.sh", 10).unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].name, "brainstorming");
         assert_eq!(results[0].registry, "skills.sh");
-        assert_eq!(results[1].source, "anthropics/skills/tdd");
+        assert_eq!(results[1].source, "obra/superpowers/tdd");
     }
 
     #[test]

@@ -15,7 +15,7 @@ The agent skills ecosystem has grown rapidly. Tools like Vercel's [`npx skills`]
 | **Reproducibility** | Pinned revisions, lockfile checksums | Latest-only |
 | **Validation** | Built-in security, structure, and markdown checks | None |
 | **Agent interface** | `--json` mode on every command with structured envelope | None |
-| **Local skills** | First-class `type = "local"`, eject from remote | Copy-based |
+| **Local skills** | First-class `type = "local"`, eject from remote | Symlink/copy from path |
 | **Binary skills** | Download, checksum, and run compiled tools via `ion run` | Not supported |
 | **Self-update** | `ion self update` with signed GitHub Release binaries | npm/npx update |
 
@@ -46,7 +46,7 @@ cargo install --git https://github.com/Roger-luo/Ion
 ion project init --target claude
 
 # Add a skill
-ion add anthropics/skills/brainstorming
+ion add obra/superpowers/brainstorming
 
 # Install all skills from Ion.toml
 ion add

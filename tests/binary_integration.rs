@@ -7,7 +7,7 @@ fn test_binary_skill_manifest_roundtrip() {
     let toml_content = r#"
 [skills]
 mytool = { type = "binary", source = "owner/mytool", binary = "mytool" }
-brainstorming = "anthropics/skills/brainstorming"
+brainstorming = "obra/superpowers/brainstorming"
 "#;
     let manifest = ion_skill::manifest::Manifest::parse(toml_content).unwrap();
     assert_eq!(manifest.skills.len(), 2);
@@ -71,7 +71,7 @@ fn test_mixed_manifest_binary_and_regular() {
     let toml_content = r#"
 [skills]
 mytool = { type = "binary", source = "owner/mytool", binary = "mytool", rev = "v1.0" }
-brainstorming = "anthropics/skills/brainstorming"
+brainstorming = "obra/superpowers/brainstorming"
 local = { type = "path", source = "./my-local-skill" }
 "#;
     let manifest = ion_skill::manifest::Manifest::parse(toml_content).unwrap();

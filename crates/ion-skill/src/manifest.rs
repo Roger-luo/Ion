@@ -182,11 +182,11 @@ mod tests {
 
     #[test]
     fn parse_shorthand_entry() {
-        let toml_str = "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n";
+        let toml_str = "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["brainstorming"].resolve().unwrap();
         assert_eq!(source.source_type, SourceType::Github);
-        assert_eq!(source.source, "anthropics/skills");
+        assert_eq!(source.source, "obra/superpowers");
         assert_eq!(source.path.as_deref(), Some("brainstorming"));
     }
 

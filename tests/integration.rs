@@ -310,7 +310,7 @@ fn init_preserves_existing_skills() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("Ion.toml"),
-        "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+        "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
     )
     .unwrap();
 
@@ -403,7 +403,7 @@ fn init_renames_legacy_lowercase_files() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(
         project.path().join("ion.toml"),
-        "[skills]\nbrainstorming = \"anthropics/skills/brainstorming\"\n",
+        "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
     )
     .unwrap();
     std::fs::write(project.path().join("ion.lock"), "version = 1\n\n[skills]\n").unwrap();

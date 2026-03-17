@@ -487,13 +487,13 @@ mod tests {
     #[test]
     fn gh_repo_search_parses_response() {
         let json = r#"[
-            {"fullName": "anthropics/skills", "description": "AI agent skills collection"},
+            {"fullName": "obra/superpowers", "description": "AI agent skills collection"},
             {"fullName": "acme/brainstorm-skill", "description": "Brainstorm skill"}
         ]"#;
         let results = parse_gh_repo_response(json, 10).unwrap();
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].name, "anthropics/skills");
-        assert_eq!(results[0].source, "anthropics/skills");
+        assert_eq!(results[0].name, "obra/superpowers");
+        assert_eq!(results[0].source, "obra/superpowers");
         assert_eq!(results[0].registry, "github");
         assert_eq!(results[1].description, "Brainstorm skill");
     }
