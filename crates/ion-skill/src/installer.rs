@@ -351,7 +351,7 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
             }
             Ok(path)
         }
-        SourceType::Http => Err(Error::Source("HTTP source not yet implemented".to_string())),
+        SourceType::Http => fetch_http_skill(source),
         SourceType::Binary => Err(Error::Source(
             "Binary source uses dedicated installer".to_string(),
         )),
@@ -366,6 +366,37 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
             Ok(path)
         }
     }
+}
+
+/// Fetch a single SKILL.md file from an HTTP URL.
+/// Creates a skill directory in the cache containing just the downloaded SKILL.md.
+fn fetch_http_skill(source: &SkillSource) -> Result<PathBuf> {
+    let url = source.http_skill_url()?;
+    let url_hash = format!("{:x}", hash_simple(&url));
+    let skill_name = source.display_name();
+    let skill_dir = data_dir().join(&url_hash).join(&skill_name);
+
+    log::debug!("fetching HTTP skill from {url} into {}", skill_dir.display());
+
+    let response = reqwest::blocking::get(&url).map_err(|e| {
+        Error::Http(format!("Failed to fetch {url}: {e}"))
+    })?;
+
+    if !response.status().is_success() {
+        return Err(Error::Http(format!(
+            "HTTP {} fetching {url}",
+            response.status()
+        )));
+    }
+
+    let body = response.text().map_err(|e| {
+        Error::Http(format!("Failed to read response from {url}: {e}"))
+    })?;
+
+    std::fs::create_dir_all(&skill_dir).map_err(Error::Io)?;
+    std::fs::write(skill_dir.join("SKILL.md"), &body).map_err(Error::Io)?;
+
+    Ok(skill_dir)
 }
 
 /// Resolve the skill directory within a repo, handling subdirectory skills.

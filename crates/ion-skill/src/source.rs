@@ -56,15 +56,39 @@ impl SkillSource {
     /// Uses the path's last segment if available, otherwise the source's last segment.
     pub fn display_name(&self) -> String {
         if let Some(ref path) = self.path {
-            path.rsplit('/').next().unwrap_or(path).to_string()
-        } else {
-            self.source
-                .trim_end_matches(".git")
+            return path.rsplit('/').next().unwrap_or(path).to_string();
+        }
+
+        if self.source_type == SourceType::Http {
+            // For HTTP sources, strip trailing /skill.md and use the last path segment.
+            // e.g. "https://example.com/docs/skill.md" → "docs"
+            // e.g. "https://example.com/docs" → "docs"
+            let url = self.source.trim_end_matches('/');
+            let path = url
+                .strip_prefix("https://")
+                .or_else(|| url.strip_prefix("http://"))
+                .unwrap_or(url);
+            // Remove host
+            let path = path.split_once('/').map(|(_, p)| p).unwrap_or(path);
+            // Strip trailing skill.md
+            let path = path
+                .strip_suffix("/skill.md")
+                .or_else(|| path.strip_suffix("/SKILL.md"))
+                .unwrap_or(path);
+            return path
+                .trim_end_matches('/')
                 .rsplit('/')
                 .next()
-                .unwrap_or(&self.source)
-                .to_string()
+                .unwrap_or("skill")
+                .to_string();
         }
+
+        self.source
+            .trim_end_matches(".git")
+            .rsplit('/')
+            .next()
+            .unwrap_or(&self.source)
+            .to_string()
     }
 
     pub fn with_rev(mut self, rev: impl Into<String>) -> Self {
@@ -127,6 +151,28 @@ impl SkillSource {
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
             ))),
+        }
+    }
+
+    /// Return the URL to fetch the SKILL.md file from an HTTP source.
+    /// If the URL doesn't already end with `skill.md` (case-insensitive),
+    /// appends `/skill.md`.
+    pub fn http_skill_url(&self) -> Result<String> {
+        if self.source_type != SourceType::Http {
+            return Err(Error::Source(format!(
+                "Source type {:?} is not HTTP",
+                self.source_type
+            )));
+        }
+        let url = self.source.trim_end_matches('/');
+        if url
+            .rsplit('/')
+            .next()
+            .is_some_and(|last| last.eq_ignore_ascii_case("skill.md"))
+        {
+            Ok(url.to_string())
+        } else {
+            Ok(format!("{url}/skill.md"))
         }
     }
 
@@ -230,6 +276,43 @@ mod tests {
             .with_binary("mytool");
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.binary.as_deref(), Some("mytool"));
+    }
+
+    #[test]
+    fn http_skill_url_appends_skill_md() {
+        let s = SkillSource::infer("https://www.mintlify.com/docs").unwrap();
+        assert_eq!(s.source_type, SourceType::Http);
+        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+    }
+
+    #[test]
+    fn http_skill_url_preserves_existing_skill_md() {
+        let s = SkillSource::infer("https://www.mintlify.com/docs/skill.md").unwrap();
+        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+    }
+
+    #[test]
+    fn http_skill_url_case_insensitive() {
+        let s = SkillSource::infer("https://example.com/skills/SKILL.md").unwrap();
+        assert_eq!(s.http_skill_url().unwrap(), "https://example.com/skills/SKILL.md");
+    }
+
+    #[test]
+    fn http_skill_url_strips_trailing_slash() {
+        let s = SkillSource::infer("https://www.mintlify.com/docs/").unwrap();
+        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+    }
+
+    #[test]
+    fn http_display_name_from_url() {
+        let s = SkillSource::infer("https://www.mintlify.com/docs").unwrap();
+        assert_eq!(s.display_name(), "docs");
+    }
+
+    #[test]
+    fn http_display_name_strips_skill_md() {
+        let s = SkillSource::infer("https://www.mintlify.com/docs/skill.md").unwrap();
+        assert_eq!(s.display_name(), "docs");
     }
 
     #[test]
