@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+### Fixed
+
+- Use semver comparison for self-update version check (87086de)
+
 ### Documentation
 
 - Add Why Ion section comparing with npx skills (8dc6e00)
