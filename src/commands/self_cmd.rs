@@ -61,11 +61,13 @@ pub fn check(json: bool) -> anyhow::Result<()> {
     let release = binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?;
     let latest = binary::parse_version_from_tag(&release.tag_name);
 
+    let update_available = is_newer_version(current, latest);
+
     if json {
         crate::json::print_success(serde_json::json!({
             "installed": current,
             "latest": latest,
-            "update_available": current != latest,
+            "update_available": update_available,
         }));
         return Ok(());
     }
@@ -73,7 +75,7 @@ pub fn check(json: bool) -> anyhow::Result<()> {
     println!("installed: {current}");
     println!("latest:    {latest}");
 
-    if current == latest {
+    if !update_available {
         println!("\nAlready up to date.");
     } else {
         let command = match detect_package_manager() {
@@ -116,7 +118,7 @@ pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
     };
     let latest = binary::parse_version_from_tag(&release.tag_name);
 
-    if version.is_none() && current == latest {
+    if version.is_none() && !is_newer_version(current, latest) {
         if json {
             crate::json::print_success(serde_json::json!({
                 "updated": false,
@@ -206,7 +208,7 @@ fn check_for_update_hint_inner() -> Option<()> {
         if now.saturating_sub(ts) < UPDATE_CHECK_INTERVAL.as_secs() {
             // Cache is fresh — show hint if update was available
             let latest = cached.get("latest")?.as_str()?;
-            if latest != current {
+            if is_newer_version(current, latest) {
                 print_update_hint(current, latest);
             }
             return Some(());
@@ -228,11 +230,28 @@ fn check_for_update_hint_inner() -> Option<()> {
     }
     let _ = std::fs::write(&cache_path, cache_value.to_string());
 
-    if latest != current {
+    if is_newer_version(current, latest) {
         print_update_hint(current, latest);
     }
 
     Some(())
+}
+
+/// Parse a version string like "0.1.14" into a comparable tuple.
+fn parse_version_tuple(v: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = v.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next()?.parse().ok()?;
+    Some((major, minor, patch))
+}
+
+/// Returns true if `latest` is strictly newer than `current`.
+fn is_newer_version(current: &str, latest: &str) -> bool {
+    match (parse_version_tuple(current), parse_version_tuple(latest)) {
+        (Some(c), Some(l)) => l > c,
+        _ => current != latest, // fallback to string comparison
+    }
 }
 
 fn print_update_hint(current: &str, latest: &str) {
