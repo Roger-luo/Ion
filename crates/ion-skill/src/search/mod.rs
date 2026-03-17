@@ -70,6 +70,77 @@ impl SearchResult {
     pub fn sort_by_stars(results: &mut [Self]) {
         results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
     }
+
+    /// Sort results by relevance to the query, combining text match quality
+    /// with popularity (stars). Exact name/source matches rank highest,
+    /// then prefix matches, then substring matches, with stars as tiebreaker.
+    pub fn sort_by_relevance(results: &mut [Self], query: &str) {
+        let query_lower = query.to_lowercase();
+        let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+        results.sort_by(|a, b| {
+            let score_a = relevance_score(a, &query_lower, &query_words);
+            let score_b = relevance_score(b, &query_lower, &query_words);
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
+}
+
+/// Compute a relevance score for a search result against a query.
+/// Higher score = more relevant. Combines text match quality with popularity.
+///
+/// Scoring:
+/// - Exact match on name/source segment:    1000
+/// - Query is a prefix of name/source:       500
+/// - All query words found in name/source:   200
+/// - Substring match in name/source:         100
+/// - Match in description:                    50
+/// - Popularity bonus: log2(stars + 1)     (0–20ish)
+fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> f64 {
+    let name_lower = result.name.to_lowercase();
+    let source_lower = result.source.to_lowercase();
+    let desc_lower = result.description.to_lowercase();
+
+    // Check each segment of the source path (e.g., "mintlify" in "mintlify/docs")
+    let source_segments: Vec<&str> = source_lower.split('/').collect();
+    // The leaf name (last segment of source, or skill dir name)
+    let leaf = source_segments.last().copied().unwrap_or("");
+
+    let mut text_score: f64 = 0.0;
+
+    // Exact match on leaf name or any source segment
+    if leaf == query || source_lower == query || source_segments.contains(&query) {
+        text_score = 1000.0;
+    }
+    // Leaf or segment starts with query
+    else if leaf.starts_with(query) || source_segments.iter().any(|s| s.starts_with(query)) {
+        text_score = 500.0;
+    }
+    // All query words appear in name or source
+    else if query_words.len() > 1
+        && query_words
+            .iter()
+            .all(|w| name_lower.contains(w) || source_lower.contains(w))
+    {
+        text_score = 200.0;
+    }
+    // Substring match in name or source
+    else if name_lower.contains(query) || source_lower.contains(query) {
+        text_score = 100.0;
+    }
+    // Match in description only
+    else if desc_lower.contains(query)
+        || query_words.iter().all(|w| desc_lower.contains(w))
+    {
+        text_score = 50.0;
+    }
+
+    // Popularity bonus: logarithmic so stars don't dominate relevance
+    let star_bonus = (result.stars.unwrap_or(0) as f64 + 1.0).log2();
+
+    text_score + star_bonus
 }
 
 /// A searchable source of skills.
@@ -215,6 +286,26 @@ pub fn parallel_search(
         }
     }
     log::debug!("parallel: merged {} total results", all_results.len());
+    SearchResult::sort_by_relevance(&mut all_results, &query);
+
+    // Deduplicate across sources: if the same skill source appears from
+    // multiple registries (e.g., skills.sh and github), keep the first
+    // (highest-relevance) occurrence.
+    let mut seen_sources = std::collections::HashSet::new();
+    all_results.retain(|r| {
+        if r.source.is_empty() {
+            return true;
+        }
+        // Normalize: "obra/superpowers/skills/brainstorming" and
+        // "obra/superpowers/brainstorming" should deduplicate.
+        // Use owner_repo + leaf skill name as the dedup key.
+        let repo = owner_repo_of(&r.source);
+        let leaf = skill_dir_name(&r.source);
+        let key = if leaf == r.source { r.source.clone() } else { format!("{repo}/{leaf}") };
+        seen_sources.insert(key)
+    });
+
+    log::debug!("parallel: {} results after dedup", all_results.len());
     all_results
 }
 
@@ -473,6 +564,61 @@ mod tests {
         assert_eq!(groups[0].1, vec![0, 1]);
         assert_eq!(groups[1].0, "other/repo");
         assert_eq!(groups[1].1, vec![2]);
+    }
+
+    #[test]
+    fn relevance_exact_match_beats_high_stars() {
+        let mut results = vec![
+            {
+                let mut r = SearchResult::new("write-concept", "Writing tool", "someone/write-concept", "github");
+                r.stars = Some(5000);
+                r
+            },
+            {
+                let mut r = SearchResult::new("mintlify/docs", "Mintlify docs skill", "mintlify/docs", "github");
+                r.stars = Some(10);
+                r
+            },
+        ];
+        SearchResult::sort_by_relevance(&mut results, "mintlify");
+        assert_eq!(results[0].source, "mintlify/docs", "exact segment match should rank first");
+    }
+
+    #[test]
+    fn relevance_prefix_match_beats_description_match() {
+        let mut results = vec![
+            {
+                let mut r = SearchResult::new("other-tool", "A mintlify integration", "someone/other-tool", "github");
+                r.stars = Some(100);
+                r
+            },
+            {
+                let mut r = SearchResult::new("mint-skills", "Skills collection", "user/mint-skills", "github");
+                r.stars = Some(5);
+                r
+            },
+        ];
+        SearchResult::sort_by_relevance(&mut results, "mint");
+        assert_eq!(results[0].source, "user/mint-skills", "prefix match should rank higher than description match");
+    }
+
+    #[test]
+    fn relevance_stars_break_ties() {
+        let mut results = vec![
+            {
+                let mut r = SearchResult::new("a", "", "org/a", "github");
+                r.stars = Some(10);
+                r
+            },
+            {
+                let mut r = SearchResult::new("b", "", "org/b", "github");
+                r.stars = Some(1000);
+                r
+            },
+        ];
+        // Neither matches "xyz" well, so stars should decide
+        SearchResult::sort_by_relevance(&mut results, "xyz");
+        assert_eq!(results[0].source, "org/b", "higher stars should win when text relevance is equal");
     }
 
     #[test]
