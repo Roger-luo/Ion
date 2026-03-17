@@ -27,6 +27,13 @@ commit = "5ef73d25b71e69e63a74eae359fb26c7a6ac8fc0"
 checksum = "sha256:9edba9a38684c060fdc38290f640e1dc0c37de286723ac9be73bacacf7cd6f3d"
 
 [[skill]]
+name = "frontend-design"
+source = "https://github.com/anthropics/skills.git"
+path = "frontend-design"
+commit = "b0cbd3df1533b396d281a6886d5132f623393a9c"
+checksum = "sha256:063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+
+[[skill]]
 name = "receiving-code-review"
 source = "https://github.com/obra/superpowers.git"
 path = "receiving-code-review"
