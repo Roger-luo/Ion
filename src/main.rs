@@ -94,11 +94,17 @@ enum Commands {
         #[command(subcommand)]
         action: SkillCommands,
     },
-    /// Project setup and migration
-    #[command(hide = true)]
-    Project {
-        #[command(subcommand)]
-        action: ProjectCommands,
+    /// Migrate skills from skills-lock.json or existing directories
+    Migrate {
+        /// Path to skills-lock.json (defaults to ./skills-lock.json)
+        #[arg(long)]
+        from: Option<String>,
+        /// Show what would be migrated without writing files
+        #[arg(long)]
+        dry_run: bool,
+        /// Skip confirmation prompts (auto-accept all)
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Manage the skill cache
     Cache {
@@ -171,30 +177,6 @@ enum SkillCommands {
     },
 }
 
-#[derive(Subcommand)]
-enum ProjectCommands {
-    /// Initialize Ion.toml with agent tool targets
-    Init {
-        /// Configure specific targets (e.g. claude, cursor, or name:path)
-        #[arg(long, short = 't')]
-        target: Vec<String>,
-        /// Overwrite existing [options.targets] without prompting
-        #[arg(long)]
-        force: bool,
-    },
-    /// Migrate skills from skills-lock.json or existing directories
-    Migrate {
-        /// Path to skills-lock.json (defaults to ./skills-lock.json)
-        #[arg(long)]
-        from: Option<String>,
-        /// Show what would be migrated without writing files
-        #[arg(long)]
-        dry_run: bool,
-        /// Skip confirmation prompts (auto-accept all)
-        #[arg(long, short = 'y')]
-        yes: bool,
-    },
-}
 
 #[derive(Subcommand)]
 enum SelfCommands {
@@ -301,12 +283,9 @@ fn main() {
             SkillCommands::Link { path } => commands::link::run(&path, json),
             SkillCommands::Eject { name } => commands::eject::run(&name, json),
         },
-        Commands::Project { action } => match action {
-            ProjectCommands::Init { target, force } => commands::init::run(&target, force, json),
-            ProjectCommands::Migrate { from, dry_run, yes } => {
-                commands::migrate::run(from.as_deref(), dry_run, json, yes)
-            }
-        },
+        Commands::Migrate { from, dry_run, yes } => {
+            commands::migrate::run(from.as_deref(), dry_run, json, yes)
+        }
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
         },

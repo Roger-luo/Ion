@@ -45,7 +45,7 @@ fn parse(s: &str) -> serde_json::Value {
 fn json_init_no_targets_structure() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::create_dir(dir.path().join(".claude")).unwrap();
-    let out = parse(&capture_json(&["--json", "project", "init"], dir.path()));
+    let out = parse(&capture_json(&["--json", "init"], dir.path()));
 
     assert_eq!(out["success"], false);
     assert_eq!(out["action_required"], "target_selection");
@@ -67,7 +67,7 @@ fn json_init_with_targets_structure() {
     let dir = tempfile::tempdir().unwrap();
     let out = parse(&capture_json(
         &[
-            "--json", "project", "init", "--target", "claude", "--target", "cursor",
+            "--json", "init", "--target", "claude", "--target", "cursor",
         ],
         dir.path(),
     ));

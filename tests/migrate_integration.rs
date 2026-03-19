@@ -53,7 +53,7 @@ fn migrate_from_lockfile_dry_run() {
 
     // Run dry-run migrate — should not write files
     let output = ion_cmd()
-        .args(["project", "migrate", "--dry-run"])
+        .args(["migrate", "--dry-run"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .output()
@@ -91,7 +91,7 @@ fn migrate_from_directory_scan_dry_run() {
     // Run dry-run migrate (no skills-lock.json, falls back to dir scan)
     // Pipe empty stdin so prompts for source get skipped
     let output = ion_cmd()
-        .args(["project", "migrate", "--dry-run"])
+        .args(["migrate", "--dry-run"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .output()
@@ -112,7 +112,7 @@ fn migrate_no_skills_found() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["project", "migrate", "--dry-run"])
+        .args(["migrate", "--dry-run"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -168,7 +168,7 @@ fn migrate_with_local_git_repo() {
 
     // Provide empty rev (just press Enter) via stdin
     let mut child = Command::new(env!("CARGO_BIN_EXE_ion"))
-        .args(["project", "migrate"])
+        .args(["migrate"])
         .current_dir(project.path())
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
@@ -245,7 +245,7 @@ fn migrate_with_yes_skips_prompts() {
 
     // --yes should skip all prompts (no stdin needed)
     let output = ion_cmd()
-        .args(["project", "migrate", "--yes"])
+        .args(["migrate", "--yes"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -312,7 +312,7 @@ fn migrate_json_dry_run() {
     std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
 
     let output = ion_cmd()
-        .args(["--json", "project", "migrate", "--dry-run", "--yes"])
+        .args(["--json", "migrate", "--dry-run", "--yes"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -375,7 +375,7 @@ fn migrate_json_full_run() {
     std::fs::write(project.path().join("skills-lock.json"), lock_json).unwrap();
 
     let output = ion_cmd()
-        .args(["--json", "project", "migrate", "--yes"])
+        .args(["--json", "migrate", "--yes"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -442,7 +442,7 @@ fn migrate_succeeds_despite_warnings() {
     // Migration should succeed even with validation warnings — the user is
     // migrating skills they already have installed, so warnings should not block.
     let output = ion_cmd()
-        .args(["project", "migrate", "--yes"])
+        .args(["migrate", "--yes"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -532,7 +532,7 @@ fn migrate_leftover_custom_skill() {
 
     // Run migration with --yes (auto-accept)
     let output = ion_cmd()
-        .args(["--json", "project", "migrate", "--yes"])
+        .args(["--json", "migrate", "--yes"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -570,8 +570,8 @@ fn migrate_leftover_custom_skill() {
 }
 
 #[test]
-fn help_shows_project_group() {
+fn help_shows_migrate_command() {
     let output = ion_cmd().args(["--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("project"));
+    assert!(stdout.contains("migrate"));
 }

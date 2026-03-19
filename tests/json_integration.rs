@@ -43,7 +43,7 @@ fn json_self_info() {
 fn json_init_without_targets_returns_action_required() {
     let dir = tempfile::tempdir().unwrap();
     let output = ion()
-        .args(["--json", "project", "init"])
+        .args(["--json", "init"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -59,7 +59,7 @@ fn json_init_without_targets_returns_action_required() {
 fn json_init_with_targets_succeeds() {
     let dir = tempfile::tempdir().unwrap();
     let output = ion()
-        .args(["--json", "project", "init", "--target", "claude"])
+        .args(["--json", "init", "--target", "claude"])
         .current_dir(dir.path())
         .output()
         .unwrap();

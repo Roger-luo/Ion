@@ -270,7 +270,7 @@ fn init_creates_manifest_with_target_flag() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude"])
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -293,12 +293,7 @@ fn init_with_custom_target_path() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args([
-            "project",
-            "init",
-            "--target",
-            "claude:.claude/commands/skills",
-        ])
+        .args(["init", "--target", "claude:.claude/commands/skills"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -318,7 +313,7 @@ fn init_preserves_existing_skills() {
     .unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude"])
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -342,7 +337,7 @@ fn init_errors_when_targets_exist_without_force() {
     .unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "cursor"])
+        .args(["init", "--target", "cursor"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -362,7 +357,7 @@ fn init_force_overwrites_existing_targets() {
     .unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "cursor", "--force"])
+        .args(["init", "--target", "cursor", "--force"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -380,7 +375,7 @@ fn init_with_target_flag_creates_targets() {
     // The TUI interactive mode requires a real terminal, so we use --target flags.
     // Detection and interactive selection are covered by unit tests in init_select.
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude"])
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -412,7 +407,7 @@ fn init_renames_legacy_lowercase_files() {
     std::fs::write(project.path().join("ion.lock"), "version = 1\n\n[skills]\n").unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude"])
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -445,7 +440,7 @@ fn init_errors_when_both_legacy_and_new_exist() {
     std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
 
     let output = ion_cmd()
-        .args(["project", "init", "--target", "claude"])
+        .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
@@ -697,7 +692,7 @@ fn link_shows_hint_when_no_targets_configured() {
         "failed: stdout={stdout}\nstderr={stderr}"
     );
     assert!(
-        stdout.contains("ion project init"),
-        "should show hint about ion project init when no targets configured. stdout: {stdout}"
+        stdout.contains("ion init"),
+        "should show hint about ion init when no targets configured. stdout: {stdout}"
     );
 }

@@ -84,7 +84,7 @@ fn select_targets_interactive(
     run_init_select(project_dir)
 }
 
-/// Print a hint if no targets are configured, suggesting `ion project init`.
+/// Print a hint if no targets are configured, suggesting `ion init`.
 pub fn print_no_targets_hint(
     merged_options: &ion_skill::manifest::ManifestOptions,
     p: &crate::style::Paint,
@@ -101,7 +101,7 @@ pub fn print_no_targets_hint(
         );
         println!(
             "        To also install to .claude/skills/ or other tools, run: {}",
-            p.bold("ion project init")
+            p.bold("ion init")
         );
     }
 }
