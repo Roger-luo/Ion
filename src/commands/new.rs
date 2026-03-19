@@ -297,18 +297,57 @@ fn resolve_skills_dir(project_dir: &Path, dir_flag: Option<&str>) -> String {
     dir_flag.unwrap_or(DEFAULT_SKILLS_DIR).to_string()
 }
 
+/// Scaffold a binary skill project via `ion init --bin [path]`.
+pub fn run_bin(path: Option<&str>, force: bool, json: bool) -> anyhow::Result<()> {
+    let target_dir = match path {
+        Some(p) => {
+            let dir = resolve_path(p)?;
+            if !dir.exists() {
+                std::fs::create_dir_all(&dir)?;
+            }
+            dir
+        }
+        None => std::env::current_dir()?,
+    };
+
+    let dir_name = target_dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("my-skill");
+    let name = {
+        let s = slugify(dir_name);
+        if s.is_empty() {
+            "my-skill".to_string()
+        } else {
+            s
+        }
+    };
+
+    scaffold_bin_project(&target_dir, &name)?;
+    write_skill_md(&target_dir, &name, true, force)?;
+
+    if json {
+        crate::json::print_success(serde_json::json!({
+            "name": name,
+            "path": target_dir.display().to_string(),
+            "binary": true,
+        }));
+        return Ok(());
+    }
+
+    println!("Created binary skill project in {}", target_dir.display());
+    println!("  cargo build              -- compile the binary");
+    println!("  cargo run -- self skill  -- test the skill subcommand");
+    Ok(())
+}
+
 pub fn run(
     path: Option<&str>,
     dir: Option<&str>,
-    bin: bool,
     collection: bool,
     force: bool,
     json: bool,
 ) -> anyhow::Result<()> {
-    if collection && bin {
-        anyhow::bail!("Cannot combine --collection with --bin");
-    }
-
     // When --path is provided, use the original explicit-directory flow (no Ion.toml tracking).
     if let Some(p) = path {
         let target_dir = resolve_path(p)?;
@@ -320,7 +359,7 @@ pub fn run(
             return run_collection(&target_dir, force, json);
         }
 
-        return run_explicit_path(&target_dir, bin, force, json);
+        return run_explicit_path(&target_dir, force, json);
     }
 
     // Local skill flow: no --path provided.
@@ -334,7 +373,7 @@ pub fn run(
         if collection {
             return run_collection(&cwd, force, json);
         }
-        return run_explicit_path(&cwd, bin, force, json);
+        return run_explicit_path(&cwd, force, json);
     }
 
     if collection {
@@ -369,25 +408,14 @@ pub fn run(
     }
     std::fs::create_dir_all(&skill_dir)?;
 
-    // Scaffold binary project if --bin is set.
-    if bin {
-        scaffold_bin_project(&skill_dir, &name)?;
-    }
-
     // Write SKILL.md.
-    write_skill_md(&skill_dir, &name, bin, force)?;
+    write_skill_md(&skill_dir, &name, false, force)?;
 
     // Register the skill in Ion.toml as a local skill.
     let source = SkillSource::local();
     manifest_writer::add_skill(&manifest_path, &name, &source)?;
 
-    if bin {
-        println!("Created local binary skill in {}", skill_dir.display());
-        println!("  cargo build    -- compile the binary");
-        println!("  cargo run -- self skill  -- test the skill subcommand");
-    } else {
-        println!("Created local skill in {}", skill_dir.display());
-    }
+    println!("Created local skill in {}", skill_dir.display());
     println!("Registered '{}' in Ion.toml as local skill", name);
 
     Ok(())
@@ -402,8 +430,8 @@ fn resolve_path(p: &str) -> anyhow::Result<PathBuf> {
     }
 }
 
-/// Create a skill in an explicit target directory (the --path flow). No Ion.toml tracking.
-fn run_explicit_path(target_dir: &Path, bin: bool, force: bool, json: bool) -> anyhow::Result<()> {
+/// Create a text skill in an explicit target directory (the --path flow). No Ion.toml tracking.
+fn run_explicit_path(target_dir: &Path, force: bool, json: bool) -> anyhow::Result<()> {
     let dir_name = target_dir
         .file_name()
         .and_then(|n| n.to_str())
@@ -417,32 +445,12 @@ fn run_explicit_path(target_dir: &Path, bin: bool, force: bool, json: bool) -> a
         }
     };
 
-    if bin {
-        scaffold_bin_project(target_dir, &name)?;
-        write_skill_md(target_dir, &name, true, force)?;
-
-        if json {
-            crate::json::print_success(serde_json::json!({
-                "name": name,
-                "path": target_dir.display().to_string(),
-                "binary": true,
-            }));
-            return Ok(());
-        }
-
-        println!("Created binary skill project in {}", target_dir.display());
-        println!("  cargo build    -- compile the binary");
-        println!("  cargo run -- self skill  -- test the skill subcommand");
-        return Ok(());
-    }
-
     write_skill_md(target_dir, &name, false, force)?;
 
     if json {
         crate::json::print_success(serde_json::json!({
             "name": name,
             "path": target_dir.display().to_string(),
-            "binary": false,
         }));
         return Ok(());
     }

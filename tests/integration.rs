@@ -211,16 +211,18 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
 fn help_shows_all_commands() {
     let output = ion_cmd().args(["--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("init"));
     assert!(stdout.contains("add"));
     assert!(stdout.contains("remove"));
     assert!(stdout.contains("search"));
     assert!(stdout.contains("update"));
     assert!(stdout.contains("run"));
     assert!(stdout.contains("skill"));
-    assert!(stdout.contains("project"));
     assert!(stdout.contains("cache"));
     assert!(stdout.contains("config"));
     assert!(stdout.contains("self"));
+    // `project` subcommand is hidden (backward compat alias),
+    // but the word "project" appears in other command descriptions.
 }
 
 #[test]

@@ -100,13 +100,13 @@ fn new_force_overwrites_existing_skill_md() {
 }
 
 #[test]
-fn new_bin_creates_cargo_project_and_skill_md() {
+fn init_bin_creates_cargo_project_and_skill_md() {
     let base = tempfile::tempdir().unwrap();
     let target = base.path().join("my-bin-skill");
     std::fs::create_dir(&target).unwrap();
 
     let output = ion_cmd()
-        .args(["skill", "new", "--bin", "--path", target.to_str().unwrap()])
+        .args(["init", "--bin", target.to_str().unwrap()])
         .output()
         .unwrap();
 
@@ -167,6 +167,28 @@ fn new_bin_creates_cargo_project_and_skill_md() {
         target.join("build.rs").exists(),
         "build.rs should exist for TARGET env var"
     );
+}
+
+#[test]
+fn init_bin_in_current_dir() {
+    let base = tempfile::tempdir().unwrap();
+    let dir = base.path().join("my-tool");
+    std::fs::create_dir(&dir).unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--bin"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "stdout={stdout}\nstderr={stderr}");
+
+    assert!(dir.join("SKILL.md").exists());
+    assert!(dir.join("Cargo.toml").exists());
+    assert!(dir.join("src/main.rs").exists());
+    assert!(dir.join("build.rs").exists());
 }
 
 #[test]
@@ -264,17 +286,3 @@ fn new_collection_force_overwrites_readme() {
     assert!(!content.contains("old readme"));
 }
 
-#[test]
-fn new_collection_and_bin_errors() {
-    let dir = tempfile::tempdir().unwrap();
-
-    let output = ion_cmd()
-        .args(["skill", "new", "--collection", "--bin"])
-        .current_dir(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Cannot combine"));
-}

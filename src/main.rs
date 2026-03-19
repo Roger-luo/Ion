@@ -20,6 +20,20 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Initialize a project or scaffold a binary skill
+    Init {
+        /// Path for binary skill project (default: current directory)
+        path: Option<String>,
+        /// Scaffold a binary skill CLI project with ionem
+        #[arg(long)]
+        bin: bool,
+        /// Configure specific targets (e.g. claude, cursor, or name:path)
+        #[arg(long, short = 't')]
+        target: Vec<String>,
+        /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
     /// Add skills to the project, or install all from Ion.toml
     Add {
         /// Skill source (e.g., owner/repo/skill or git URL). Omit to install all from Ion.toml.
@@ -81,6 +95,7 @@ enum Commands {
         action: SkillCommands,
     },
     /// Project setup and migration
+    #[command(hide = true)]
     Project {
         #[command(subcommand)]
         action: ProjectCommands,
@@ -125,9 +140,6 @@ enum SkillCommands {
         /// Set the project skills directory (persisted to Ion.toml)
         #[arg(long)]
         dir: Option<String>,
-        /// Also run `cargo init --bin` to scaffold a Rust CLI project
-        #[arg(long)]
-        bin: bool,
         /// Create a multi-skill collection with a skills/ directory
         #[arg(long)]
         collection: bool,
@@ -230,6 +242,18 @@ fn main() {
     );
 
     let result = match cli.command {
+        Commands::Init {
+            path,
+            bin,
+            target,
+            force,
+        } => {
+            if bin {
+                commands::new::run_bin(path.as_deref(), force, json)
+            } else {
+                commands::init::run(&target, force, json)
+            }
+        }
         Commands::Add {
             source,
             rev,
@@ -268,17 +292,9 @@ fn main() {
             SkillCommands::New {
                 path,
                 dir,
-                bin,
                 collection,
                 force,
-            } => commands::new::run(
-                path.as_deref(),
-                dir.as_deref(),
-                bin,
-                collection,
-                force,
-                json,
-            ),
+            } => commands::new::run(path.as_deref(), dir.as_deref(), collection, force, json),
             SkillCommands::Validate { path } => commands::validate::run(path.as_deref(), json),
             SkillCommands::Info { skill } => commands::info::run(&skill, json),
             SkillCommands::List => commands::list::run(json),
