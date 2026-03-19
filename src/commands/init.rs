@@ -11,6 +11,14 @@ const KNOWN_TARGETS: &[(&str, &str, &str)] = &[
     ("windsurf", ".windsurf", ".windsurf/skills"),
 ];
 
+/// Print a hint when the user tries to configure a target for Codex.
+fn print_codex_hint(p: &crate::style::Paint) {
+    println!(
+        "  {}: Codex uses the default .agents/ directory — no extra target configuration needed.",
+        p.warn("hint")
+    );
+}
+
 /// Parse a --target flag value. Accepts "name" (uses lookup) or "name:path".
 fn parse_target_flag(flag: &str) -> anyhow::Result<(String, String)> {
     if let Some((name, path)) = flag.split_once(':') {
@@ -18,6 +26,10 @@ fn parse_target_flag(flag: &str) -> anyhow::Result<(String, String)> {
             anyhow::bail!("Target paths must be relative to the project directory: {path}");
         }
         Ok((name.to_string(), path.to_string()))
+    } else if flag.eq_ignore_ascii_case("codex") {
+        anyhow::bail!(
+            "Codex uses the default .agents/ directory — no extra target configuration needed."
+        )
     } else {
         let known = KNOWN_TARGETS.iter().find(|(n, _, _)| *n == flag);
         match known {
@@ -168,6 +180,11 @@ pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
         }
     }
 
+    // Show hint if any resolved target looks like codex
+    if resolved.keys().any(|k| k.eq_ignore_ascii_case("codex")) {
+        print_codex_hint(&p);
+    }
+
     Ok(())
 }
 
@@ -197,5 +214,27 @@ mod tests {
     #[test]
     fn parse_absolute_path_is_error() {
         assert!(parse_target_flag("foo:/absolute/path").is_err());
+    }
+
+    #[test]
+    fn parse_codex_target_shows_hint() {
+        let err = parse_target_flag("codex").unwrap_err();
+        assert!(
+            err.to_string().contains(".agents/"),
+            "should mention .agents/"
+        );
+    }
+
+    #[test]
+    fn parse_codex_case_insensitive() {
+        assert!(parse_target_flag("Codex").is_err());
+        assert!(parse_target_flag("CODEX").is_err());
+    }
+
+    #[test]
+    fn parse_codex_with_custom_path_still_works() {
+        let (name, path) = parse_target_flag("codex:custom/path").unwrap();
+        assert_eq!(name, "codex");
+        assert_eq!(path, "custom/path");
     }
 }
