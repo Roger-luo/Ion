@@ -130,11 +130,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             }
         }
         for (name, _) in &errored {
-            println!(
-                "  {} {} — validation errors, will be skipped",
-                "✗",
-                p.bold(name)
-            );
+            println!("  ✗ {} — validation errors, will be skipped", p.bold(name));
         }
         println!();
     }

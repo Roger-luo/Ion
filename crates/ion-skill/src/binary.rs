@@ -433,10 +433,10 @@ pub fn list_installed_binaries() -> crate::Result<Vec<String>> {
     {
         let entry =
             entry.map_err(|e| crate::Error::Other(format!("Failed to read entry: {}", e)))?;
-        if entry.path().is_dir() {
-            if let Some(name) = entry.file_name().to_str() {
-                names.push(name.to_string());
-            }
+        if entry.path().is_dir()
+            && let Some(name) = entry.file_name().to_str()
+        {
+            names.push(name.to_string());
         }
     }
     names.sort();

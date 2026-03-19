@@ -144,10 +144,11 @@ impl SkillSource {
         let segments: Vec<&str> = source.split('/').collect();
         match segments.len() {
             2 => Ok(Self::new(SourceType::Github, source)),
-            3.. => Ok(
-                Self::new(SourceType::Github, format!("{}/{}", segments[0], segments[1]))
-                    .with_path(segments[2..].join("/")),
-            ),
+            3.. => Ok(Self::new(
+                SourceType::Github,
+                format!("{}/{}", segments[0], segments[1]),
+            )
+            .with_path(segments[2..].join("/"))),
             _ => Err(Error::Source(format!(
                 "Cannot infer source type from: {source}"
             ))),
@@ -272,8 +273,7 @@ mod tests {
 
     #[test]
     fn test_binary_source_type_serializes() {
-        let source = SkillSource::new(SourceType::Binary, "owner/mytool")
-            .with_binary("mytool");
+        let source = SkillSource::new(SourceType::Binary, "owner/mytool").with_binary("mytool");
         assert_eq!(source.source_type, SourceType::Binary);
         assert_eq!(source.binary.as_deref(), Some("mytool"));
     }
@@ -282,25 +282,37 @@ mod tests {
     fn http_skill_url_appends_skill_md() {
         let s = SkillSource::infer("https://www.mintlify.com/docs").unwrap();
         assert_eq!(s.source_type, SourceType::Http);
-        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+        assert_eq!(
+            s.http_skill_url().unwrap(),
+            "https://www.mintlify.com/docs/skill.md"
+        );
     }
 
     #[test]
     fn http_skill_url_preserves_existing_skill_md() {
         let s = SkillSource::infer("https://www.mintlify.com/docs/skill.md").unwrap();
-        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+        assert_eq!(
+            s.http_skill_url().unwrap(),
+            "https://www.mintlify.com/docs/skill.md"
+        );
     }
 
     #[test]
     fn http_skill_url_case_insensitive() {
         let s = SkillSource::infer("https://example.com/skills/SKILL.md").unwrap();
-        assert_eq!(s.http_skill_url().unwrap(), "https://example.com/skills/SKILL.md");
+        assert_eq!(
+            s.http_skill_url().unwrap(),
+            "https://example.com/skills/SKILL.md"
+        );
     }
 
     #[test]
     fn http_skill_url_strips_trailing_slash() {
         let s = SkillSource::infer("https://www.mintlify.com/docs/").unwrap();
-        assert_eq!(s.http_skill_url().unwrap(), "https://www.mintlify.com/docs/skill.md");
+        assert_eq!(
+            s.http_skill_url().unwrap(),
+            "https://www.mintlify.com/docs/skill.md"
+        );
     }
 
     #[test]

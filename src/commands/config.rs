@@ -32,7 +32,7 @@ pub enum ConfigAction {
 
 pub fn run(action: Option<ConfigAction>, json: bool) -> anyhow::Result<()> {
     match action {
-        None if json => return run_list(false, json),
+        None if json => run_list(false, json),
         None => run_interactive(),
         Some(ConfigAction::Get { key, project }) => run_get(&key, project, json),
         Some(ConfigAction::Set {
@@ -90,17 +90,16 @@ fn run_set(key: &str, value: &str, project: bool, json: bool) -> anyhow::Result<
     }
 
     // Show hint when configuring a codex target
-    if !json {
-        if let Some(target_name) = key.strip_prefix("targets.") {
-            if target_name.eq_ignore_ascii_case("codex") {
-                let config = GlobalConfig::load().unwrap_or_default();
-                let p = crate::style::Paint::new(&config);
-                println!(
-                    "  {}: Codex uses the default .agents/ directory — no extra target configuration needed.",
-                    p.warn("hint")
-                );
-            }
-        }
+    if !json
+        && let Some(target_name) = key.strip_prefix("targets.")
+        && target_name.eq_ignore_ascii_case("codex")
+    {
+        let config = GlobalConfig::load().unwrap_or_default();
+        let p = crate::style::Paint::new(&config);
+        println!(
+            "  {}: Codex uses the default .agents/ directory — no extra target configuration needed.",
+            p.warn("hint")
+        );
     }
     Ok(())
 }

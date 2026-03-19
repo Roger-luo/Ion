@@ -291,10 +291,10 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
 /// uses the `--dir` argument, falling back to the default `.agents`.
 fn resolve_skills_dir(project_dir: &Path, dir_flag: Option<&str>) -> String {
     let manifest_path = project_dir.join("Ion.toml");
-    if let Ok(manifest) = Manifest::from_file(&manifest_path) {
-        if let Some(existing) = manifest.options.skills_dir {
-            return existing;
-        }
+    if let Ok(manifest) = Manifest::from_file(&manifest_path)
+        && let Some(existing) = manifest.options.skills_dir
+    {
+        return existing;
     }
     dir_flag.unwrap_or(DEFAULT_SKILLS_DIR).to_string()
 }

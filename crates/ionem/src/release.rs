@@ -125,10 +125,7 @@ pub fn fetch_github_release(repo: &str, tag: Option<&str>) -> Result<GitHubRelea
 ///
 /// Useful when a repo has multiple crates releasing independently
 /// (e.g. `ion-v*` vs `ion-skill-v*`).
-pub fn fetch_latest_release_by_tag_prefix(
-    repo: &str,
-    prefix: &str,
-) -> Result<GitHubRelease> {
+pub fn fetch_latest_release_by_tag_prefix(repo: &str, prefix: &str) -> Result<GitHubRelease> {
     let url = format!("https://api.github.com/repos/{}/releases?per_page=10", repo);
     let client = reqwest::blocking::Client::new();
     let resp = client
@@ -149,9 +146,7 @@ pub fn fetch_latest_release_by_tag_prefix(
     releases
         .into_iter()
         .find(|r| r.tag_name.starts_with(prefix) && !r.assets.is_empty())
-        .ok_or_else(|| {
-            Error::Other(format!("No release found with tag prefix '{}'", prefix))
-        })
+        .ok_or_else(|| Error::Other(format!("No release found with tag prefix '{}'", prefix)))
 }
 
 pub fn parse_version_from_tag(tag: &str) -> &str {
@@ -172,10 +167,7 @@ pub fn download_file(url: &str, dest: &Path) -> Result<()> {
         .send()
         .map_err(|e| Error::Http(format!("Download failed: {}", e)))?;
     if !resp.status().is_success() {
-        return Err(Error::Http(format!(
-            "Download returned {}",
-            resp.status()
-        )));
+        return Err(Error::Http(format!("Download returned {}", resp.status())));
     }
     let bytes = resp
         .bytes()
@@ -198,8 +190,7 @@ pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> Result<Vec<PathBu
         .entries()
         .map_err(|e| Error::Other(format!("Failed to read archive: {}", e)))?
     {
-        let mut entry =
-            entry.map_err(|e| Error::Other(format!("Bad archive entry: {}", e)))?;
+        let mut entry = entry.map_err(|e| Error::Other(format!("Bad archive entry: {}", e)))?;
         let path = entry
             .path()
             .map_err(|e| Error::Other(format!("Bad path: {}", e)))?

@@ -316,8 +316,7 @@ mod tests {
         let path = dir.path().join("Ion.toml");
         std::fs::write(&path, "[skills]\n").unwrap();
 
-        let source = SkillSource::local()
-            .with_forked_from("org/original-skill");
+        let source = SkillSource::local().with_forked_from("org/original-skill");
 
         let result = add_skill(&path, "my-forked-skill", &source).unwrap();
         assert!(result.contains("type = \"local\""));

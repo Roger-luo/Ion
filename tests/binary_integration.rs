@@ -100,11 +100,9 @@ fn test_manifest_writer_binary_skill() {
     let path = dir.path().join("Ion.toml");
     fs::write(&path, "[skills]\n").unwrap();
 
-    let source = ion_skill::source::SkillSource::new(
-        ion_skill::source::SourceType::Binary,
-        "owner/mytool",
-    )
-    .with_binary("mytool");
+    let source =
+        ion_skill::source::SkillSource::new(ion_skill::source::SourceType::Binary, "owner/mytool")
+            .with_binary("mytool");
 
     ion_skill::manifest_writer::add_skill(&path, "mytool", &source).unwrap();
 
@@ -267,7 +265,7 @@ fn asset_pattern_matching() {
     assert_eq!(expanded, expected);
 
     // Verify the expanded name would match an asset list
-    let assets = vec![
+    let assets = [
         expected.clone(),
         "mytool-1.0.0-other-other.tar.gz".to_string(),
     ];

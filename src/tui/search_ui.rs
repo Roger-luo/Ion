@@ -162,7 +162,15 @@ fn render_detail(frame: &mut Frame, app: &SearchApp, area: Rect) {
             description,
             skill_count,
             registry,
-        } => render_repo_detail(frame, inner, owner_repo, *stars, description, *skill_count, registry),
+        } => render_repo_detail(
+            frame,
+            inner,
+            owner_repo,
+            *stars,
+            description,
+            *skill_count,
+            registry,
+        ),
     }
 }
 

@@ -318,7 +318,11 @@ fn repo_has_skill_md(repo: &str) -> bool {
 }
 
 /// Select up to `limit` results while ensuring repo diversity.
-fn select_with_diversity(mut results: Vec<SearchResult>, limit: usize, query: &str) -> Vec<SearchResult> {
+fn select_with_diversity(
+    mut results: Vec<SearchResult>,
+    limit: usize,
+    query: &str,
+) -> Vec<SearchResult> {
     const MIN_REPOS: usize = 5;
 
     if results.len() <= limit {

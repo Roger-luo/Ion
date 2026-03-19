@@ -68,16 +68,16 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
             "compatibility": meta.compatibility,
             "version": meta.version(),
         });
-        if let Some(locked) = locked {
-            if let Some(ref binary_name) = locked.binary {
-                data["binary"] = serde_json::json!(binary_name);
-                data["binary_version"] = serde_json::json!(locked.binary_version);
-                let bin_path = binary::binary_path(
-                    binary_name,
-                    locked.binary_version.as_deref().unwrap_or("unknown"),
-                );
-                data["binary_path"] = serde_json::json!(bin_path.display().to_string());
-            }
+        if let Some(locked) = locked
+            && let Some(ref binary_name) = locked.binary
+        {
+            data["binary"] = serde_json::json!(binary_name);
+            data["binary_version"] = serde_json::json!(locked.binary_version);
+            let bin_path = binary::binary_path(
+                binary_name,
+                locked.binary_version.as_deref().unwrap_or("unknown"),
+            );
+            data["binary_path"] = serde_json::json!(bin_path.display().to_string());
         }
         if let Some(ref metadata) = meta.metadata {
             let extra: serde_json::Map<String, serde_json::Value> = metadata
@@ -107,21 +107,21 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
 
     // Binary-specific info
     let lockfile = ctx.lockfile()?;
-    if let Some(locked) = lockfile.find(name) {
-        if let Some(ref binary_name) = locked.binary {
-            println!("Binary: {binary_name}");
-            if let Some(ref binary_version) = locked.binary_version {
-                println!("Binary version: {binary_version}");
-                let bin_path = binary::binary_path(binary_name, binary_version);
-                println!("Binary path: {}", bin_path.display());
-                if bin_path.exists() {
-                    if let Ok(metadata) = std::fs::metadata(&bin_path) {
-                        println!("Binary size: {}", format_size(metadata.len()));
-                    }
-                }
+    if let Some(locked) = lockfile.find(name)
+        && let Some(ref binary_name) = locked.binary
+    {
+        println!("Binary: {binary_name}");
+        if let Some(ref binary_version) = locked.binary_version {
+            println!("Binary version: {binary_version}");
+            let bin_path = binary::binary_path(binary_name, binary_version);
+            println!("Binary path: {}", bin_path.display());
+            if bin_path.exists()
+                && let Ok(metadata) = std::fs::metadata(&bin_path)
+            {
+                println!("Binary size: {}", format_size(metadata.len()));
             }
-            println!("Run with: ion run {} [args]", name);
         }
+        println!("Run with: ion run {} [args]", name);
     }
 
     // Other metadata

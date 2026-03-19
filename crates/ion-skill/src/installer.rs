@@ -376,11 +376,13 @@ fn fetch_http_skill(source: &SkillSource) -> Result<PathBuf> {
     let skill_name = source.display_name();
     let skill_dir = data_dir().join(&url_hash).join(&skill_name);
 
-    log::debug!("fetching HTTP skill from {url} into {}", skill_dir.display());
+    log::debug!(
+        "fetching HTTP skill from {url} into {}",
+        skill_dir.display()
+    );
 
-    let response = reqwest::blocking::get(&url).map_err(|e| {
-        Error::Http(format!("Failed to fetch {url}: {e}"))
-    })?;
+    let response = reqwest::blocking::get(&url)
+        .map_err(|e| Error::Http(format!("Failed to fetch {url}: {e}")))?;
 
     if !response.status().is_success() {
         return Err(Error::Http(format!(
@@ -389,9 +391,9 @@ fn fetch_http_skill(source: &SkillSource) -> Result<PathBuf> {
         )));
     }
 
-    let body = response.text().map_err(|e| {
-        Error::Http(format!("Failed to read response from {url}: {e}"))
-    })?;
+    let body = response
+        .text()
+        .map_err(|e| Error::Http(format!("Failed to read response from {url}: {e}")))?;
 
     std::fs::create_dir_all(&skill_dir).map_err(Error::Io)?;
     std::fs::write(skill_dir.join("SKILL.md"), &body).map_err(Error::Io)?;

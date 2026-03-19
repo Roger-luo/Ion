@@ -131,9 +131,7 @@ fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> 
         text_score = 100.0;
     }
     // Match in description only
-    else if desc_lower.contains(query)
-        || query_words.iter().all(|w| desc_lower.contains(w))
-    {
+    else if desc_lower.contains(query) || query_words.iter().all(|w| desc_lower.contains(w)) {
         text_score = 50.0;
     }
 
@@ -301,7 +299,11 @@ pub fn parallel_search(
         // Use owner_repo + leaf skill name as the dedup key.
         let repo = owner_repo_of(&r.source);
         let leaf = skill_dir_name(&r.source);
-        let key = if leaf == r.source { r.source.clone() } else { format!("{repo}/{leaf}") };
+        let key = if leaf == r.source {
+            r.source.clone()
+        } else {
+            format!("{repo}/{leaf}")
+        };
         seen_sources.insert(key)
     });
 
@@ -570,36 +572,62 @@ mod tests {
     fn relevance_exact_match_beats_high_stars() {
         let mut results = vec![
             {
-                let mut r = SearchResult::new("write-concept", "Writing tool", "someone/write-concept", "github");
+                let mut r = SearchResult::new(
+                    "write-concept",
+                    "Writing tool",
+                    "someone/write-concept",
+                    "github",
+                );
                 r.stars = Some(5000);
                 r
             },
             {
-                let mut r = SearchResult::new("mintlify/docs", "Mintlify docs skill", "mintlify/docs", "github");
+                let mut r = SearchResult::new(
+                    "mintlify/docs",
+                    "Mintlify docs skill",
+                    "mintlify/docs",
+                    "github",
+                );
                 r.stars = Some(10);
                 r
             },
         ];
         SearchResult::sort_by_relevance(&mut results, "mintlify");
-        assert_eq!(results[0].source, "mintlify/docs", "exact segment match should rank first");
+        assert_eq!(
+            results[0].source, "mintlify/docs",
+            "exact segment match should rank first"
+        );
     }
 
     #[test]
     fn relevance_prefix_match_beats_description_match() {
         let mut results = vec![
             {
-                let mut r = SearchResult::new("other-tool", "A mintlify integration", "someone/other-tool", "github");
+                let mut r = SearchResult::new(
+                    "other-tool",
+                    "A mintlify integration",
+                    "someone/other-tool",
+                    "github",
+                );
                 r.stars = Some(100);
                 r
             },
             {
-                let mut r = SearchResult::new("mint-skills", "Skills collection", "user/mint-skills", "github");
+                let mut r = SearchResult::new(
+                    "mint-skills",
+                    "Skills collection",
+                    "user/mint-skills",
+                    "github",
+                );
                 r.stars = Some(5);
                 r
             },
         ];
         SearchResult::sort_by_relevance(&mut results, "mint");
-        assert_eq!(results[0].source, "user/mint-skills", "prefix match should rank higher than description match");
+        assert_eq!(
+            results[0].source, "user/mint-skills",
+            "prefix match should rank higher than description match"
+        );
     }
 
     #[test]
@@ -618,7 +646,10 @@ mod tests {
         ];
         // Neither matches "xyz" well, so stars should decide
         SearchResult::sort_by_relevance(&mut results, "xyz");
-        assert_eq!(results[0].source, "org/b", "higher stars should win when text relevance is equal");
+        assert_eq!(
+            results[0].source, "org/b",
+            "higher stars should win when text relevance is equal"
+        );
     }
 
     #[test]

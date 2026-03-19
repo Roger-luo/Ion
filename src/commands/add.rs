@@ -259,8 +259,7 @@ fn install_collection(
     }
     for (name, report) in &errored {
         println!(
-            "  {} {} — {} error(s), will be skipped",
-            "✗",
+            "  ✗ {} — {} error(s), will be skipped",
             p.bold(name),
             report.error_count
         );
@@ -571,4 +570,3 @@ fn prompt_github_star(source: &SkillSource) {
     starred.push(repo.to_string());
     save_starred_repos(&starred);
 }
-

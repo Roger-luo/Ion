@@ -15,7 +15,13 @@ const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
 
 fn manager() -> SelfManager {
-    SelfManager::new(REPO, "ion", TAG_PREFIX, env!("CARGO_PKG_VERSION"), env!("TARGET"))
+    SelfManager::new(
+        REPO,
+        "ion",
+        TAG_PREFIX,
+        env!("CARGO_PKG_VERSION"),
+        env!("TARGET"),
+    )
 }
 
 /// Detect whether the binary was installed by an external package manager.
@@ -29,10 +35,10 @@ fn detect_package_manager() -> Option<&'static str> {
         if exe.starts_with(cargo_home) {
             return Some("cargo");
         }
-    } else if let Some(home) = dirs::home_dir() {
-        if exe.starts_with(home.join(".cargo/bin")) {
-            return Some("cargo");
-        }
+    } else if let Some(home) = dirs::home_dir()
+        && exe.starts_with(home.join(".cargo/bin"))
+    {
+        return Some("cargo");
     }
 
     // Homebrew on macOS — /opt/homebrew/bin/ or /usr/local/Cellar/
@@ -88,7 +94,10 @@ pub fn check(json: bool) -> anyhow::Result<()> {
             Some("brew") => "brew upgrade ion",
             _ => "ion self update",
         };
-        println!("\nUpdate available: {} -> {}", result.installed, result.latest);
+        println!(
+            "\nUpdate available: {} -> {}",
+            result.installed, result.latest
+        );
         println!("Run `{command}` to install it.");
     }
     Ok(())

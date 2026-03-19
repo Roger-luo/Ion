@@ -150,7 +150,7 @@ fn render_select(
 fn run_select_loop(
     stdout: &mut io::Stdout,
     skills: &[(String, usize)],
-    selected: &mut Vec<bool>,
+    selected: &mut [bool],
     cursor_pos: &mut usize,
 ) -> anyhow::Result<bool> {
     let total_lines = skills.len() + 1; // header + items

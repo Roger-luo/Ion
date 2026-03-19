@@ -2,6 +2,9 @@ use std::collections::HashSet;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
+use crate::commands::install_shared::register_in_registry;
+use crate::context::ProjectContext;
+use crate::style::Paint;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::migrate::{
@@ -9,9 +12,6 @@ use ion_skill::migrate::{
     discover_from_lockfile, discover_leftover_skills, move_skill_to_local,
 };
 use ion_skill::search::{SearchCache, SearchSource};
-use crate::commands::install_shared::register_in_registry;
-use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;

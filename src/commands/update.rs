@@ -1,9 +1,9 @@
 use ion_skill::installer::SkillInstaller;
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::source::SourceType;
+use ion_skill::update::Updater;
 use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
-use ion_skill::update::Updater;
 
 use crate::context::ProjectContext;
 use crate::style::Paint;

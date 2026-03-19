@@ -47,19 +47,14 @@ impl SkillEntry {
             } => {
                 let mut resolved = match source_type {
                     Some(SourceType::Local) => {
-                        let mut s = SkillSource::new(
-                            SourceType::Local,
-                            source.clone().unwrap_or_default(),
-                        );
+                        let mut s =
+                            SkillSource::new(SourceType::Local, source.clone().unwrap_or_default());
                         s.path = path.clone();
                         s
                     }
                     Some(st) => {
                         let src = source.as_deref().ok_or_else(|| {
-                            Error::Manifest(format!(
-                                "source is required for type {:?}",
-                                st
-                            ))
+                            Error::Manifest(format!("source is required for type {:?}", st))
                         })?;
                         let mut s = SkillSource::new(st.clone(), src);
                         s.path = path.clone();

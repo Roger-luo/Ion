@@ -122,8 +122,7 @@ impl SelfManager {
 
     /// Check whether a newer version is available on GitHub Releases.
     pub fn check(&self) -> Result<CheckResult> {
-        let rel =
-            release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?;
+        let rel = release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?;
         let latest = release::parse_version_from_tag(&rel.tag_name).to_string();
         let update_available = is_newer_version(&self.current_version, &latest);
 
@@ -145,10 +144,7 @@ impl SelfManager {
                 "\nUpdate available: {} -> {}",
                 result.installed, result.latest
             );
-            println!(
-                "Run `{} self update` to install it.",
-                self.binary_name
-            );
+            println!("Run `{} self update` to install it.", self.binary_name);
         } else {
             println!("\nAlready up to date.");
         }
@@ -166,9 +162,7 @@ impl SelfManager {
                 let tag = format!("{}{}", self.tag_prefix, ver);
                 release::fetch_github_release(&self.repo, Some(&tag))?
             }
-            None => {
-                release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?
-            }
+            None => release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?,
         };
         let latest = release::parse_version_from_tag(&rel.tag_name).to_string();
 
@@ -184,16 +178,15 @@ impl SelfManager {
         let platform = release::Platform::detect();
         let asset_names: Vec<String> = rel.assets.iter().map(|a| a.name.clone()).collect();
 
-        let asset_name =
-            platform
-                .match_asset(&self.binary_name, &asset_names)
-                .ok_or_else(|| {
-                    Error::Other(format!(
-                        "No prebuilt binary found for {}. Available assets: {}",
-                        platform.target_triple(),
-                        asset_names.join(", ")
-                    ))
-                })?;
+        let asset_name = platform
+            .match_asset(&self.binary_name, &asset_names)
+            .ok_or_else(|| {
+                Error::Other(format!(
+                    "No prebuilt binary found for {}. Available assets: {}",
+                    platform.target_triple(),
+                    asset_names.join(", ")
+                ))
+            })?;
 
         let asset = rel
             .assets
@@ -241,8 +234,7 @@ impl SelfManager {
 ///
 /// Uses a backup-copy-cleanup strategy for atomic replacement.
 pub fn replace_exe(new_binary: &std::path::Path) -> Result<PathBuf> {
-    let current_exe = std::env::current_exe()?
-        .canonicalize()?;
+    let current_exe = std::env::current_exe()?.canonicalize()?;
     let backup = current_exe.with_extension("old");
 
     // Move current executable to backup
@@ -263,10 +255,7 @@ pub fn replace_exe(new_binary: &std::path::Path) -> Result<PathBuf> {
     if let Err(e) = std::fs::copy(new_binary, &current_exe) {
         // Restore backup on failure
         let _ = std::fs::rename(&backup, &current_exe);
-        return Err(Error::Other(format!(
-            "Failed to install new binary: {}",
-            e
-        )));
+        return Err(Error::Other(format!("Failed to install new binary: {}", e)));
     }
 
     // Set executable permissions on unix
@@ -314,7 +303,8 @@ mod tests {
 
     #[test]
     fn test_self_manager_info() {
-        let manager = SelfManager::new("owner/repo", "mytool", "v", "1.0.0", "aarch64-apple-darwin");
+        let manager =
+            SelfManager::new("owner/repo", "mytool", "v", "1.0.0", "aarch64-apple-darwin");
         let info = manager.info();
         assert_eq!(info.version, "1.0.0");
         assert_eq!(info.target, "aarch64-apple-darwin");
