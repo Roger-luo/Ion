@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ionlib = { path = "../ionlib" }
+ionem = { path = "../ionem" }
 dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

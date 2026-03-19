@@ -1,41 +1,41 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// Re-export types from ionlib for backward compatibility.
+// Re-export types from ionem for backward compatibility.
 // Callers that import `ion_skill::binary::Platform` etc. continue to work.
-pub use ionlib::release::{
-    GitHubAsset, GitHubRelease, Platform, download_file as ionlib_download_file,
-    extract_tar_gz as ionlib_extract_tar_gz, fetch_github_release as ionlib_fetch_github_release,
-    fetch_latest_release_by_tag_prefix as ionlib_fetch_latest_release_by_tag_prefix,
-    find_binary_in_dir as ionlib_find_binary_in_dir, parse_version_from_tag,
+pub use ionem::release::{
+    GitHubAsset, GitHubRelease, Platform, download_file as ionem_download_file,
+    extract_tar_gz as ionem_extract_tar_gz, fetch_github_release as ionem_fetch_github_release,
+    fetch_latest_release_by_tag_prefix as ionem_fetch_latest_release_by_tag_prefix,
+    find_binary_in_dir as ionem_find_binary_in_dir, parse_version_from_tag,
 };
 
-/// Convert an `ionlib::Error` into an `ion_skill::Error`.
-fn from_ionlib(e: ionlib::Error) -> crate::Error {
+/// Convert an `ionem::Error` into an `ion_skill::Error`.
+fn from_ionem(e: ionem::Error) -> crate::Error {
     crate::Error::Other(e.to_string())
 }
 
 pub fn fetch_github_release(repo: &str, tag: Option<&str>) -> crate::Result<GitHubRelease> {
-    ionlib_fetch_github_release(repo, tag).map_err(from_ionlib)
+    ionem_fetch_github_release(repo, tag).map_err(from_ionem)
 }
 
 pub fn fetch_latest_release_by_tag_prefix(
     repo: &str,
     prefix: &str,
 ) -> crate::Result<GitHubRelease> {
-    ionlib_fetch_latest_release_by_tag_prefix(repo, prefix).map_err(from_ionlib)
+    ionem_fetch_latest_release_by_tag_prefix(repo, prefix).map_err(from_ionem)
 }
 
 pub fn download_file(url: &str, dest: &Path) -> crate::Result<()> {
-    ionlib_download_file(url, dest).map_err(from_ionlib)
+    ionem_download_file(url, dest).map_err(from_ionem)
 }
 
 pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> crate::Result<Vec<PathBuf>> {
-    ionlib_extract_tar_gz(archive_path, dest_dir).map_err(from_ionlib)
+    ionem_extract_tar_gz(archive_path, dest_dir).map_err(from_ionem)
 }
 
 pub fn find_binary_in_dir(dir: &Path, binary_name: &str) -> crate::Result<PathBuf> {
-    ionlib_find_binary_in_dir(dir, binary_name).map_err(from_ionlib)
+    ionem_find_binary_in_dir(dir, binary_name).map_err(from_ionem)
 }
 
 pub fn bin_dir() -> PathBuf {

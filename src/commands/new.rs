@@ -94,7 +94,7 @@ ion run {name} self update   # Update to the latest version
 "#;
 
 const BIN_MAIN_TEMPLATE: &str = r#"use clap::{Parser, Subcommand};
-use ionlib::self_update::SelfManager;
+use ionem::self_update::SelfManager;
 
 const REPO: &str = "OWNER/{name}";
 
@@ -269,7 +269,7 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
         let updated = cargo_content.replace(
             "[dependencies]",
             &format!(
-                "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nionlib = {{ version = \"{}\" }}",
+                "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nionem = {{ version = \"{}\" }}",
                 env!("CARGO_PKG_VERSION")
             ),
         );

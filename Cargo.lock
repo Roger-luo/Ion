@@ -860,7 +860,7 @@ dependencies = [
  "dirs",
  "env_logger",
  "ion-skill",
- "ionlib",
+ "ionem",
  "log",
  "minijinja",
  "pathdiff",
@@ -877,7 +877,7 @@ version = "0.1.0"
 dependencies = [
  "dirs",
  "flate2",
- "ionlib",
+ "ionem",
  "log",
  "pathdiff",
  "pulldown-cmark",
@@ -900,7 +900,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ionlib"
+name = "ionem"
 version = "0.1.0"
 dependencies = [
  "flate2",

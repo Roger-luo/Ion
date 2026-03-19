@@ -15,9 +15,9 @@ pub mod source;
 pub mod update;
 pub mod validate;
 
-// Re-export ionlib's self_update for backward compatibility.
-// New code should depend on `ionlib` directly.
-pub use ionlib::self_update;
+// Re-export ionem's self_update for backward compatibility.
+// New code should depend on `ionem` directly.
+pub use ionem::self_update;
 
 pub use error::Error;
 

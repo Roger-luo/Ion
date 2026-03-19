@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::bail;
 use ion_skill::binary;
-use ionlib::self_update::{SelfManager, is_newer_version};
+use ionem::self_update::{SelfManager, is_newer_version};
 
 const REPO: &str = "Roger-luo/Ion";
 /// Tag prefix used by release-plz for the ion crate

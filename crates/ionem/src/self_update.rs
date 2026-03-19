@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use ionlib::self_update::SelfManager;
+//! use ionem::self_update::SelfManager;
 //!
 //! let manager = SelfManager::new(
 //!     "owner/my-tool",          // GitHub repo
