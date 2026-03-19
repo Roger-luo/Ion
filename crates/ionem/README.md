@@ -9,23 +9,58 @@ Binary skills built for the Ion ecosystem implement a standard `self` subcommand
 - `<binary> self check` — check if a newer version is available
 - `<binary> self update` — download and install a newer version
 
-`ionem` provides `SelfManager` which implements the core logic for `info`, `check`, and `update`.
+`ionem` provides build-time SKILL.md preparation and runtime self-management via `SelfManager`.
 
 ## Quick start
+
+### build.rs
+
+For a plain SKILL.md (no templating):
+
+```rust
+fn main() {
+    ionem::build::emit_target();
+    ionem::build::copy_skill_md();
+}
+```
+
+For a SKILL.md with variable substitution (`{version}`, `{name}`, `{description}` are auto-populated from Cargo metadata):
+
+```rust
+fn main() {
+    ionem::build::emit_target();
+    ionem::build::render_skill_md_vars(&[("author", "Alice")]);
+}
+```
+
+For full control with your own template engine:
+
+```rust
+fn main() {
+    ionem::build::emit_target();
+    ionem::build::render_skill_md(|template| {
+        my_engine::render(template, &context)
+    });
+}
+```
+
+### src/main.rs
 
 ```rust
 use ionem::self_update::SelfManager;
 
+const SKILL_MD: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
+
 let manager = SelfManager::new(
-    "owner/my-tool",          // GitHub repo
-    "my-tool",                // binary name in release assets
-    "v",                      // tag prefix (e.g. "v1.0.0")
+    "owner/my-tool",
+    "my-tool",
+    "v",
     env!("CARGO_PKG_VERSION"),
-    env!("TARGET"),           // set via build.rs
+    env!("TARGET"),
 );
 
 // In your clap match:
-// SelfCommands::Skill  => print!(include_str!("../SKILL.md")),
+// SelfCommands::Skill  => print!("{}", SKILL_MD),
 // SelfCommands::Info   => manager.print_info(),
 // SelfCommands::Check  => manager.print_check()?,
 // SelfCommands::Update => manager.run_update(version.as_deref())?,

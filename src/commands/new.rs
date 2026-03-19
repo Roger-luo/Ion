@@ -141,7 +141,7 @@ fn main() {
     let result = match cli.command {
         Some(Commands::Self_ { action }) => match action {
             SelfCommands::Skill => {
-                print!(include_str!("../SKILL.md"));
+                print!(include_str!(concat!(env!("OUT_DIR"), "/SKILL.md")));
                 Ok(())
             }
             SelfCommands::Info => {
@@ -242,10 +242,8 @@ fn write_skill_md(target_dir: &Path, name: &str, bin: bool, force: bool) -> anyh
 }
 
 const BIN_BUILD_RS_TEMPLATE: &str = r#"fn main() {
-    println!(
-        "cargo:rustc-env=TARGET={}",
-        std::env::var("TARGET").unwrap()
-    );
+    ionem::build::emit_target();
+    ionem::build::copy_skill_md();
 }
 "#;
 
