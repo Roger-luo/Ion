@@ -5,10 +5,10 @@ edition = "2024"
 description = "Library for building Ion binary skills with standard self-management commands"
 
 [dependencies]
-reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-flate2 = "1"
-tar = "0.4"
-tempfile = "3"
-thiserror = "2"
+flate2.workspace = true
+reqwest.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true

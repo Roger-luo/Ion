@@ -4,27 +4,27 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ionem = { path = "../ionem" }
-dirs = "6"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_yaml = "0.9"
-toml = "0.8"
-toml_edit = "0.22"
-pathdiff = "0.2"
-sha2 = "0.10"
-log = "0.4"
-regex = "1"
-walkdir = "2"
+ionem.workspace = true
+dirs.workspace = true
+flate2.workspace = true
+log.workspace = true
+pathdiff.workspace = true
 pulldown-cmark = "0.12"
+regex = "1"
+reqwest.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+tar.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+toml_edit.workspace = true
 tree-sitter = "0.25"
 tree-sitter-bash = "0.25"
 tree-sitter-python = "0.25"
 tree-sitter-rust = "0.24"
-reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
-thiserror = "2"
-flate2 = "1"
-tar = "0.4"
-tempfile = "3"
+walkdir = "2"
 
 [dev-dependencies]
