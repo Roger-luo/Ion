@@ -16,7 +16,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use ion_skill::self_update::SelfManager;
+//! use ionlib::self_update::SelfManager;
 //!
 //! let manager = SelfManager::new(
 //!     "owner/my-tool",          // GitHub repo
@@ -35,7 +35,8 @@
 
 use std::path::PathBuf;
 
-use crate::binary;
+use crate::error::{Error, Result};
+use crate::release;
 
 /// Configuration and executor for the standard binary skill `self` subcommands.
 pub struct SelfManager {
@@ -120,10 +121,10 @@ impl SelfManager {
     }
 
     /// Check whether a newer version is available on GitHub Releases.
-    pub fn check(&self) -> crate::Result<CheckResult> {
-        let release =
-            binary::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?;
-        let latest = binary::parse_version_from_tag(&release.tag_name).to_string();
+    pub fn check(&self) -> Result<CheckResult> {
+        let rel =
+            release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?;
+        let latest = release::parse_version_from_tag(&rel.tag_name).to_string();
         let update_available = is_newer_version(&self.current_version, &latest);
 
         Ok(CheckResult {
@@ -134,7 +135,7 @@ impl SelfManager {
     }
 
     /// Print check result to stdout.
-    pub fn print_check(&self) -> crate::Result<()> {
+    pub fn print_check(&self) -> Result<()> {
         let result = self.check()?;
         println!("installed: {}", result.installed);
         println!("latest:    {}", result.latest);
@@ -158,18 +159,18 @@ impl SelfManager {
     ///
     /// If `version` is `None`, fetches the latest release. If `version` is `Some`,
     /// fetches the release tagged `{tag_prefix}{version}`.
-    pub fn update(&self, version: Option<&str>) -> crate::Result<UpdateResult> {
-        let release = match version {
+    pub fn update(&self, version: Option<&str>) -> Result<UpdateResult> {
+        let rel = match version {
             Some(v) => {
                 let ver = v.strip_prefix('v').unwrap_or(v);
                 let tag = format!("{}{}", self.tag_prefix, ver);
-                binary::fetch_github_release(&self.repo, Some(&tag))?
+                release::fetch_github_release(&self.repo, Some(&tag))?
             }
             None => {
-                binary::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?
+                release::fetch_latest_release_by_tag_prefix(&self.repo, &self.tag_prefix)?
             }
         };
-        let latest = binary::parse_version_from_tag(&release.tag_name).to_string();
+        let latest = release::parse_version_from_tag(&rel.tag_name).to_string();
 
         if version.is_none() && !is_newer_version(&self.current_version, &latest) {
             return Ok(UpdateResult {
@@ -180,36 +181,34 @@ impl SelfManager {
             });
         }
 
-        let platform = binary::Platform::detect();
-        let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
+        let platform = release::Platform::detect();
+        let asset_names: Vec<String> = rel.assets.iter().map(|a| a.name.clone()).collect();
 
         let asset_name =
             platform
                 .match_asset(&self.binary_name, &asset_names)
                 .ok_or_else(|| {
-                    crate::Error::Other(format!(
+                    Error::Other(format!(
                         "No prebuilt binary found for {}. Available assets: {}",
                         platform.target_triple(),
                         asset_names.join(", ")
                     ))
                 })?;
 
-        let asset = release
+        let asset = rel
             .assets
             .iter()
             .find(|a| a.name == asset_name)
             .expect("matched asset must exist in release");
 
-        let tmp_dir = tempfile::tempdir().map_err(|e| {
-            crate::Error::Other(format!("Failed to create temp dir: {}", e))
-        })?;
+        let tmp_dir = tempfile::tempdir()?;
         let archive_path = tmp_dir.path().join(&asset_name);
-        binary::download_file(&asset.browser_download_url, &archive_path)?;
+        release::download_file(&asset.browser_download_url, &archive_path)?;
 
         let extract_dir = tmp_dir.path().join("extracted");
-        binary::extract_tar_gz(&archive_path, &extract_dir)?;
+        release::extract_tar_gz(&archive_path, &extract_dir)?;
 
-        let new_binary = binary::find_binary_in_dir(&extract_dir, &self.binary_name)?;
+        let new_binary = release::find_binary_in_dir(&extract_dir, &self.binary_name)?;
         let installed_path = replace_exe(&new_binary)?;
 
         Ok(UpdateResult {
@@ -221,7 +220,7 @@ impl SelfManager {
     }
 
     /// Run update and print progress to stdout.
-    pub fn run_update(&self, version: Option<&str>) -> crate::Result<()> {
+    pub fn run_update(&self, version: Option<&str>) -> Result<()> {
         let result = self.update(version)?;
 
         if !result.updated {
@@ -241,22 +240,20 @@ impl SelfManager {
 /// Replace the current running executable with a new binary.
 ///
 /// Uses a backup-copy-cleanup strategy for atomic replacement.
-pub fn replace_exe(new_binary: &std::path::Path) -> crate::Result<PathBuf> {
-    let current_exe = std::env::current_exe()
-        .map_err(|e| crate::Error::Other(format!("Failed to get current exe: {}", e)))?
-        .canonicalize()
-        .map_err(|e| crate::Error::Other(format!("Failed to canonicalize exe path: {}", e)))?;
+pub fn replace_exe(new_binary: &std::path::Path) -> Result<PathBuf> {
+    let current_exe = std::env::current_exe()?
+        .canonicalize()?;
     let backup = current_exe.with_extension("old");
 
     // Move current executable to backup
     if let Err(e) = std::fs::rename(&current_exe, &backup) {
         if e.kind() == std::io::ErrorKind::PermissionDenied {
-            return Err(crate::Error::Other(format!(
+            return Err(Error::Other(format!(
                 "Permission denied. Try: sudo {} self update",
                 current_exe.display()
             )));
         }
-        return Err(crate::Error::Other(format!(
+        return Err(Error::Other(format!(
             "Failed to back up current executable: {}",
             e
         )));
@@ -266,7 +263,7 @@ pub fn replace_exe(new_binary: &std::path::Path) -> crate::Result<PathBuf> {
     if let Err(e) = std::fs::copy(new_binary, &current_exe) {
         // Restore backup on failure
         let _ = std::fs::rename(&backup, &current_exe);
-        return Err(crate::Error::Other(format!(
+        return Err(Error::Other(format!(
             "Failed to install new binary: {}",
             e
         )));
@@ -276,10 +273,7 @@ pub fn replace_exe(new_binary: &std::path::Path) -> crate::Result<PathBuf> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755))
-            .map_err(|e| {
-                crate::Error::Other(format!("Failed to set permissions: {}", e))
-            })?;
+        std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755))?;
     }
 
     // Clean up backup

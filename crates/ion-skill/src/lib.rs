@@ -10,11 +10,14 @@ pub mod manifest_writer;
 pub mod migrate;
 pub mod registry;
 pub mod search;
-pub mod self_update;
 pub mod skill;
 pub mod source;
 pub mod update;
 pub mod validate;
+
+// Re-export ionlib's self_update for backward compatibility.
+// New code should depend on `ionlib` directly.
+pub use ionlib::self_update;
 
 pub use error::Error;
 

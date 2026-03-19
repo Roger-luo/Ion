@@ -1,97 +1,41 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use serde::Deserialize;
+// Re-export types from ionlib for backward compatibility.
+// Callers that import `ion_skill::binary::Platform` etc. continue to work.
+pub use ionlib::release::{
+    GitHubAsset, GitHubRelease, Platform, download_file as ionlib_download_file,
+    extract_tar_gz as ionlib_extract_tar_gz, fetch_github_release as ionlib_fetch_github_release,
+    fetch_latest_release_by_tag_prefix as ionlib_fetch_latest_release_by_tag_prefix,
+    find_binary_in_dir as ionlib_find_binary_in_dir, parse_version_from_tag,
+};
 
-/// Detected platform info for binary downloads.
-#[derive(Debug, Clone)]
-pub struct Platform {
-    pub os: String,
-    pub arch: String,
+/// Convert an `ionlib::Error` into an `ion_skill::Error`.
+fn from_ionlib(e: ionlib::Error) -> crate::Error {
+    crate::Error::Other(e.to_string())
 }
 
-impl Platform {
-    pub fn detect() -> Self {
-        let os = match std::env::consts::OS {
-            "macos" => "macos",
-            "linux" => "linux",
-            "windows" => "windows",
-            other => other,
-        };
-        let arch = match std::env::consts::ARCH {
-            "aarch64" => "aarch64",
-            "x86_64" => "x86_64",
-            other => other,
-        };
-        Self {
-            os: os.to_string(),
-            arch: arch.to_string(),
-        }
-    }
-
-    pub fn target_triple(&self) -> String {
-        let os_part = match self.os.as_str() {
-            "macos" => "apple-darwin",
-            "linux" => "unknown-linux-gnu",
-            "windows" => "pc-windows-msvc",
-            other => other,
-        };
-        format!("{}-{}", self.arch, os_part)
-    }
-
-    /// Match a binary name against release asset names, returning the best match.
-    pub fn match_asset(&self, binary_name: &str, asset_names: &[String]) -> Option<String> {
-        let triple = self.target_triple();
-
-        // Priority 1: target triple match
-        let triple_pattern = format!("{}-{}", binary_name, triple);
-        if let Some(name) = asset_names.iter().find(|n| n.starts_with(&triple_pattern)) {
-            return Some(name.clone());
-        }
-
-        // Priority 2: OS + arch aliases
-        let os_aliases = self.os_aliases();
-        let arch_aliases = self.arch_aliases();
-        for name in asset_names {
-            let lower = name.to_lowercase();
-            if !lower.starts_with(&binary_name.to_lowercase()) {
-                continue;
-            }
-            if !is_archive(&lower) {
-                continue;
-            }
-            let has_os = os_aliases.iter().any(|a| lower.contains(a));
-            let has_arch = arch_aliases.iter().any(|a| lower.contains(a));
-            if has_os && has_arch {
-                return Some(name.clone());
-            }
-        }
-        None
-    }
-
-    fn os_aliases(&self) -> Vec<&str> {
-        match self.os.as_str() {
-            "macos" => vec!["darwin", "macos", "apple"],
-            "linux" => vec!["linux"],
-            "windows" => vec!["windows", "win"],
-            _ => vec![&self.os],
-        }
-    }
-
-    fn arch_aliases(&self) -> Vec<&str> {
-        match self.arch.as_str() {
-            "x86_64" => vec!["x86_64", "amd64", "x64"],
-            "aarch64" => vec!["aarch64", "arm64"],
-            _ => vec![&self.arch],
-        }
-    }
+pub fn fetch_github_release(repo: &str, tag: Option<&str>) -> crate::Result<GitHubRelease> {
+    ionlib_fetch_github_release(repo, tag).map_err(from_ionlib)
 }
 
-fn is_archive(name: &str) -> bool {
-    name.ends_with(".tar.gz")
-        || name.ends_with(".tar.xz")
-        || name.ends_with(".zip")
-        || name.ends_with(".tgz")
+pub fn fetch_latest_release_by_tag_prefix(
+    repo: &str,
+    prefix: &str,
+) -> crate::Result<GitHubRelease> {
+    ionlib_fetch_latest_release_by_tag_prefix(repo, prefix).map_err(from_ionlib)
+}
+
+pub fn download_file(url: &str, dest: &Path) -> crate::Result<()> {
+    ionlib_download_file(url, dest).map_err(from_ionlib)
+}
+
+pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> crate::Result<Vec<PathBuf>> {
+    ionlib_extract_tar_gz(archive_path, dest_dir).map_err(from_ionlib)
+}
+
+pub fn find_binary_in_dir(dir: &Path, binary_name: &str) -> crate::Result<PathBuf> {
+    ionlib_find_binary_in_dir(dir, binary_name).map_err(from_ionlib)
 }
 
 pub fn bin_dir() -> PathBuf {
@@ -103,159 +47,6 @@ pub fn bin_dir() -> PathBuf {
 
 pub fn binary_path(name: &str, version: &str) -> PathBuf {
     bin_dir().join(name).join(version).join(name)
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GitHubRelease {
-    pub tag_name: String,
-    pub assets: Vec<GitHubAsset>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct GitHubAsset {
-    pub name: String,
-    pub browser_download_url: String,
-}
-
-pub fn fetch_github_release(repo: &str, tag: Option<&str>) -> crate::Result<GitHubRelease> {
-    let url = match tag {
-        Some(t) => format!("https://api.github.com/repos/{}/releases/tags/{}", repo, t),
-        None => format!("https://api.github.com/repos/{}/releases/latest", repo),
-    };
-    let client = reqwest::blocking::Client::new();
-    let resp = client
-        .get(&url)
-        .header("User-Agent", "ion-skill-manager")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .map_err(|e| crate::Error::Other(format!("Failed to fetch release: {}", e)))?;
-    if !resp.status().is_success() {
-        return Err(crate::Error::Other(format!(
-            "GitHub API returned {}",
-            resp.status()
-        )));
-    }
-    resp.json::<GitHubRelease>()
-        .map_err(|e| crate::Error::Other(format!("Failed to parse release JSON: {}", e)))
-}
-
-/// Fetch the latest release whose tag starts with the given prefix.
-/// Useful when a repo has multiple crates releasing independently (e.g. `ion-v*` vs `ion-skill-v*`).
-pub fn fetch_latest_release_by_tag_prefix(
-    repo: &str,
-    prefix: &str,
-) -> crate::Result<GitHubRelease> {
-    let url = format!("https://api.github.com/repos/{}/releases?per_page=10", repo);
-    let client = reqwest::blocking::Client::new();
-    let resp = client
-        .get(&url)
-        .header("User-Agent", "ion-skill-manager")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .map_err(|e| crate::Error::Other(format!("Failed to fetch releases: {}", e)))?;
-    if !resp.status().is_success() {
-        return Err(crate::Error::Other(format!(
-            "GitHub API returned {}",
-            resp.status()
-        )));
-    }
-    let releases: Vec<GitHubRelease> = resp
-        .json()
-        .map_err(|e| crate::Error::Other(format!("Failed to parse releases JSON: {}", e)))?;
-    releases
-        .into_iter()
-        .find(|r| r.tag_name.starts_with(prefix) && !r.assets.is_empty())
-        .ok_or_else(|| {
-            crate::Error::Other(format!("No release found with tag prefix '{}'", prefix))
-        })
-}
-
-pub fn parse_version_from_tag(tag: &str) -> &str {
-    // Handle release-plz style tags like "ion-v0.1.1" or "ion-skill-v0.1.0"
-    if let Some(pos) = tag.rfind("-v") {
-        &tag[pos + 2..]
-    } else {
-        tag.strip_prefix('v').unwrap_or(tag)
-    }
-}
-
-/// Download a file from URL to a local path.
-pub fn download_file(url: &str, dest: &Path) -> crate::Result<()> {
-    let client = reqwest::blocking::Client::new();
-    let resp = client
-        .get(url)
-        .header("User-Agent", "ion-skill-manager")
-        .send()
-        .map_err(|e| crate::Error::Other(format!("Download failed: {}", e)))?;
-    if !resp.status().is_success() {
-        return Err(crate::Error::Other(format!(
-            "Download returned {}",
-            resp.status()
-        )));
-    }
-    let bytes = resp
-        .bytes()
-        .map_err(|e| crate::Error::Other(format!("Failed to read response: {}", e)))?;
-    if let Some(parent) = dest.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| crate::Error::Other(format!("Failed to create dir: {}", e)))?;
-    }
-    fs::write(dest, &bytes)
-        .map_err(|e| crate::Error::Other(format!("Failed to write file: {}", e)))?;
-    Ok(())
-}
-
-/// Extract a .tar.gz archive to a destination directory.
-pub fn extract_tar_gz(archive_path: &Path, dest_dir: &Path) -> crate::Result<Vec<PathBuf>> {
-    let file = fs::File::open(archive_path)
-        .map_err(|e| crate::Error::Other(format!("Failed to open archive: {}", e)))?;
-    let gz = flate2::read::GzDecoder::new(file);
-    let mut archive = tar::Archive::new(gz);
-    fs::create_dir_all(dest_dir)
-        .map_err(|e| crate::Error::Other(format!("Failed to create dest dir: {}", e)))?;
-    let mut extracted = Vec::new();
-    for entry in archive
-        .entries()
-        .map_err(|e| crate::Error::Other(format!("Failed to read archive: {}", e)))?
-    {
-        let mut entry =
-            entry.map_err(|e| crate::Error::Other(format!("Bad archive entry: {}", e)))?;
-        let path = entry
-            .path()
-            .map_err(|e| crate::Error::Other(format!("Bad path: {}", e)))?
-            .into_owned();
-        entry.unpack_in(dest_dir).map_err(|e| {
-            crate::Error::Other(format!("Failed to extract {}: {}", path.display(), e))
-        })?;
-        extracted.push(dest_dir.join(&path));
-    }
-    Ok(extracted)
-}
-
-/// Find the binary executable in an extracted directory.
-pub fn find_binary_in_dir(dir: &Path, binary_name: &str) -> crate::Result<PathBuf> {
-    let direct = dir.join(binary_name);
-    if direct.is_file() {
-        return Ok(direct);
-    }
-    // Search one level of subdirectories (tarballs often wrap in a dir)
-    for entry in
-        fs::read_dir(dir).map_err(|e| crate::Error::Other(format!("Failed to read dir: {}", e)))?
-    {
-        let entry =
-            entry.map_err(|e| crate::Error::Other(format!("Failed to read entry: {}", e)))?;
-        if entry.path().is_dir() {
-            let nested = entry.path().join(binary_name);
-            if nested.is_file() {
-                return Ok(nested);
-            }
-        }
-    }
-    Err(crate::Error::Other(format!(
-        "Could not find binary '{}' in {}",
-        binary_name,
-        dir.display()
-    )))
 }
 
 /// Install a binary file to versioned storage.
@@ -365,7 +156,6 @@ pub struct BinaryValidation {
 pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
     use std::process::Command;
 
-    // 1. Check file exists
     if !binary_path.exists() {
         return Err(crate::Error::Other(format!(
             "Binary not found at {}",
@@ -373,7 +163,6 @@ pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
         )));
     }
 
-    // 2. Check if executable (unix only)
     let is_executable = {
         #[cfg(unix)]
         {
@@ -388,7 +177,6 @@ pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
         }
     };
 
-    // 3. Try --version (don't fail if it doesn't work)
     let version_output = Command::new(binary_path)
         .arg("--version")
         .output()
@@ -397,7 +185,6 @@ pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|s| !s.is_empty());
 
-    // 4. Try `self skill` subcommand — check if it produces output starting with `---`
     let has_skill_command = Command::new(binary_path)
         .args(["self", "skill"])
         .output()
@@ -522,7 +309,6 @@ pub fn install_binary_from_github(
     let release = fetch_github_release(repo, rev)?;
     let version = parse_version_from_tag(&release.tag_name).to_string();
 
-    // Check if already installed at this version
     if let Some(result) = check_already_installed(binary_name, &version, skill_dir)? {
         return Ok(result);
     }
@@ -593,7 +379,6 @@ pub fn install_binary_from_url(
     version: &str,
     skill_dir: &Path,
 ) -> crate::Result<BinaryInstallResult> {
-    // Check if already installed at this version
     if let Some(result) = check_already_installed(binary_name, version, skill_dir)? {
         return Ok(result);
     }
@@ -856,7 +641,6 @@ fi
 
         let tmp = tempfile::tempdir().unwrap();
 
-        // Create a tar.gz with a single file
         let archive_path = tmp.path().join("test.tar.gz");
         let file = fs::File::create(&archive_path).unwrap();
         let enc = GzEncoder::new(file, Compression::default());
@@ -885,7 +669,6 @@ fi
         let fake_binary = tmp.path().join("mytool");
         fs::write(&fake_binary, "#!/bin/sh\necho hello").unwrap();
 
-        // Not installed yet
         assert!(
             !bin_root
                 .join("mytool")
@@ -894,10 +677,8 @@ fi
                 .exists()
         );
 
-        // Install it
         install_binary_file(&fake_binary, "mytool", "1.0.0", &bin_root).unwrap();
 
-        // Now it should exist
         assert!(
             bin_root
                 .join("mytool")
@@ -913,14 +694,12 @@ fi
         let bin_root = tmp.path();
         let binary_dir = bin_root.join("ion").join("bin").join("mytool");
 
-        // Create fake binary structure
         let version_dir = binary_dir.join("1.0.0");
         fs::create_dir_all(&version_dir).unwrap();
         fs::write(version_dir.join("mytool"), "binary").unwrap();
 
         assert!(binary_dir.exists());
 
-        // Use remove_dir_all directly since remove_binary uses bin_dir()
         fs::remove_dir_all(&binary_dir).unwrap();
 
         assert!(!binary_dir.exists());
@@ -928,19 +707,13 @@ fi
 
     #[test]
     fn test_remove_binary_nonexistent_is_ok() {
-        // Removing a binary that doesn't exist should not error
-        // We can't easily test remove_binary() since it uses bin_dir()
-        // but we can test the pattern
         let tmp = tempfile::tempdir().unwrap();
         let nonexistent = tmp.path().join("does-not-exist");
         assert!(!nonexistent.exists());
-        // The function checks .exists() before removing, so no error
     }
 
     #[test]
     fn test_list_installed_binaries_empty() {
-        // bin_dir might not exist or be empty for this test env
-        // Just verify the function doesn't crash
         let result = list_installed_binaries();
         assert!(result.is_ok());
     }
@@ -981,13 +754,11 @@ fi
             "mytool-1.0.0-linux-x86_64.tar.gz".to_string(),
             "mytool-1.0.0-macos-aarch64.tar.gz".to_string(),
         ];
-        // With pattern, expand_url_template should produce an exact match
         let platform = Platform::detect();
         let expanded =
             expand_url_template("mytool-{version}-{os}-{arch}.tar.gz", "mytool", "1.0.0");
         let expected = format!("mytool-1.0.0-{}-{}.tar.gz", platform.os, platform.arch);
         assert_eq!(expanded, expected);
-        // The expanded name should match one of the assets if our platform is in the list
         if assets.contains(&expanded) {
             assert!(true);
         }

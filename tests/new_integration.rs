@@ -153,13 +153,13 @@ fn new_bin_creates_cargo_project_and_skill_md() {
     );
     assert!(
         main_content.contains("SelfManager"),
-        "main.rs should use SelfManager from ion-skill"
+        "main.rs should use SelfManager from ionlib"
     );
 
-    // Cargo.toml should have ion-skill dependency
+    // Cargo.toml should have ionlib dependency
     assert!(
-        cargo_content.contains("ion-skill"),
-        "Cargo.toml should have ion-skill dependency"
+        cargo_content.contains("ionlib"),
+        "Cargo.toml should have ionlib dependency"
     );
 
     // build.rs should exist for TARGET env var
