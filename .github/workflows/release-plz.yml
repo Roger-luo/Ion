@@ -13,7 +13,10 @@ jobs:
     name: Release-plz release
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.release-plz.outputs.releases_created && fromJSON(steps.release-plz.outputs.releases)[0].tag }}
+      releases: ${{ steps.release-plz.outputs.releases }}
+      releases_created: ${{ steps.release-plz.outputs.releases_created }}
+      ion_tag: ${{ steps.extract.outputs.ion_tag }}
+      ionem_tag: ${{ steps.extract.outputs.ionem_tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,6 +31,17 @@ jobs:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract release tags
+        id: extract
+        if: steps.release-plz.outputs.releases_created
+        run: |
+          echo '${{ steps.release-plz.outputs.releases }}' | jq -r '.[].tag' | while read tag; do
+            if [[ "$tag" == ion-v* ]]; then
+              echo "ion_tag=$tag" >> "$GITHUB_OUTPUT"
+            elif [[ "$tag" == ionem-v* ]]; then
+              echo "ionem_tag=$tag" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
   release-plz-pr:
     name: Release-plz PR
@@ -55,13 +69,13 @@ jobs:
   publish-ionem:
     name: Publish ionem to crates.io
     needs: release-plz-release
-    if: startsWith(needs.release-plz-release.outputs.tag, 'ionem-v')
+    if: needs.release-plz-release.outputs.ionem_tag
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-plz-release.outputs.tag }}
+          ref: ${{ needs.release-plz-release.outputs.ionem_tag }}
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Publish ionem
@@ -71,7 +85,7 @@ jobs:
 
   build:
     needs: release-plz-release
-    if: startsWith(needs.release-plz-release.outputs.tag, 'ion-v')
+    if: needs.release-plz-release.outputs.ion_tag
     strategy:
       matrix:
         include:
@@ -89,7 +103,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.release-plz-release.outputs.tag }}
+          ref: ${{ needs.release-plz-release.outputs.ion_tag }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -109,7 +123,7 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          VERSION="${{ needs.release-plz-release.outputs.tag }}"
+          VERSION="${{ needs.release-plz-release.outputs.ion_tag }}"
           VERSION="${VERSION#ion-v}"
           cd target/${{ matrix.target }}/release
           tar czf ../../../ion-${VERSION}-${{ matrix.target }}.tar.gz ion
@@ -133,5 +147,5 @@ jobs:
       - name: Upload assets to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.release-plz-release.outputs.tag }}
+          tag_name: ${{ needs.release-plz-release.outputs.ion_tag }}
           files: ion-*.tar.gz
