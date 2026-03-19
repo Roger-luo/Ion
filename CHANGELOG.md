@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Standardize binary skill interface under `self` subcommand (46472f2)
+
+### CI
+
+- Add CI workflow with cargo-nextest for parallel test execution (89aee89)
+
+### Refactored
+
+- Use workspace dependencies for shared crates (7543aab)
+- Rename ionlib crate to ionem (c83ccd3)
+- Extract ionlib crate for downstream binary skill developers (5f3d65c)
+
+### Added
+
 - Show hint when configuring codex target (377e00e)
 
 ### Added
