@@ -1,6 +1,11 @@
 [workspace]
-# Don't publish to crates.io — we only use GitHub Releases
+# Don't publish to crates.io by default — ion and ion-skill use GitHub Releases only
 publish = false
+
+# ionem is published to crates.io for downstream binary skill developers
+[[package]]
+name = "ionem"
+publish = true
 
 [changelog]
 header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"

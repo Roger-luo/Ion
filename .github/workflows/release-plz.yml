@@ -52,6 +52,23 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  publish-ionem:
+    name: Publish ionem to crates.io
+    needs: release-plz-release
+    if: startsWith(needs.release-plz-release.outputs.tag, 'ionem-v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-plz-release.outputs.tag }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Publish ionem
+        run: cargo publish -p ionem
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
   build:
     needs: release-plz-release
     if: startsWith(needs.release-plz-release.outputs.tag, 'ion-v')

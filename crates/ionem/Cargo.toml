@@ -3,6 +3,9 @@ name = "ionem"
 version = "0.1.0"
 edition = "2024"
 description = "Library for building Ion binary skills with standard self-management commands"
+license = "MIT"
+repository = "https://github.com/Roger-luo/Ion"
+readme = "README.md"
 
 [dependencies]
 flate2.workspace = true
