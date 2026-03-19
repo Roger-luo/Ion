@@ -268,7 +268,7 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
             "[dependencies]",
             &format!(
                 "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nionem = {{ version = \"{}\" }}",
-                env!("CARGO_PKG_VERSION")
+                env!("IONEM_VERSION")
             ),
         );
         std::fs::write(&cargo_toml_path, updated)?;

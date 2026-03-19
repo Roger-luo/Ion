@@ -6,6 +6,18 @@ fn pretty(v: serde_json::Value) -> String {
 fn main() {
     ionem::build::emit_target();
 
+    // Expose ionem's version so the scaffold template uses the correct version
+    let ionem_toml = std::fs::read_to_string("crates/ionem/Cargo.toml")
+        .expect("failed to read crates/ionem/Cargo.toml");
+    for line in ionem_toml.lines() {
+        if let Some(ver) = line.strip_prefix("version = \"") {
+            let ver = ver.trim_end_matches('"');
+            println!("cargo:rustc-env=IONEM_VERSION={ver}");
+            break;
+        }
+    }
+    println!("cargo:rerun-if-changed=crates/ionem/Cargo.toml");
+
     ionem::build::render_skill_md_from("templates/ion-cli.md.j2", |template_src| {
         let mut env = minijinja::Environment::new();
         env.add_template("skill.md", template_src).unwrap();
