@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Show hint when configuring codex target (377e00e)
+
+### Added
+
 - Add documentation website with Astro Starlight (df7eac4)
 
 ### Fixed
