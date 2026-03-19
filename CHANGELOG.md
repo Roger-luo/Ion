@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Remove `project` subcommand group, promote `migrate` to top level (85d974c)
+- Promote binary skill scaffolding to `ion init --bin` (23c4a7b)
+- Add build helpers for SKILL.md preparation in ionem (6ff63c7)
+
+### Fixed
+
+- Handle multiple release tags in release-plz workflow (30da0c5)
+- Resolve all clippy warnings and formatting issues for CI (4e3e3be)
+
+### Refactored
+
+- Use ionem build helpers in ion's own build.rs (a60a302)
+
+### Added
+
 - Standardize binary skill interface under `self` subcommand (46472f2)
 
 ### CI
