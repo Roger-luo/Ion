@@ -40,7 +40,7 @@ impl SearchCache {
         let cached: CachedResults = serde_json::from_str(&data).ok()?;
 
         let now = now_secs();
-        if now.saturating_sub(cached.timestamp) > max_age_secs {
+        if max_age_secs == 0 || now.saturating_sub(cached.timestamp) > max_age_secs {
             log::debug!(
                 "cache expired for source={source_name} query={query:?} (age={}s, max={max_age_secs}s)",
                 now.saturating_sub(cached.timestamp)
