@@ -177,7 +177,6 @@ enum SkillCommands {
     },
 }
 
-
 #[derive(Subcommand)]
 enum SelfCommands {
     /// Output the SKILL.md for this tool

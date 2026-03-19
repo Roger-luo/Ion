@@ -66,9 +66,7 @@ fn json_init_no_targets_structure() {
 fn json_init_with_targets_structure() {
     let dir = tempfile::tempdir().unwrap();
     let out = parse(&capture_json(
-        &[
-            "--json", "init", "--target", "claude", "--target", "cursor",
-        ],
+        &["--json", "init", "--target", "claude", "--target", "cursor"],
         dir.path(),
     ));
 

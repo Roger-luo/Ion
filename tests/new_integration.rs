@@ -285,4 +285,3 @@ fn new_collection_force_overwrites_readme() {
     assert!(content.contains("collection of skills"));
     assert!(!content.contains("old readme"));
 }
-
