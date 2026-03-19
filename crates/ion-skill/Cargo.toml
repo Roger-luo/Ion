@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ionem.workspace = true
+ionem = { workspace = true, features = ["runtime"] }
 dirs.workspace = true
 flate2.workspace = true
 log.workspace = true

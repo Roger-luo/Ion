@@ -1,37 +1,17 @@
-use std::path::PathBuf;
-
-fn main() {
-    println!(
-        "cargo:rustc-env=TARGET={}",
-        std::env::var("TARGET").unwrap()
-    );
-
-    generate_skill_md();
-}
-
 /// Pretty-print a serde_json::Value.
 fn pretty(v: serde_json::Value) -> String {
     serde_json::to_string_pretty(&v).unwrap()
 }
 
-/// Render templates/ion-cli.md.j2 with all example JSON and write to OUT_DIR/SKILL.md.
-fn generate_skill_md() {
-    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let template_path = manifest_dir.join("templates/ion-cli.md.j2");
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+fn main() {
+    ionem::build::emit_target();
 
-    // Rebuild when the template changes
-    println!("cargo:rerun-if-changed=templates/ion-cli.md.j2");
+    ionem::build::render_skill_md_from("templates/ion-cli.md.j2", |template_src| {
+        let mut env = minijinja::Environment::new();
+        env.add_template("skill.md", template_src).unwrap();
+        let tmpl = env.get_template("skill.md").unwrap();
 
-    let template_src =
-        std::fs::read_to_string(&template_path).expect("failed to read templates/ion-cli.md.j2");
-
-    let mut env = minijinja::Environment::new();
-    env.add_template("skill.md", &template_src).unwrap();
-    let tmpl = env.get_template("skill.md").unwrap();
-
-    let rendered = tmpl
-        .render(minijinja::context! {
+        tmpl.render(minijinja::context! {
             // -- Project init --
             example_init_no_targets => pretty(serde_json::json!({
                 "success": false,
@@ -267,8 +247,6 @@ fn generate_skill_md() {
                 }
             })),
         })
-        .expect("failed to render SKILL.md template");
-
-    std::fs::write(out_dir.join("SKILL.md"), rendered)
-        .expect("failed to write SKILL.md to OUT_DIR");
+        .expect("failed to render SKILL.md template")
+    });
 }

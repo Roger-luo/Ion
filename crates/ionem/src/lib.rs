@@ -34,7 +34,9 @@
 
 pub mod build;
 pub mod error;
+#[cfg(feature = "runtime")]
 pub mod release;
+#[cfg(feature = "runtime")]
 pub mod self_update;
 
 pub use error::{Error, Result};

@@ -7,11 +7,15 @@ license = "MIT"
 repository = "https://github.com/Roger-luo/Ion"
 readme = "README.md"
 
+[features]
+default = ["runtime"]
+runtime = ["dep:reqwest", "dep:flate2", "dep:tar", "dep:tempfile", "dep:serde", "dep:serde_json"]
+
 [dependencies]
-flate2.workspace = true
-reqwest.workspace = true
-serde = { workspace = true, features = ["derive"] }
-serde_json.workspace = true
-tar.workspace = true
-tempfile.workspace = true
+flate2 = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+serde_json = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 thiserror.workspace = true

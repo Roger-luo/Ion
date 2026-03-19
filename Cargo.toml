@@ -11,7 +11,7 @@ crossterm = "0.28"
 dirs.workspace = true
 env_logger = "0.11"
 ion-skill = { path = "crates/ion-skill" }
-ionem.workspace = true
+ionem = { workspace = true, features = ["runtime"] }
 log.workspace = true
 pathdiff.workspace = true
 ratatui = "0.29"
@@ -23,6 +23,7 @@ toml_edit.workspace = true
 [dev-dependencies]
 
 [build-dependencies]
+ionem = { workspace = true, default-features = false }
 minijinja = "2"
 serde_json.workspace = true
 
@@ -30,7 +31,7 @@ serde_json.workspace = true
 members = [".", "crates/ion-skill", "crates/ionem"]
 
 [workspace.dependencies]
-ionem = { path = "crates/ionem" }
+ionem = { path = "crates/ionem", default-features = false }
 dirs = "6"
 flate2 = "1"
 log = "0.4"
