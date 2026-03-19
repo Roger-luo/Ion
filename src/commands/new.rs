@@ -80,9 +80,23 @@ Describe what this tool does. The agent invokes this via `ion run {name} [args]`
 ```bash
 ion run {name} [command] [options]
 ```
+
+## Standard Commands
+
+All binary skills support:
+
+```bash
+ion run {name} self skill    # Output the SKILL.md
+ion run {name} self info     # Show version and build info
+ion run {name} self check    # Check for updates
+ion run {name} self update   # Update to the latest version
+```
 "#;
 
 const BIN_MAIN_TEMPLATE: &str = r#"use clap::{Parser, Subcommand};
+use ion_skill::self_update::SelfManager;
+
+const REPO: &str = "OWNER/{name}";
 
 #[derive(Parser)]
 #[command(name = "{name}", version, about = "{description}")]
@@ -93,21 +107,62 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Manage this tool (skill output, updates, version info)
+    #[command(name = "self")]
+    Self_ {
+        #[command(subcommand)]
+        action: SelfCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum SelfCommands {
     /// Output the SKILL.md for this tool (used by Ion during install)
     Skill,
+    /// Show version and build info
+    Info,
+    /// Check if a newer version is available
+    Check,
+    /// Update to the latest (or a specific) version
+    Update {
+        /// Install a specific version (e.g. 1.0.0)
+        #[arg(long)]
+        version: Option<String>,
+    },
+}
+
+fn manager() -> SelfManager {
+    SelfManager::new(REPO, "{name}", "v", env!("CARGO_PKG_VERSION"), env!("TARGET"))
 }
 
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::Skill) => print_skill(),
-        None => println!("Hello from {name}! Use --help for usage info."),
-    }
-}
+    let result = match cli.command {
+        Some(Commands::Self_ { action }) => match action {
+            SelfCommands::Skill => {
+                print!(include_str!("../SKILL.md"));
+                Ok(())
+            }
+            SelfCommands::Info => {
+                manager().print_info();
+                Ok(())
+            }
+            SelfCommands::Check => manager().print_check().map_err(|e| e.to_string()),
+            SelfCommands::Update { version } => {
+                manager().run_update(version.as_deref()).map_err(|e| e.to_string())
+            }
+        },
+        None => {
+            println!("Hello from {name}! Use --help for usage info.");
+            Ok(())
+        }
+    };
 
-fn print_skill() {
-    print!(include_str!("../SKILL.md"));
+    if let Err(e) = result {
+        eprintln!("Error: {e}");
+        std::process::exit(1);
+    }
 }
 "#;
 
@@ -186,7 +241,15 @@ fn write_skill_md(target_dir: &Path, name: &str, bin: bool, force: bool) -> anyh
     Ok(())
 }
 
-/// Scaffold a Rust binary project in `target_dir` with clap and a skill subcommand.
+const BIN_BUILD_RS_TEMPLATE: &str = r#"fn main() {
+    println!(
+        "cargo:rustc-env=TARGET={}",
+        std::env::var("TARGET").unwrap()
+    );
+}
+"#;
+
+/// Scaffold a Rust binary project in `target_dir` with clap, ion-skill, and a self subcommand.
 fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
     let status = std::process::Command::new("cargo")
         .args(["init", "--bin"])
@@ -205,7 +268,10 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
     if !cargo_content.contains("clap") {
         let updated = cargo_content.replace(
             "[dependencies]",
-            "[dependencies]\nclap = { version = \"4\", features = [\"derive\"] }",
+            &format!(
+                "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nion-skill = {{ version = \"{}\" }}",
+                env!("CARGO_PKG_VERSION")
+            ),
         );
         std::fs::write(&cargo_toml_path, updated)?;
     }
@@ -214,6 +280,9 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
         .replace("{name}", name)
         .replace("{description}", &format!("A CLI tool: {}", titleize(name)));
     std::fs::write(target_dir.join("src/main.rs"), main_content)?;
+
+    // Write build.rs for TARGET env var
+    std::fs::write(target_dir.join("build.rs"), BIN_BUILD_RS_TEMPLATE)?;
 
     Ok(())
 }
@@ -317,7 +386,7 @@ pub fn run(
     if bin {
         println!("Created local binary skill in {}", skill_dir.display());
         println!("  cargo build    -- compile the binary");
-        println!("  cargo run -- skill  -- test the skill subcommand");
+        println!("  cargo run -- self skill  -- test the skill subcommand");
     } else {
         println!("Created local skill in {}", skill_dir.display());
     }
@@ -365,7 +434,7 @@ fn run_explicit_path(target_dir: &Path, bin: bool, force: bool, json: bool) -> a
 
         println!("Created binary skill project in {}", target_dir.display());
         println!("  cargo build    -- compile the binary");
-        println!("  cargo run -- skill  -- test the skill subcommand");
+        println!("  cargo run -- self skill  -- test the skill subcommand");
         return Ok(());
     }
 

@@ -1,14 +1,22 @@
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::bail;
 use ion_skill::binary;
+use ion_skill::self_update::{SelfManager, is_newer_version};
 
 const REPO: &str = "Roger-luo/Ion";
 /// Tag prefix used by release-plz for the ion crate
 const TAG_PREFIX: &str = "ion-v";
 /// How often to check for updates (24 hours)
 const UPDATE_CHECK_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// The embedded SKILL.md for the ion-cli builtin skill.
+const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
+
+fn manager() -> SelfManager {
+    SelfManager::new(REPO, "ion", TAG_PREFIX, env!("CARGO_PKG_VERSION"), env!("TARGET"))
+}
 
 /// Detect whether the binary was installed by an external package manager.
 /// Returns `Some("manager name")` if managed, `None` if self-update is safe.
@@ -35,47 +43,44 @@ fn detect_package_manager() -> Option<&'static str> {
     None
 }
 
+pub fn skill() {
+    print!("{}", SKILL_CONTENT);
+}
+
 pub fn info(json: bool) -> anyhow::Result<()> {
-    let version = env!("CARGO_PKG_VERSION");
-    let target = env!("TARGET");
-    let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("unknown"));
+    let mgr = manager();
+    let info = mgr.info();
 
     if json {
         crate::json::print_success(serde_json::json!({
-            "version": version,
-            "target": target,
-            "exe": exe.display().to_string(),
+            "version": info.version,
+            "target": info.target,
+            "exe": info.exe.display().to_string(),
         }));
         return Ok(());
     }
 
-    println!("ion {version}");
-    println!("target: {target}");
-    println!("exe: {}", exe.display());
+    mgr.print_info();
     Ok(())
 }
 
 pub fn check(json: bool) -> anyhow::Result<()> {
-    let current = env!("CARGO_PKG_VERSION");
-
-    let release = binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?;
-    let latest = binary::parse_version_from_tag(&release.tag_name);
-
-    let update_available = is_newer_version(current, latest);
+    let mgr = manager();
+    let result = mgr.check()?;
 
     if json {
         crate::json::print_success(serde_json::json!({
-            "installed": current,
-            "latest": latest,
-            "update_available": update_available,
+            "installed": result.installed,
+            "latest": result.latest,
+            "update_available": result.update_available,
         }));
         return Ok(());
     }
 
-    println!("installed: {current}");
-    println!("latest:    {latest}");
+    println!("installed: {}", result.installed);
+    println!("latest:    {}", result.latest);
 
-    if !update_available {
+    if !result.update_available {
         println!("\nAlready up to date.");
     } else {
         let command = match detect_package_manager() {
@@ -83,42 +88,40 @@ pub fn check(json: bool) -> anyhow::Result<()> {
             Some("brew") => "brew upgrade ion",
             _ => "ion self update",
         };
-        println!("\nUpdate available: {current} -> {latest}");
+        println!("\nUpdate available: {} -> {}", result.installed, result.latest);
         println!("Run `{command}` to install it.");
     }
     Ok(())
 }
 
 pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
-    if let Some(manager) = detect_package_manager() {
-        let hint = match manager {
+    if let Some(pkg_manager) = detect_package_manager() {
+        let hint = match pkg_manager {
             "cargo" => "cargo install --git https://github.com/Roger-luo/Ion --force",
             "brew" => "brew upgrade ion",
             _ => "your package manager",
         };
         if json {
             crate::json::print_error(&format!(
-                "ion was installed via {manager}. Update with: {hint}"
+                "ion was installed via {pkg_manager}. Update with: {hint}"
             ));
         }
         bail!(
-            "ion was installed via {manager}, so `ion self update` cannot safely replace it.\n\
+            "ion was installed via {pkg_manager}, so `ion self update` cannot safely replace it.\n\
              Update with: {hint}"
         );
     }
 
+    let mgr = manager();
     let current = env!("CARGO_PKG_VERSION");
-    let release = match version {
-        Some(v) => {
-            let ver = v.strip_prefix('v').unwrap_or(v);
-            let tag = format!("{TAG_PREFIX}{ver}");
-            binary::fetch_github_release(REPO, Some(&tag))?
-        }
-        None => binary::fetch_latest_release_by_tag_prefix(REPO, TAG_PREFIX)?,
-    };
-    let latest = binary::parse_version_from_tag(&release.tag_name);
 
-    if version.is_none() && !is_newer_version(current, latest) {
+    if !json {
+        println!("Checking for updates...");
+    }
+
+    let result = mgr.update(version)?;
+
+    if !result.updated {
         if json {
             crate::json::print_success(serde_json::json!({
                 "updated": false,
@@ -131,57 +134,18 @@ pub fn update(version: Option<&str>, json: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    if !json {
-        println!("Updating ion {current} -> {latest}...");
-    }
-
-    let platform = binary::Platform::detect();
-    let asset_names: Vec<String> = release.assets.iter().map(|a| a.name.clone()).collect();
-
-    let asset_name = match platform.match_asset("ion", &asset_names) {
-        Some(name) => name,
-        None => {
-            if !json {
-                println!("No prebuilt binary found for {}.", platform.target_triple());
-                println!("Available assets: {}", asset_names.join(", "));
-            }
-            bail!(
-                "Install from source instead:\n  cargo install --git https://github.com/{REPO} --force"
-            );
-        }
-    };
-
-    let asset = release
-        .assets
-        .iter()
-        .find(|a| a.name == asset_name)
-        .expect("matched asset must exist in release");
-
-    let tmp_dir = tempfile::tempdir()?;
-    let archive_path = tmp_dir.path().join(&asset_name);
-    if !json {
-        println!("Downloading {asset_name}...");
-    }
-    binary::download_file(&asset.browser_download_url, &archive_path)?;
-
-    let extract_dir = tmp_dir.path().join("extracted");
-    binary::extract_tar_gz(&archive_path, &extract_dir)?;
-
-    let new_binary = binary::find_binary_in_dir(&extract_dir, "ion")?;
-    let installed_path = replace_exe(&new_binary)?;
-
     if json {
         crate::json::print_success(serde_json::json!({
             "updated": true,
-            "old_version": current,
-            "new_version": latest,
-            "exe": installed_path.display().to_string(),
+            "old_version": result.old_version,
+            "new_version": result.new_version,
+            "exe": result.exe.display().to_string(),
         }));
         return Ok(());
     }
 
-    println!("Updated to ion {latest}");
-    println!("exe: {}", installed_path.display());
+    println!("Updated to ion {}", result.new_version);
+    println!("exe: {}", result.exe.display());
     Ok(())
 }
 
@@ -235,23 +199,6 @@ fn check_for_update_hint_inner() -> Option<()> {
     }
 
     Some(())
-}
-
-/// Parse a version string like "0.1.14" into a comparable tuple.
-fn parse_version_tuple(v: &str) -> Option<(u64, u64, u64)> {
-    let mut parts = v.split('.');
-    let major = parts.next()?.parse().ok()?;
-    let minor = parts.next()?.parse().ok()?;
-    let patch = parts.next()?.parse().ok()?;
-    Some((major, minor, patch))
-}
-
-/// Returns true if `latest` is strictly newer than `current`.
-fn is_newer_version(current: &str, latest: &str) -> bool {
-    match (parse_version_tuple(current), parse_version_tuple(latest)) {
-        (Some(c), Some(l)) => l > c,
-        _ => current != latest, // fallback to string comparison
-    }
 }
 
 fn print_update_hint(current: &str, latest: &str) {
@@ -370,36 +317,4 @@ pub fn uninstall(yes: bool, json: bool) -> anyhow::Result<()> {
     println!("  Removed binary");
     println!("\nion has been uninstalled.");
     Ok(())
-}
-
-fn replace_exe(new_binary: &Path) -> anyhow::Result<PathBuf> {
-    let current_exe = std::env::current_exe()?.canonicalize()?;
-    let backup = current_exe.with_extension("old");
-
-    // Move current executable to backup
-    if let Err(e) = std::fs::rename(&current_exe, &backup) {
-        if e.kind() == std::io::ErrorKind::PermissionDenied {
-            bail!("Permission denied. Try: sudo ion self update");
-        }
-        bail!("Failed to back up current executable: {e}");
-    }
-
-    // Copy new binary into place
-    if let Err(e) = std::fs::copy(new_binary, &current_exe) {
-        // Restore backup on failure
-        let _ = std::fs::rename(&backup, &current_exe);
-        bail!("Failed to install new binary: {e}");
-    }
-
-    // Set executable permissions on unix
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&current_exe, std::fs::Permissions::from_mode(0o755))?;
-    }
-
-    // Clean up backup
-    let _ = std::fs::remove_file(&backup);
-
-    Ok(current_exe)
 }

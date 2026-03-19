@@ -10,6 +10,7 @@ pub mod manifest_writer;
 pub mod migrate;
 pub mod registry;
 pub mod search;
+pub mod self_update;
 pub mod skill;
 pub mod source;
 pub mod update;

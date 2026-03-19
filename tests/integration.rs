@@ -238,6 +238,7 @@ fn self_help_shows_subcommands() {
     let output = ion_cmd().args(["self", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
+    assert!(stdout.contains("skill"));
     assert!(stdout.contains("check"));
     assert!(stdout.contains("info"));
     assert!(stdout.contains("update"));

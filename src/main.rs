@@ -186,6 +186,8 @@ enum ProjectCommands {
 
 #[derive(Subcommand)]
 enum SelfCommands {
+    /// Output the SKILL.md for this tool
+    Skill,
     /// Show ion version and installation info
     Info,
     /// Check if a newer version of ion is available
@@ -294,6 +296,10 @@ fn main() {
         },
         Commands::Config { action } => commands::config::run(action, json),
         Commands::Self_ { action } => match action {
+            SelfCommands::Skill => {
+                commands::self_cmd::skill();
+                Ok(())
+            }
             SelfCommands::Info => commands::self_cmd::info(json),
             SelfCommands::Check => commands::self_cmd::check(json),
             SelfCommands::Update { version } => {

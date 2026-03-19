@@ -298,15 +298,15 @@ pub fn file_checksum(path: &Path) -> crate::Result<String> {
     Ok(format!("sha256:{:x}", hash))
 }
 
-/// Run `<binary> skill` and capture the SKILL.md output from stdout.
+/// Run `<binary> self skill` and capture the SKILL.md output from stdout.
 pub fn generate_skill_md(binary_path: &Path) -> crate::Result<String> {
     use std::process::Command;
     let output = Command::new(binary_path)
-        .arg("skill")
+        .args(["self", "skill"])
         .output()
         .map_err(|e| {
             crate::Error::Other(format!(
-                "Failed to run '{} skill': {}",
+                "Failed to run '{} self skill': {}",
                 binary_path.display(),
                 e
             ))
@@ -314,7 +314,7 @@ pub fn generate_skill_md(binary_path: &Path) -> crate::Result<String> {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(crate::Error::Other(format!(
-            "'{}' skill command failed (exit {}): {}",
+            "'{}' self skill command failed (exit {}): {}",
             binary_path.display(),
             output.status,
             stderr.trim()
@@ -324,7 +324,7 @@ pub fn generate_skill_md(binary_path: &Path) -> crate::Result<String> {
         .map_err(|e| crate::Error::Other(format!("Invalid UTF-8 in skill output: {}", e)))?;
     if stdout.trim().is_empty() {
         return Err(crate::Error::Other(format!(
-            "'{}' skill command produced no output",
+            "'{}' self skill command produced no output",
             binary_path.display()
         )));
     }
@@ -360,7 +360,7 @@ pub struct BinaryValidation {
 
 /// Validate that an installed binary is functional.
 ///
-/// Checks executable permissions, tries `--version`, and checks for a `skill` subcommand.
+/// Checks executable permissions, tries `--version`, and checks for a `self skill` subcommand.
 /// Returns an error only if the binary does not exist; other checks are best-effort.
 pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
     use std::process::Command;
@@ -397,9 +397,9 @@ pub fn validate_binary(binary_path: &Path) -> crate::Result<BinaryValidation> {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|s| !s.is_empty());
 
-    // 4. Try `skill` subcommand — check if it produces output starting with `---`
+    // 4. Try `self skill` subcommand — check if it produces output starting with `---`
     let has_skill_command = Command::new(binary_path)
-        .arg("skill")
+        .args(["self", "skill"])
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -822,7 +822,7 @@ mod tests {
             fs::write(
                 &bin_path,
                 r#"#!/bin/sh
-if [ "$1" = "skill" ]; then
+if [ "$1" = "self" ] && [ "$2" = "skill" ]; then
     cat <<'EOF'
 ---
 name: mytool
@@ -1010,7 +1010,7 @@ fi
                 r#"#!/bin/sh
 if [ "$1" = "--version" ]; then
     echo "mytool 1.0.0"
-elif [ "$1" = "skill" ]; then
+elif [ "$1" = "self" ] && [ "$2" = "skill" ]; then
     echo "---"
     echo "name: mytool"
     echo "description: Test tool."

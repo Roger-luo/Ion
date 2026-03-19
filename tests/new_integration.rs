@@ -137,19 +137,35 @@ fn new_bin_creates_cargo_project_and_skill_md() {
         "Cargo.toml should have clap dependency"
     );
 
-    // src/main.rs should have skill subcommand
+    // src/main.rs should have self command group with skill subcommand
     let main_content = std::fs::read_to_string(target.join("src/main.rs")).unwrap();
+    assert!(
+        main_content.contains("SelfCommands"),
+        "main.rs should have SelfCommands enum"
+    );
     assert!(
         main_content.contains("Skill"),
         "main.rs should have Skill command variant"
     );
     assert!(
-        main_content.contains("print_skill"),
-        "main.rs should have print_skill function"
-    );
-    assert!(
         main_content.contains("include_str!"),
         "main.rs should include SKILL.md"
+    );
+    assert!(
+        main_content.contains("SelfManager"),
+        "main.rs should use SelfManager from ion-skill"
+    );
+
+    // Cargo.toml should have ion-skill dependency
+    assert!(
+        cargo_content.contains("ion-skill"),
+        "Cargo.toml should have ion-skill dependency"
+    );
+
+    // build.rs should exist for TARGET env var
+    assert!(
+        target.join("build.rs").exists(),
+        "build.rs should exist for TARGET env var"
     );
 }
 
