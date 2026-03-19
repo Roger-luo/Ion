@@ -10,12 +10,15 @@ Ion is a Rust CLI skill manager for AI agent tools (Claude, Cursor, Windsurf, et
 
 ```bash
 cargo build                              # Dev build
-cargo test                               # All tests (unit + integration)
-cargo test <test_name>                   # Single test by name
-cargo test --test integration            # Tests from one file
+cargo nextest run                        # All tests (unit + integration)
+cargo nextest run -E 'test(test_name)'   # Single test by name
+cargo nextest run -E 'binary(integration)' # Tests from one file
+cargo nextest run --profile ci           # CI profile (retries, no fail-fast)
 cargo clippy                             # Lint
 cargo fmt                                # Format
 ```
+
+Install nextest locally: `cargo install cargo-nextest --locked`
 
 ## Architecture
 
