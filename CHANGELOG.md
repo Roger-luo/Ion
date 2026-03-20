@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+### Fixed
+
+- Clear inline TUI viewport on exit to remove UI artifacts (c487455)
+
 ### Added
 
 - Remove `project` subcommand group, promote `migrate` to top level (85d974c)
