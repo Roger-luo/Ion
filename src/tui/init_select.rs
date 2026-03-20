@@ -314,6 +314,8 @@ pub fn run_init_select(project_dir: &Path) -> anyhow::Result<Option<BTreeMap<Str
         viewport: Viewport::Inline(WIDGET_HEIGHT),
     };
     let mut terminal = Terminal::with_options(backend, options)?;
+    // Capture viewport start row (after any scrolling done by ratatui)
+    let viewport_start_y = crossterm::cursor::position()?.1;
 
     let result = (|| {
         loop {
@@ -333,9 +335,12 @@ pub fn run_init_select(project_dir: &Path) -> anyhow::Result<Option<BTreeMap<Str
     })();
 
     disable_raw_mode()?;
-    // Move cursor below the inline viewport so subsequent output doesn't overwrite it
-    let pos = terminal.get_cursor_position()?;
-    crossterm::execute!(io::stdout(), crossterm::cursor::MoveTo(0, pos.y + 1))?;
+    // Clear the inline viewport so no button hints or UI artifacts remain
+    crossterm::execute!(
+        io::stdout(),
+        crossterm::cursor::MoveTo(0, viewport_start_y),
+        crossterm::terminal::Clear(crossterm::terminal::ClearType::FromCursorDown)
+    )?;
 
     result
 }

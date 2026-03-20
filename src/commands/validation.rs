@@ -95,15 +95,21 @@ fn interactive_select(skills: &[(String, usize)]) -> anyhow::Result<Option<Vec<b
     // Enable raw mode for key-by-key input
     terminal::enable_raw_mode()?;
 
+    // Capture cursor position before rendering so we can clear the widget on exit
+    let start_row = cursor::position()?.1;
+
     // Draw initial state
     let result = run_select_loop(&mut stdout, skills, &mut selected, &mut cursor_pos);
 
     // Always restore terminal
     terminal::disable_raw_mode()?;
 
-    // Move cursor below the widget
-    write!(stdout, "\r\n")?;
-    stdout.flush()?;
+    // Clear the widget area so no button hints or UI artifacts remain
+    crossterm::execute!(
+        stdout,
+        cursor::MoveTo(0, start_row),
+        terminal::Clear(terminal::ClearType::FromCursorDown)
+    )?;
 
     let confirmed = result?;
     if confirmed {

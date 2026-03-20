@@ -220,6 +220,8 @@ fn run_interactive() -> anyhow::Result<()> {
         viewport: Viewport::Inline(height),
     };
     let mut terminal = Terminal::with_options(backend, options)?;
+    // Capture viewport start row (after any scrolling done by ratatui)
+    let viewport_start_y = crossterm::cursor::position()?.1;
 
     let result = (|| {
         loop {
@@ -238,11 +240,10 @@ fn run_interactive() -> anyhow::Result<()> {
     })();
 
     disable_raw_mode()?;
-    // Move cursor below the inline viewport and clear any leftover rendered lines
-    let pos = terminal.get_cursor_position()?;
+    // Clear the inline viewport so no button hints or UI artifacts remain
     crossterm::execute!(
         io::stdout(),
-        crossterm::cursor::MoveTo(0, pos.y + 1),
+        crossterm::cursor::MoveTo(0, viewport_start_y),
         crossterm::terminal::Clear(crossterm::terminal::ClearType::FromCursorDown)
     )?;
 
