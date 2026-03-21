@@ -9,7 +9,7 @@ dirs.workspace = true
 flate2.workspace = true
 log.workspace = true
 pathdiff.workspace = true
-pulldown-cmark = "0.12"
+pulldown-cmark = "0.13"
 regex = "1"
 reqwest.workspace = true
 serde = { workspace = true, features = ["derive"] }
@@ -21,7 +21,7 @@ tempfile.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
-tree-sitter = "0.25"
+tree-sitter = "0.26"
 tree-sitter-bash = "0.25"
 tree-sitter-python = "0.25"
 tree-sitter-rust = "0.24"

@@ -5,16 +5,16 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4.5.60", features = ["string", "derive"] }
+clap = { version = "4.6.0", features = ["string", "derive"] }
 clap_complete = "4"
-crossterm = "0.28"
+crossterm = "0.29"
 dirs.workspace = true
 env_logger = "0.11"
 ion-skill = { path = "crates/ion-skill" }
 ionem = { workspace = true, features = ["runtime"] }
 log.workspace = true
 pathdiff.workspace = true
-ratatui = "0.29"
+ratatui = "0.30"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tempfile.workspace = true
@@ -36,7 +36,7 @@ dirs = "6"
 flate2 = "1"
 log = "0.4"
 pathdiff = "0.2"
-reqwest = { version = "0.12", features = ["blocking", "json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.13", features = ["blocking", "json", "query", "rustls"], default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
@@ -44,5 +44,5 @@ sha2 = "0.10"
 tar = "0.4"
 tempfile = "3"
 thiserror = "2"
-toml = "0.8"
-toml_edit = "0.22"
+toml = "1.0"
+toml_edit = "0.25"
