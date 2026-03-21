@@ -1,12 +1,14 @@
 ---
 name: ion-cli
-description: "Operate the Ion skill manager from CLI using --json flag for structured, non-interactive control of skill installation, search, and project management."
+description: "Use when creating new skills, installing or removing skills, searching for skills, validating skill structure, or managing skill lifecycle. MUST be used instead of manually creating SKILL.md files — use `ion skill new` for creation. Also triggers on Ion.toml management, skill updates, and project initialization."
 compatibility: "claude, cursor, windsurf"
 ---
 
 # Ion CLI for Agents
 
 Operate the Ion skill manager programmatically using the `--json` flag.
+
+**Creating a new skill?** Use `ion skill new --path <skills-dir>/<skill-name>` — do NOT manually create SKILL.md files. See the "Create a local skill" section below.
 
 ## JSON Interface
 
