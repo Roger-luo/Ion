@@ -44,6 +44,12 @@ enum Commands {
         /// Install as a binary CLI skill from GitHub Releases
         #[arg(long)]
         bin: bool,
+        /// Dev mode: forward `ion run` to `cargo run` instead of building (local binary only)
+        #[arg(long)]
+        dev: bool,
+        /// Override the skill name (default: inferred from source)
+        #[arg(long)]
+        name: Option<String>,
         /// Proceed despite validation warnings
         #[arg(long)]
         allow_warnings: bool,
@@ -239,6 +245,8 @@ fn main() {
             source,
             rev,
             bin,
+            dev,
+            name,
             allow_warnings,
             skills,
         } => match source {
@@ -246,6 +254,8 @@ fn main() {
                 &src,
                 rev.as_deref(),
                 bin,
+                dev,
+                name.as_deref(),
                 json,
                 allow_warnings,
                 skills.as_deref(),

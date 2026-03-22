@@ -432,7 +432,7 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
         && let Some(source) = app.selected_install_source()
     {
         log::debug!("user selected install source: {source}");
-        crate::commands::add::run(source, None, false, false, false, None)?;
+        crate::commands::add::run(source, None, false, false, None, false, false, None)?;
     }
 
     Ok(())

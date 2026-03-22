@@ -33,6 +33,7 @@ fn test_binary_locked_skill_roundtrip() {
         binary: Some("mytool".to_string()),
         binary_version: Some("1.2.0".to_string()),
         binary_checksum: Some("sha256:abc123".to_string()),
+        dev: None,
     };
 
     let lockfile = ion_skill::lockfile::Lockfile {
@@ -180,6 +181,7 @@ fn test_lockfile_binary_version_update() {
         binary: Some("mytool".to_string()),
         binary_version: Some("1.0.0".to_string()),
         binary_checksum: Some("sha256:old".to_string()),
+        dev: None,
     });
 
     lockfile.write_to(&path).unwrap();

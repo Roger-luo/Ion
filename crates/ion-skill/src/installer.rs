@@ -226,6 +226,19 @@ impl<'a> SkillInstaller<'a> {
         let binary_name = source.binary.as_deref().unwrap_or(name);
         let skill_dir = self.skill_dir(name);
 
+        let is_local_path = source.source.starts_with('/')
+            || source.source.starts_with("./")
+            || source.source.starts_with("../");
+
+        if is_local_path {
+            let project_path = std::path::PathBuf::from(&source.source);
+            return if source.dev {
+                self.install_binary_dev(name, &project_path, binary_name, &skill_dir, source)
+            } else {
+                self.install_binary_local(name, &project_path, binary_name, &skill_dir, source)
+            };
+        }
+
         let is_url = source.source.starts_with("http://") || source.source.starts_with("https://");
 
         let result = if is_url {
@@ -282,6 +295,82 @@ impl<'a> SkillInstaller<'a> {
             binary: Some(binary_name.to_string()),
             binary_version: Some(result.version),
             binary_checksum: Some(result.binary_checksum),
+            dev: None,
+        })
+    }
+
+    /// Install a local binary skill by building in release mode.
+    fn install_binary_local(
+        &self,
+        name: &str,
+        project_path: &std::path::Path,
+        binary_name: &str,
+        skill_dir: &std::path::Path,
+        source: &SkillSource,
+    ) -> Result<LockedSkill> {
+        use crate::binary;
+
+        let result =
+            binary::install_binary_from_local(project_path, binary_name, skill_dir)?;
+
+        for warning in &result.warnings {
+            eprintln!("Warning: {}", warning);
+        }
+
+        let (meta, body) = self.validate_spec(skill_dir, source)?;
+        let report = validate::validate_skill_dir(skill_dir, &meta, &body);
+        if report.error_count > 0 {
+            return Err(Error::validation_failed(report));
+        }
+
+        self.deploy(name, skill_dir)?;
+
+        Ok(LockedSkill {
+            name: name.to_string(),
+            source: source.source.clone(),
+            path: source.path.clone(),
+            version: meta.version().map(|v| v.to_string()),
+            commit: None,
+            checksum: None,
+            binary: Some(binary_name.to_string()),
+            binary_version: Some(result.version),
+            binary_checksum: Some(result.binary_checksum),
+            dev: None,
+        })
+    }
+
+    /// Set up a dev-mode local binary skill (no release build).
+    fn install_binary_dev(
+        &self,
+        name: &str,
+        project_path: &std::path::Path,
+        binary_name: &str,
+        skill_dir: &std::path::Path,
+        source: &SkillSource,
+    ) -> Result<LockedSkill> {
+        use crate::binary;
+
+        let info = binary::setup_dev_binary(project_path, binary_name, skill_dir)?;
+
+        let (meta, body) = self.validate_spec(skill_dir, source)?;
+        let report = validate::validate_skill_dir(skill_dir, &meta, &body);
+        if report.error_count > 0 {
+            return Err(Error::validation_failed(report));
+        }
+
+        self.deploy(name, skill_dir)?;
+
+        Ok(LockedSkill {
+            name: name.to_string(),
+            source: source.source.clone(),
+            path: source.path.clone(),
+            version: meta.version().map(|v| v.to_string()),
+            commit: None,
+            checksum: None,
+            binary: Some(binary_name.to_string()),
+            binary_version: Some(info.version).filter(|v| v != "0.0.0"),
+            binary_checksum: None,
+            dev: Some(true),
         })
     }
 
@@ -320,6 +409,7 @@ impl<'a> SkillInstaller<'a> {
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         })
     }
 }

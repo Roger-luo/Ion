@@ -103,6 +103,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
                 binary: None,
                 binary_version: None,
                 binary_checksum: None,
+                dev: None,
             });
 
         // Check for update

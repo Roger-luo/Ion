@@ -25,6 +25,7 @@ pub struct SkillSource {
     pub binary: Option<String>,
     pub asset_pattern: Option<String>,
     pub forked_from: Option<String>,
+    pub dev: bool,
 }
 
 impl SkillSource {
@@ -39,6 +40,7 @@ impl SkillSource {
             binary: None,
             asset_pattern: None,
             forked_from: None,
+            dev: false,
         }
     }
 

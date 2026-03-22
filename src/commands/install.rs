@@ -81,6 +81,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
                 binary: None,
                 binary_version: None,
                 binary_checksum: None,
+                dev: None,
             });
 
             continue;

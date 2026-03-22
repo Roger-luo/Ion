@@ -11,16 +11,23 @@ use crate::commands::validation::{confirm_proceed_with_collection, select_warned
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     source_str: &str,
     rev: Option<&str>,
     bin: bool,
+    dev: bool,
+    name_override: Option<&str>,
     json: bool,
     allow_warnings: bool,
     skills_filter: Option<&str>,
 ) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
+
+    if dev && !bin {
+        anyhow::bail!("--dev can only be used with --bin for local binary skills");
+    }
 
     let expanded = ctx.global_config.resolve_source(source_str);
     let mut source = SkillSource::infer(&expanded)?;
@@ -30,7 +37,27 @@ pub fn run(
 
     if bin {
         source.source_type = SourceType::Binary;
-        if source.binary.is_none() {
+
+        if dev {
+            let is_local = source.source.starts_with('/')
+                || source.source.starts_with("./")
+                || source.source.starts_with("../");
+            if !is_local {
+                anyhow::bail!("--dev can only be used with local path sources (e.g., ./my-project)");
+            }
+            source.dev = true;
+        }
+
+        // For local binary skills, resolve the binary name from cargo metadata
+        // if not explicitly overridden
+        let is_local = source.source.starts_with('/')
+            || source.source.starts_with("./")
+            || source.source.starts_with("../");
+        if is_local && source.binary.is_none() {
+            let project_path = std::path::PathBuf::from(&source.source);
+            let info = ion_skill::binary::cargo_project_info(&project_path)?;
+            source.binary = Some(info.binary_name);
+        } else if source.binary.is_none() {
             source.binary = Some(source.display_name());
         }
     }
@@ -42,10 +69,14 @@ pub fn run(
 
     // Binary skills always install as a single skill — no collection fallback
     if bin {
-        let name = source.display_name();
+        let name = name_override
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| source.binary.clone().unwrap_or_else(|| source.display_name()));
+        let mode = if dev { " (dev)" } else { "" };
         println!(
-            "Adding binary skill {} from {}...",
+            "Adding binary skill {}{} from {}...",
             p.bold(&format!("'{name}'")),
+            mode,
             p.info(source_str)
         );
         let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
@@ -57,7 +88,9 @@ pub fn run(
     // a multi-skill collection. Try to install as a single skill first; if there
     // is no root SKILL.md, discover and install all skills in the repo.
     if source.path.is_none() {
-        let name = source.display_name();
+        let name = name_override
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| source.display_name());
         println!(
             "Adding skill {} from {}...",
             p.bold(&format!("'{name}'")),
@@ -120,7 +153,9 @@ pub fn run(
     }
 
     // Source has a path — install a single skill directly
-    let name = source.display_name();
+    let name = name_override
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| source.display_name());
     println!(
         "Adding skill {} from {}...",
         p.bold(&format!("'{name}'")),

@@ -22,6 +22,8 @@ pub struct LockedSkill {
     pub binary_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binary_checksum: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dev: Option<bool>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -96,6 +98,7 @@ checksum = "sha256:deadbeef"
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         });
 
         lockfile.write_to(&path).unwrap();
@@ -117,6 +120,7 @@ checksum = "sha256:deadbeef"
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         });
         lockfile.upsert(LockedSkill {
             name: "s".to_string(),
@@ -128,6 +132,7 @@ checksum = "sha256:deadbeef"
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         });
         assert_eq!(lockfile.skills.len(), 1);
         assert_eq!(lockfile.skills[0].commit.as_deref(), Some("new"));
@@ -146,6 +151,7 @@ checksum = "sha256:deadbeef"
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         });
         lockfile.remove("a");
         assert!(lockfile.skills.is_empty());
@@ -167,6 +173,7 @@ checksum = "sha256:deadbeef"
             binary: Some("mytool".to_string()),
             binary_version: Some("1.2.0".to_string()),
             binary_checksum: Some("sha256:abc123".to_string()),
+            dev: None,
         });
 
         lockfile.write_to(&path).unwrap();

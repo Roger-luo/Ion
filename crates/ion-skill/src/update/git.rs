@@ -88,6 +88,7 @@ impl Updater for GitUpdater {
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         })
     }
 }
@@ -191,6 +192,7 @@ mod tests {
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         };
 
         // Use the upstream path as a Git source — but we need to ensure
@@ -230,6 +232,7 @@ mod tests {
             binary: None,
             binary_version: None,
             binary_checksum: None,
+            dev: None,
         };
 
         let updater = GitUpdater;

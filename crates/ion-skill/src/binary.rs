@@ -443,6 +443,231 @@ pub fn list_installed_binaries() -> crate::Result<Vec<String>> {
     Ok(names)
 }
 
+/// Information extracted from a local Cargo project.
+#[derive(Debug)]
+pub struct CargoProject {
+    pub binary_name: String,
+    pub version: String,
+}
+
+/// Run `cargo metadata` to extract binary name and version from a Cargo project.
+///
+/// Finds the first `[[bin]]` target in the package. Errors if no binary target is found
+/// or if the path doesn't contain a valid Cargo project.
+pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
+    let manifest_path = project_path.join("Cargo.toml");
+    if !manifest_path.exists() {
+        return Err(crate::Error::Other(format!(
+            "No Cargo.toml found at {}",
+            project_path.display()
+        )));
+    }
+
+    let output = std::process::Command::new("cargo")
+        .args([
+            "metadata",
+            "--no-deps",
+            "--format-version",
+            "1",
+            "--manifest-path",
+        ])
+        .arg(&manifest_path)
+        .output()
+        .map_err(|e| crate::Error::Other(format!("Failed to run cargo metadata: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(crate::Error::Other(format!(
+            "cargo metadata failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .map_err(|e| crate::Error::Other(format!("Failed to parse cargo metadata: {}", e)))?;
+
+    let packages = json["packages"]
+        .as_array()
+        .ok_or_else(|| crate::Error::Other("No packages in cargo metadata".to_string()))?;
+
+    // Find the package whose manifest_path matches our project
+    let manifest_str = manifest_path.to_string_lossy();
+    let package = packages
+        .iter()
+        .find(|p| {
+            p["manifest_path"]
+                .as_str()
+                .is_some_and(|mp| mp == manifest_str.as_ref())
+        })
+        .or_else(|| packages.first())
+        .ok_or_else(|| crate::Error::Other("No packages found in cargo metadata".to_string()))?;
+
+    let version = package["version"]
+        .as_str()
+        .unwrap_or("0.0.0")
+        .to_string();
+
+    // Find the first binary target
+    let targets = package["targets"].as_array().ok_or_else(|| {
+        crate::Error::Other("No targets found in cargo metadata package".to_string())
+    })?;
+
+    let bin_target = targets
+        .iter()
+        .find(|t| {
+            t["kind"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|k| k.as_str() == Some("bin")))
+        })
+        .ok_or_else(|| {
+            crate::Error::Other(format!(
+                "No binary target found in {}. Is this a binary crate?",
+                project_path.display()
+            ))
+        })?;
+
+    let binary_name = bin_target["name"]
+        .as_str()
+        .ok_or_else(|| crate::Error::Other("Binary target has no name".to_string()))?
+        .to_string();
+
+    Ok(CargoProject {
+        binary_name,
+        version,
+    })
+}
+
+/// Build a local Cargo project in release mode and install the binary.
+pub fn install_binary_from_local(
+    project_path: &Path,
+    binary_name: &str,
+    skill_dir: &Path,
+) -> crate::Result<BinaryInstallResult> {
+    let info = cargo_project_info(project_path)?;
+
+    if let Some(result) = check_already_installed(binary_name, &info.version, skill_dir)? {
+        return Ok(result);
+    }
+
+    let manifest_path = project_path.join("Cargo.toml");
+    let status = std::process::Command::new("cargo")
+        .args(["build", "--release", "--manifest-path"])
+        .arg(&manifest_path)
+        .status()
+        .map_err(|e| crate::Error::Other(format!("Failed to run cargo build: {}", e)))?;
+
+    if !status.success() {
+        return Err(crate::Error::Other(
+            "cargo build --release failed".to_string(),
+        ));
+    }
+
+    // Find the built binary in target/release/
+    let target_dir = project_path.join("target").join("release");
+    let built_binary = target_dir.join(binary_name);
+    if !built_binary.exists() {
+        return Err(crate::Error::Other(format!(
+            "Built binary not found at {}. Expected binary name: {}",
+            built_binary.display(),
+            binary_name
+        )));
+    }
+
+    let bin_root = bin_dir();
+    install_binary_file(&built_binary, binary_name, &info.version, &bin_root)?;
+
+    let installed_binary = binary_path(binary_name, &info.version);
+    let checksum = file_checksum(&installed_binary)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    // Prefer a bundled SKILL.md from the project, fall back to `self skill` output
+    let skill_md_content = if project_path.join("SKILL.md").is_file() {
+        fs::read_to_string(project_path.join("SKILL.md"))
+            .map_err(|e| crate::Error::Other(format!("Failed to read SKILL.md: {}", e)))?
+    } else {
+        generate_skill_md(&installed_binary)?
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    let mut warnings = Vec::new();
+    if let Ok(validation) = validate_binary(&installed_binary) {
+        if !validation.is_executable {
+            warnings.push(format!("Binary '{}' may not be executable", binary_name));
+        }
+        if !validation.has_skill_command {
+            warnings.push(format!(
+                "Binary '{}' does not have a 'self skill' subcommand",
+                binary_name
+            ));
+        }
+    }
+
+    Ok(BinaryInstallResult {
+        version: info.version,
+        binary_checksum: checksum,
+        warnings,
+    })
+}
+
+/// Set up a dev-mode local binary skill (no release build, just metadata + SKILL.md).
+///
+/// Validates the project is a valid Cargo binary crate and generates the SKILL.md.
+/// The actual binary is not built — `ion run` will forward to `cargo run` at runtime.
+pub fn setup_dev_binary(
+    project_path: &Path,
+    binary_name: &str,
+    skill_dir: &Path,
+) -> crate::Result<CargoProject> {
+    let info = cargo_project_info(project_path)?;
+
+    fs::create_dir_all(skill_dir)
+        .map_err(|e| crate::Error::Other(format!("Failed to create skill dir: {}", e)))?;
+
+    // Prefer a bundled SKILL.md from the project, fall back to `cargo run -- self skill`
+    let skill_md_content = if project_path.join("SKILL.md").is_file() {
+        fs::read_to_string(project_path.join("SKILL.md"))
+            .map_err(|e| crate::Error::Other(format!("Failed to read SKILL.md: {}", e)))?
+    } else {
+        let manifest_path = project_path.join("Cargo.toml");
+        let output = std::process::Command::new("cargo")
+            .args(["run", "-q", "--manifest-path"])
+            .arg(&manifest_path)
+            .args(["--bin", binary_name, "--", "self", "skill"])
+            .output()
+            .map_err(|e| {
+                crate::Error::Other(format!("Failed to run 'cargo run -- self skill': {}", e))
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(crate::Error::Other(format!(
+                "'cargo run -- self skill' failed (exit {}): {}",
+                output.status, stderr.trim()
+            )));
+        }
+
+        let stdout = String::from_utf8(output.stdout)
+            .map_err(|e| crate::Error::Other(format!("Invalid UTF-8 in skill output: {}", e)))?;
+
+        if stdout.trim().is_empty() {
+            return Err(crate::Error::Other(
+                "'cargo run -- self skill' produced no output".to_string(),
+            ));
+        }
+
+        stdout
+    };
+
+    fs::write(skill_dir.join("SKILL.md"), &skill_md_content)
+        .map_err(|e| crate::Error::Other(format!("Failed to write SKILL.md: {}", e)))?;
+
+    Ok(info)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

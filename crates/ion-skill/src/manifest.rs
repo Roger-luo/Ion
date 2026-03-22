@@ -27,6 +27,8 @@ pub enum SkillEntry {
         asset_pattern: Option<String>,
         #[serde(default, alias = "forked-from")]
         forked_from: Option<String>,
+        #[serde(default)]
+        dev: Option<bool>,
     },
 }
 
@@ -44,6 +46,7 @@ impl SkillEntry {
                 binary,
                 asset_pattern,
                 forked_from,
+                dev,
             } => {
                 let mut resolved = match source_type {
                     Some(SourceType::Local) => {
@@ -81,6 +84,7 @@ impl SkillEntry {
                 resolved.binary = binary.clone();
                 resolved.asset_pattern = asset_pattern.clone();
                 resolved.forked_from = forked_from.clone();
+                resolved.dev = dev.unwrap_or(false);
                 Ok(resolved)
             }
         }

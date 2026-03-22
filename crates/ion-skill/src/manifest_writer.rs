@@ -115,6 +115,7 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         || source.binary.is_some()
         || source.asset_pattern.is_some()
         || source.forked_from.is_some()
+        || source.dev
         || source.source_type == SourceType::Local;
 
     if !needs_table {
@@ -174,6 +175,9 @@ fn skill_to_toml(source: &SkillSource) -> Item {
     }
     if let Some(ref ff) = source.forked_from {
         table.insert("forked-from", ff.as_str().into());
+    }
+    if source.dev {
+        table.insert("dev", true.into());
     }
 
     value(table)
