@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+### Added
+
+- Auto-detect binary skill projects from Ion.toml [project] section (c65e2b0)
+- Add local binary skill support with dev mode (53ab2a8)
+
+### Fixed
+
+- Add ionem to build-dependencies in binary skill scaffold (94bfaab)
+
+### Refactored
+
+- Improve skill templates with best practices (96091bc)
+
 ### Fixed
 
 - Improve skill description to trigger on skill creation (503c6c2)
