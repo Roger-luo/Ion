@@ -264,11 +264,11 @@ fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
     let cargo_toml_path = target_dir.join("Cargo.toml");
     let cargo_content = std::fs::read_to_string(&cargo_toml_path)?;
     if !cargo_content.contains("clap") {
+        let ionem_ver = env!("IONEM_VERSION");
         let updated = cargo_content.replace(
             "[dependencies]",
             &format!(
-                "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nionem = {{ version = \"{}\" }}",
-                env!("IONEM_VERSION")
+                "[dependencies]\nclap = {{ version = \"4\", features = [\"derive\"] }}\nionem = {{ version = \"{ionem_ver}\" }}\n\n[build-dependencies]\nionem = {{ version = \"{ionem_ver}\", default-features = false }}",
             ),
         );
         std::fs::write(&cargo_toml_path, updated)?;
