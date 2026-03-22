@@ -59,7 +59,9 @@ pub fn run(
 
         if dev {
             if !is_local_path {
-                anyhow::bail!("--dev can only be used with local path sources (e.g., ./my-project)");
+                anyhow::bail!(
+                    "--dev can only be used with local path sources (e.g., ./my-project)"
+                );
             }
             source.dev = true;
         }
@@ -82,9 +84,12 @@ pub fn run(
 
     // Binary skills always install as a single skill — no collection fallback
     if bin {
-        let name = name_override
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| source.binary.clone().unwrap_or_else(|| source.display_name()));
+        let name = name_override.map(|s| s.to_string()).unwrap_or_else(|| {
+            source
+                .binary
+                .clone()
+                .unwrap_or_else(|| source.display_name())
+        });
         let mode = if dev { " (dev)" } else { "" };
         println!(
             "Adding binary skill {}{} from {}...",
@@ -163,21 +168,18 @@ pub fn run(
                         if bin_source.binary.is_none() {
                             bin_source.binary = Some(bin_source.display_name());
                         }
-                        let bin_name = name_override
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|| {
-                                bin_source
-                                    .binary
-                                    .clone()
-                                    .unwrap_or_else(|| bin_source.display_name())
-                            });
+                        let bin_name = name_override.map(|s| s.to_string()).unwrap_or_else(|| {
+                            bin_source
+                                .binary
+                                .clone()
+                                .unwrap_or_else(|| bin_source.display_name())
+                        });
                         println!(
                             "Detected binary skill project, installing {} from {}...",
                             p.bold(&format!("'{bin_name}'")),
                             p.info(source_str)
                         );
-                        let installer =
-                            SkillInstaller::new(&ctx.project_dir, &merged_options);
+                        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
                         let locked = installer.install(&bin_name, &bin_source)?;
                         return finish_single_install(
                             &ctx,

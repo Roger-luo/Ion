@@ -502,10 +502,7 @@ pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
         .or_else(|| packages.first())
         .ok_or_else(|| crate::Error::Other("No packages found in cargo metadata".to_string()))?;
 
-    let version = package["version"]
-        .as_str()
-        .unwrap_or("0.0.0")
-        .to_string();
+    let version = package["version"].as_str().unwrap_or("0.0.0").to_string();
 
     // Find the first binary target
     let targets = package["targets"].as_array().ok_or_else(|| {
@@ -646,7 +643,8 @@ pub fn setup_dev_binary(
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(crate::Error::Other(format!(
                 "'cargo run -- self skill' failed (exit {}): {}",
-                output.status, stderr.trim()
+                output.status,
+                stderr.trim()
             )));
         }
 

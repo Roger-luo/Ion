@@ -20,6 +20,16 @@ cargo fmt                                # Format
 
 Install nextest locally: `cargo install cargo-nextest --locked`
 
+## Pre-commit Checklist
+
+**Run all three before committing** — CI checks these exact commands and will fail if any produce output:
+
+```bash
+cargo fmt --all                                          # 1. Format
+cargo clippy --all-targets --all-features -- -D warnings # 2. Lint (warnings are errors)
+cargo nextest run                                        # 3. Test
+```
+
 ## Architecture
 
 **Workspace layout** — two crates:

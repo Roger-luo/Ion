@@ -94,7 +94,12 @@ pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
 }
 
 /// Run a dev-mode binary skill by forwarding to `cargo run` in the project directory.
-fn run_dev(source_path: &str, binary_name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
+fn run_dev(
+    source_path: &str,
+    binary_name: &str,
+    args: &[String],
+    json: bool,
+) -> anyhow::Result<()> {
     let project_path = std::path::PathBuf::from(source_path);
     let manifest_path = project_path.join("Cargo.toml");
 

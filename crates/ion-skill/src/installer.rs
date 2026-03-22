@@ -310,8 +310,7 @@ impl<'a> SkillInstaller<'a> {
     ) -> Result<LockedSkill> {
         use crate::binary;
 
-        let result =
-            binary::install_binary_from_local(project_path, binary_name, skill_dir)?;
+        let result = binary::install_binary_from_local(project_path, binary_name, skill_dir)?;
 
         for warning in &result.warnings {
             eprintln!("Warning: {}", warning);
