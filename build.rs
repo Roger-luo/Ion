@@ -1,3 +1,8 @@
+/// Compact JSON string (single-line).
+fn compact(v: serde_json::Value) -> String {
+    serde_json::to_string(&v).unwrap()
+}
+
 /// Pretty-print a serde_json::Value.
 fn pretty(v: serde_json::Value) -> String {
     serde_json::to_string_pretty(&v).unwrap()
@@ -24,20 +29,7 @@ fn main() {
         let tmpl = env.get_template("skill.md").unwrap();
 
         tmpl.render(minijinja::context! {
-            // -- Project init --
-            example_init_no_targets => pretty(serde_json::json!({
-                "success": false,
-                "action_required": "target_selection",
-                "data": {
-                    "available_targets": [
-                        {"name": "claude", "path": ".claude/skills", "detected": true},
-                        {"name": "cursor", "path": ".cursor/skills", "detected": false},
-                        {"name": "windsurf", "path": ".windsurf/skills", "detected": false}
-                    ],
-                    "hint": "Re-run with --target flags to select targets"
-                }
-            })),
-            example_init_with_targets => pretty(serde_json::json!({
+            example_init => compact(serde_json::json!({
                 "success": true,
                 "data": {
                     "targets": {"claude": ".claude/skills", "cursor": ".cursor/skills"},
@@ -45,218 +37,63 @@ fn main() {
                 }
             })),
 
-            // -- Search --
             example_search => pretty(serde_json::json!({
                 "success": true,
                 "data": [
-                    {
-                        "name": "code-review",
-                        "description": "Automated code review skill",
-                        "source": "obra/skills/code-review",
-                        "registry": "github",
-                        "stars": 42
-                    },
-                    {
-                        "name": "pr-reviewer",
-                        "description": "Pull request review assistant",
-                        "source": "acme/pr-reviewer",
-                        "registry": "skills.sh",
-                        "stars": 18
-                    }
+                    {"name": "code-review", "description": "Automated code review skill", "source": "obra/skills/code-review", "registry": "github", "stars": 42},
+                    {"name": "pr-reviewer", "description": "Pull request review assistant", "source": "acme/pr-reviewer", "registry": "skills.sh", "stars": 18}
                 ]
             })),
 
-            // -- Add --
-            example_add_success => pretty(serde_json::json!({
+            example_add => compact(serde_json::json!({
                 "success": true,
-                "data": {
-                    "name": "code-review",
-                    "installed_to": ".agents/skills/code-review/",
-                    "targets": ["claude", "cursor"]
-                }
-            })),
-            example_add_warnings => pretty(serde_json::json!({
-                "success": false,
-                "action_required": "validation_warnings",
-                "data": {
-                    "skill": "experimental-skill",
-                    "warnings": [
-                        {"severity": "warning", "checker": "security", "message": "Skill requests shell access"}
-                    ]
-                }
-            })),
-            example_add_warnings_accept => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "name": "experimental-skill",
-                    "installed_to": ".agents/skills/experimental-skill/",
-                    "targets": ["claude"]
-                }
-            })),
-            example_add_collection => pretty(serde_json::json!({
-                "success": false,
-                "action_required": "skill_selection",
-                "data": {
-                    "skills": [
-                        {"name": "code-review", "status": "clean"},
-                        {"name": "test-driven-dev", "status": "clean"},
-                        {"name": "experimental", "status": "warnings", "warning_count": 2}
-                    ]
-                }
-            })),
-            example_add_collection_select => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "name": "code-review",
-                    "installed_to": ".agents/skills/code-review/",
-                    "targets": ["claude"]
-                }
-            })),
-            example_install_all => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "installed": ["code-review", "test-driven-dev"],
-                    "skipped": ["pinned-skill"]
-                }
+                "data": {"name": "code-review", "installed_to": ".agents/skills/code-review/", "targets": ["claude", "cursor"]}
             })),
 
-            // -- Remove --
-            example_remove_confirm => pretty(serde_json::json!({
-                "success": false,
-                "action_required": "confirm_removal",
-                "data": {
-                    "skills": ["test-skill"]
-                }
-            })),
-            example_remove_yes => pretty(serde_json::json!({
+            example_install_all => compact(serde_json::json!({
                 "success": true,
-                "data": {
-                    "removed": ["test-skill"]
-                }
+                "data": {"installed": ["code-review", "test-driven-dev"], "skipped": ["pinned-skill"]}
             })),
 
-            // -- Skill list --
-            example_skill_list => pretty(serde_json::json!({
+            example_remove => compact(serde_json::json!({
                 "success": true,
-                "data": []
+                "data": {"removed": ["test-skill"]}
             })),
 
-            // -- Skill info --
-            example_skill_info => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "name": "code-review",
-                    "description": "Automated code review skill",
-                    "source_type": "Github",
-                    "source": "obra/skills",
-                    "path": "code-review",
-                    "git_url": "https://github.com/obra/skills.git"
-                }
+            example_skill_list => compact(serde_json::json!({
+                "success": true, "data": []
             })),
 
-            // -- Update --
+            example_skill_info => compact(serde_json::json!({
+                "success": true,
+                "data": {"name": "code-review", "description": "Automated code review skill", "source_type": "Github", "source": "obra/skills", "path": "code-review"}
+            })),
+
             example_update => pretty(serde_json::json!({
                 "success": true,
                 "data": {
-                    "updated": [
-                        {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-                    ],
-                    "skipped": [
-                        {"name": "pinned-skill", "reason": "pinned to refs/tags/v1.0"}
-                    ],
+                    "updated": [{"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}],
+                    "skipped": [{"name": "pinned-skill", "reason": "pinned to refs/tags/v1.0"}],
                     "failed": [],
-                    "up_to_date": [
-                        {"name": "test-driven-dev"}
-                    ]
-                }
-            })),
-            example_update_single => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "updated": [
-                        {"name": "code-review", "old_version": "v1.1.0", "new_version": "v1.2.0", "binary": false}
-                    ],
-                    "skipped": [],
-                    "failed": [],
-                    "up_to_date": []
+                    "up_to_date": [{"name": "test-driven-dev"}]
                 }
             })),
 
-            // -- Validate --
-            example_validate => pretty(serde_json::json!({
+            example_validate => compact(serde_json::json!({
                 "success": true,
-                "data": {
-                    "skills": [{
-                        "path": "test-skill/SKILL.md",
-                        "name": "test-skill",
-                        "findings": [],
-                        "errors": 0,
-                        "warnings": 0,
-                        "infos": 0
-                    }],
-                    "total_errors": 0,
-                    "total_warnings": 0,
-                    "total_infos": 0
-                }
+                "data": {"skills": [{"path": "test-skill/SKILL.md", "name": "test-skill", "findings": [], "errors": 0, "warnings": 0, "infos": 0}], "total_errors": 0, "total_warnings": 0, "total_infos": 0}
             })),
 
-            // -- Config --
-            example_config_list => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "targets.claude": ".claude/skills",
-                    "targets.cursor": ".cursor/skills"
-                }
-            })),
-            example_config_get => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "key": "targets.claude",
-                    "value": ".claude/skills"
-                }
-            })),
-            example_config_set => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "key": "targets.claude",
-                    "value": ".claude/commands"
-                }
+            example_config => compact(serde_json::json!({
+                "success": true, "data": {"targets.claude": ".claude/skills", "targets.cursor": ".cursor/skills"}
             })),
 
-            // -- Cache gc --
-            example_gc_dry_run => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "dry_run": true,
-                    "removed": []
-                }
+            example_gc => compact(serde_json::json!({
+                "success": true, "data": {"dry_run": true, "removed": []}
             })),
 
-            // -- Self --
-            example_self_info => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "version": "0.2.1",
-                    "target": "aarch64-apple-darwin",
-                    "exe": "/usr/local/bin/ion"
-                }
-            })),
-            example_self_check => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "installed": "0.2.0",
-                    "latest": "0.2.1",
-                    "update_available": true
-                }
-            })),
-            example_self_update => pretty(serde_json::json!({
-                "success": true,
-                "data": {
-                    "updated": true,
-                    "old_version": "0.2.0",
-                    "new_version": "0.2.1",
-                    "exe": "/usr/local/bin/ion"
-                }
+            example_self_info => compact(serde_json::json!({
+                "success": true, "data": {"version": "0.2.1", "target": "aarch64-apple-darwin", "exe": "/usr/local/bin/ion"}
             })),
         })
         .expect("failed to render SKILL.md template")

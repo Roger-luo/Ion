@@ -34,36 +34,41 @@ fn slugify(name: &str) -> String {
 
 const DEFAULT_TEMPLATE: &str = r#"---
 name: {name}
-description: A brief description of what this skill does
-# license: MIT
-# compatibility: claude-code
-# allowed-tools: Bash, Read, Write
-# metadata:
-#   author: your-name
-#   version: 0.1.0
+description: Describe what this skill does and when to use it. Write in third person.
+# allowed-tools: Bash, Read, Write, Edit
+# argument-hint: [args]
+# disable-model-invocation: false
+# context: fork
+# agent: general-purpose
 ---
 
 # {title}
 
 ## Overview
 
-Describe what this skill does and when to use it.
+Describe what this skill does.
+
+## When to use
+
+Describe the triggers — when should this skill activate? Be specific so the agent
+knows when to apply it (e.g., "Use when reviewing pull requests" or "Use when the
+user asks about deployment").
 
 ## Process
 
 1. Step one
 2. Step two
 
-## Examples
+## Guidelines
 
-```bash
-# Example usage
-```
+- Guideline one
+- Guideline two
 "#;
 
 const BIN_SKILL_TEMPLATE: &str = r#"---
 name: {name}
-description: A CLI tool that provides agent capabilities. Invoke with `ion run {name}`.
+description: A CLI tool that [does X]. Use when [trigger]. Invoke with `ion run {name}`.
+allowed-tools: Bash(ion run {name} *)
 metadata:
   binary: {name}
   version: 0.1.0
@@ -73,13 +78,17 @@ metadata:
 
 ## Overview
 
-Describe what this tool does. The agent invokes this via `ion run {name} [args]`.
+Describe what this tool does and when the agent should invoke it.
 
 ## Usage
 
 ```bash
 ion run {name} [command] [options]
 ```
+
+## Commands
+
+Document the commands this tool supports.
 
 ## Standard Commands
 

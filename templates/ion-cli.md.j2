@@ -1,67 +1,41 @@
 ---
 name: ion-cli
 description: "Use when creating new skills, installing or removing skills, searching for skills, validating skill structure, or managing skill lifecycle. MUST be used instead of manually creating SKILL.md files — use `ion skill new` for creation. Also triggers on Ion.toml management, skill updates, and project initialization."
-compatibility: "claude, cursor, windsurf"
+allowed-tools: Bash(ion *)
 ---
 
 # Ion CLI for Agents
 
 Operate the Ion skill manager programmatically using the `--json` flag.
 
-**Creating a new skill?** Use `ion skill new --path <skills-dir>/<skill-name>` — do NOT manually create SKILL.md files. See the "Create a local skill" section below.
+**Creating a new skill?** Use `ion skill new --path <skills-dir>/<skill-name>` — do NOT manually create SKILL.md files.
 
 ## JSON Interface
 
-All commands support `ion --json <command>`. The `--json` flag:
-
-- Outputs structured JSON to stdout
-- Disables all interactive prompts (TUI, confirmations)
-- Uses a two-stage pattern: commands that need decisions return options (exit 2), you re-run with explicit flags
-
-### Response Envelope
-
-Every response is one of three shapes:
+All commands support `ion --json <command>`. The `--json` flag outputs structured JSON to stdout and disables all interactive prompts.
 
 {% raw %}
-**Success** (exit 0) — operation completed:
-```json
-{"success": true, "data": { ... }}
-```
+### Response Envelope
 
-**Action required** (exit 2) — you must re-run with explicit flags:
-```json
-{"success": false, "action_required": "<type>", "data": { ... }}
-```
+**Success** (exit 0): `{"success": true, "data": { ... }}`
 
-**Error** (exit 1) — operation failed:
-```json
-{"success": false, "error": "message"}
-```
+**Action required** (exit 2) — re-run with explicit flags: `{"success": false, "action_required": "<type>", "data": { ... }}`
+
+**Error** (exit 1): `{"success": false, "error": "message"}`
 {% endraw %}
 
-## Commands with Examples
-
-Each example below shows the exact command and its JSON output, so you can learn the input-output format.
+## Commands
 
 ### Initialize a project
-
-Without `--target`, ion discovers available targets and asks you to choose:
-
-```bash
-$ ion --json project init
-```
-```json
-{{ example_init_no_targets }}
-```
-
-Re-run with explicit targets:
 
 ```bash
 $ ion --json project init --target claude --target cursor
 ```
 ```json
-{{ example_init_with_targets }}
+{{ example_init }}
 ```
+
+Without `--target`, returns exit 2 with available targets for you to choose from.
 
 ### Search for skills
 
@@ -74,52 +48,16 @@ $ ion --json search "code review"
 
 Use the `source` field from results to install a skill.
 
-### Add a single skill
+### Add a skill
 
 ```bash
 $ ion --json add obra/skills/code-review
 ```
 ```json
-{{ example_add_success }}
+{{ example_add }}
 ```
 
-If the skill has validation warnings, you get exit 2 instead:
-
-```bash
-$ ion --json add acme/experimental-skill
-```
-```json
-{{ example_add_warnings }}
-```
-
-Re-run with `--allow-warnings` to accept:
-
-```bash
-$ ion --json add acme/experimental-skill --allow-warnings
-```
-```json
-{{ example_add_warnings_accept }}
-```
-
-### Add from a skill collection
-
-When a repo contains multiple skills, ion lists them for you to choose:
-
-```bash
-$ ion --json add obra/skills
-```
-```json
-{{ example_add_collection }}
-```
-
-Pick specific skills:
-
-```bash
-$ ion --json add obra/skills --skills code-review,test-driven-dev
-```
-```json
-{{ example_add_collection_select }}
-```
+If the skill has validation warnings (exit 2), re-run with `--allow-warnings`. For collections (repos with multiple skills), use `--skills a,b,c` to select specific ones.
 
 ### Install all from Ion.toml
 
@@ -132,23 +70,14 @@ $ ion --json add
 
 ### Remove a skill
 
-First call returns a confirmation prompt:
-
-```bash
-$ ion --json remove test-skill
-```
-```json
-{{ example_remove_confirm }}
-```
-
-Confirm with `--yes`:
-
 ```bash
 $ ion --json remove test-skill --yes
 ```
 ```json
-{{ example_remove_yes }}
+{{ example_remove }}
 ```
+
+Without `--yes`, returns exit 2 for confirmation.
 
 ### List installed skills
 
@@ -177,14 +106,7 @@ $ ion --json update
 {{ example_update }}
 ```
 
-Update a single skill:
-
-```bash
-$ ion --json update code-review
-```
-```json
-{{ example_update_single }}
-```
+Update a single skill: `ion --json update code-review`
 
 ### Validate skills
 
@@ -198,24 +120,12 @@ $ ion --json skill validate
 ### Configuration
 
 ```bash
-$ ion --json config list
+$ ion --json config list                            # list all
+$ ion --json config get targets.claude              # get one
+$ ion --json config set targets.claude .claude/commands  # set one
 ```
 ```json
-{{ example_config_list }}
-```
-
-```bash
-$ ion --json config get targets.claude
-```
-```json
-{{ example_config_get }}
-```
-
-```bash
-$ ion --json config set targets.claude .claude/commands
-```
-```json
-{{ example_config_set }}
+{{ example_config }}
 ```
 
 ### Cache management
@@ -224,104 +134,99 @@ $ ion --json config set targets.claude .claude/commands
 $ ion --json cache gc --dry-run
 ```
 ```json
-{{ example_gc_dry_run }}
+{{ example_gc }}
 ```
 
 ### Self management
 
 ```bash
-$ ion --json self info
+$ ion --json self info     # version, target, exe path
+$ ion --json self check    # check for updates
+$ ion --json self update   # update to latest
 ```
 ```json
 {{ example_self_info }}
 ```
 
-```bash
-$ ion --json self check
-```
-```json
-{{ example_self_check }}
-```
-
-```bash
-$ ion --json self update
-```
-```json
-{{ example_self_update }}
-```
-
 ### Create a local skill
 
-Create a new skill directly in the project. Use `--path` to specify where the SKILL.md should be created:
-
 ```bash
-$ ion skill new --path <skills-dir>/<skill-name>
-```
-
-The path follows the convention `{skills-dir}/{name}/`, where `skills-dir` defaults to `.agents/skills` but may be configured differently in `Ion.toml` under `[options] skills-dir`.
-
-Examples:
-
-```bash
-# Default skills-dir (.agents/skills)
+# With --path (standalone, no Ion.toml tracking)
 $ ion skill new --path .agents/skills/my-skill
 
-# Custom skills-dir (e.g., skills-dir = "skills" in Ion.toml)
-$ ion skill new --path skills/my-skill
+# In an Ion project (interactive, registers in Ion.toml)
+$ ion skill new
 ```
 
-This creates a `SKILL.md` template in the target directory. The skill is NOT automatically registered in `Ion.toml` when using `--path` — it operates as a standalone file. To track it as a managed local skill, also add it to `Ion.toml` manually or use `ion skill new` without `--path` inside an Ion project (interactive mode).
+The path convention is `{skills-dir}/{name}/`, where `skills-dir` defaults to `.agents/skills`.
 
 ### Eject a remote skill to local
-
-Copy an installed remote skill into the project for local editing:
 
 ```bash
 $ ion --json skill eject <skill-name>
 ```
-```json
-{"success": true, "data": {"name": "<skill-name>", "path": "<skills-dir>/skills/<skill-name>", "forked_from": "owner/repo/path"}}
-```
 
-This copies the skill content locally, updates Ion.toml to `type = "local"` with a `forked-from` reference, and removes gitignore entries so the skill is tracked by git.
+Copies the skill content locally, updates Ion.toml to `type = "local"` with a `forked-from` reference.
 
-## Typical Agent Workflow
+## Binary Skills
 
-Here is a complete example showing how to search for and install a skill:
+A **binary skill** is a compiled CLI tool invoked via `ion run <name>`. Unlike plain SKILL.md files (static instructions), binary skills are executables that can perform actions, call APIs, and process data. The SKILL.md tells the agent *when* and *how* to invoke the binary.
 
-{% raw %}
+### Using binary skills
+
 ```bash
-# 1. Initialize project (if no Ion.toml exists)
-$ ion --json project init --target claude
-# → {"success": true, "data": {"targets": {"claude": ".claude/skills"}, "manifest": "Ion.toml"}}
+# Install (auto-detected from Ion.toml [project] section, or use --bin)
+$ ion add owner/mytool
+$ ion add owner/mytool --bin          # explicit
+$ ion add ./path/to/project           # local (auto-detected)
 
-# 2. Search for a skill
-$ ion --json search "testing"
-# → {"success": true, "data": [{"name": "test-driven-development", "source": "obra/skills/test-driven-development", ...}]}
+# Run
+$ ion run mytool [args...]
 
-# 3. Install it (use the "source" field from search results)
-$ ion --json add obra/skills/test-driven-development
-# → {"success": true, "data": {"name": "test-driven-development", "installed_to": ".agents/skills/test-driven-development/", "targets": ["claude"]}}
-
-# 4. If exit code 2 with warnings, re-run with --allow-warnings
-$ ion --json add some/skill --allow-warnings
-# → {"success": true, "data": {"name": "some-skill", ...}}
-
-# 5. Verify what's installed
-$ ion --json skill list
-# → {"success": true, "data": [{"name": "test-driven-development", "source": "obra/skills", ...}]}
-
-# 6. Remove a skill when no longer needed
-$ ion --json remove old-skill --yes
-# → {"success": true, "data": {"removed": ["old-skill"]}}
+# Override skill name
+$ ion add owner/mytool --name custom-name
 ```
-{% endraw %}
+
+In Ion.toml: `mytool = { type = "binary", source = "owner/mytool", binary = "mytool" }`
+
+### Developing a binary skill
+
+A binary skill project is a Cargo crate. Declare it in `Ion.toml`:
+
+```toml
+[project]
+type = "binary"
+binary = "mytool"   # optional, defaults to Cargo.toml package name
+```
+
+**Scaffold:** `ion init --bin` creates a Cargo project with clap CLI, `self skill`/`self info`/`self check`/`self update` subcommands, and build.rs.
+
+**The `self skill` convention:** Every binary skill should expose `self skill` that prints valid SKILL.md to stdout. Ion uses this during installation. Alternatively, bundle a static `SKILL.md` in the project root or release tarball.
+
+**Dev mode** — forwards `ion run` to `cargo run` (no release build needed):
+
+```bash
+$ ion add ./path/to/my-binary-skill --dev
+$ ion run mytool [args...]      # runs: cargo run -- [args]
+```
+
+**Release install** — builds and installs the binary:
+
+```bash
+$ ion add ./path/to/my-binary-skill --bin
+$ ion run mytool [args...]      # runs the compiled binary
+```
+
+**Publishing:** Tag a release (e.g. `v1.0.0`), attach tarballs named `{binary}-{version}-{target}.tar.gz`. Users install with `ion add owner/mytool`.
 
 ## Key Flags
 
 | Flag | Scope | Purpose |
 |------|-------|---------|
 | `--json` | Global | Structured JSON output, no prompts |
+| `--bin` | `add` | Explicitly install as a binary skill |
+| `--dev` | `add` | Dev mode: `ion run` forwards to `cargo run` (local binary only) |
+| `--name <name>` | `add` | Override the inferred skill name |
 | `--allow-warnings` | `add` | Proceed despite validation warnings |
 | `--skills a,b,c` | `add` | Select specific skills from a collection |
 | `--yes` / `-y` | `remove` | Skip removal confirmation |
