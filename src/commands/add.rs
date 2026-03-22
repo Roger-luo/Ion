@@ -25,6 +25,8 @@ pub fn run(
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
 
+    let mut bin = bin;
+
     if dev && !bin {
         anyhow::bail!("--dev can only be used with --bin for local binary skills");
     }
@@ -35,14 +37,28 @@ pub fn run(
         source.rev = Some(r.to_string());
     }
 
+    // Auto-detect binary project from the target's Ion.toml [project] section
+    let is_local_path = source.source.starts_with('/')
+        || source.source.starts_with("./")
+        || source.source.starts_with("../");
+    if !bin && is_local_path {
+        let project_ion_toml = PathBuf::from(&source.source).join("Ion.toml");
+        if let Some(meta) = ion_skill::manifest::read_project_meta(&project_ion_toml)
+            && meta.is_binary()
+        {
+            bin = true;
+            source.source_type = SourceType::Binary;
+            if let Some(ref b) = meta.binary {
+                source.binary = Some(b.clone());
+            }
+        }
+    }
+
     if bin {
         source.source_type = SourceType::Binary;
 
         if dev {
-            let is_local = source.source.starts_with('/')
-                || source.source.starts_with("./")
-                || source.source.starts_with("../");
-            if !is_local {
+            if !is_local_path {
                 anyhow::bail!("--dev can only be used with local path sources (e.g., ./my-project)");
             }
             source.dev = true;
@@ -50,10 +66,7 @@ pub fn run(
 
         // For local binary skills, resolve the binary name from cargo metadata
         // if not explicitly overridden
-        let is_local = source.source.starts_with('/')
-            || source.source.starts_with("./")
-            || source.source.starts_with("../");
-        if is_local && source.binary.is_none() {
+        if is_local_path && source.binary.is_none() {
             let project_path = std::path::PathBuf::from(&source.source);
             let info = ion_skill::binary::cargo_project_info(&project_path)?;
             source.binary = Some(info.binary_name);
@@ -136,6 +149,48 @@ pub fn run(
                 );
             }
             Err(SkillError::InvalidSkill(msg)) if msg.contains("No SKILL.md found") => {
+                // Check if the cloned repo declares itself as a binary project
+                if let Some(repo_dir) = ion_skill::installer::cached_repo_path(&source) {
+                    let repo_ion_toml = repo_dir.join("Ion.toml");
+                    if let Some(meta) = ion_skill::manifest::read_project_meta(&repo_ion_toml)
+                        && meta.is_binary()
+                    {
+                        let mut bin_source = source.clone();
+                        bin_source.source_type = SourceType::Binary;
+                        if let Some(ref b) = meta.binary {
+                            bin_source.binary = Some(b.clone());
+                        }
+                        if bin_source.binary.is_none() {
+                            bin_source.binary = Some(bin_source.display_name());
+                        }
+                        let bin_name = name_override
+                            .map(|s| s.to_string())
+                            .unwrap_or_else(|| {
+                                bin_source
+                                    .binary
+                                    .clone()
+                                    .unwrap_or_else(|| bin_source.display_name())
+                            });
+                        println!(
+                            "Detected binary skill project, installing {} from {}...",
+                            p.bold(&format!("'{bin_name}'")),
+                            p.info(source_str)
+                        );
+                        let installer =
+                            SkillInstaller::new(&ctx.project_dir, &merged_options);
+                        let locked = installer.install(&bin_name, &bin_source)?;
+                        return finish_single_install(
+                            &ctx,
+                            &p,
+                            &merged_options,
+                            &bin_name,
+                            &bin_source,
+                            locked,
+                            json,
+                        );
+                    }
+                }
+
                 // Not a single-skill repo — try as a multi-skill collection
                 return install_collection(
                     &ctx,

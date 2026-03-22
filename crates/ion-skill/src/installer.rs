@@ -414,6 +414,18 @@ impl<'a> SkillInstaller<'a> {
     }
 }
 
+/// Return the cached clone directory for a git-based source, if it exists.
+///
+/// This does NOT clone or fetch — it only checks whether a previous clone
+/// left a cached directory on disk. Returns `None` for non-git sources or
+/// if the cache directory doesn't exist.
+pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
+    let url = source.git_url().ok()?;
+    let repo_hash = format!("{:x}", hash_simple(&url));
+    let path = data_dir().join(&repo_hash);
+    if path.exists() { Some(path) } else { None }
+}
+
 /// Fetch a source to its cached repo directory (for git sources) or local path.
 /// Does NOT resolve the skill path within the repo.
 fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {

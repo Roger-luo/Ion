@@ -128,8 +128,32 @@ impl ManifestOptions {
     }
 }
 
+/// Metadata about the project itself (not its dependencies).
+///
+/// Present in `[project]` section of Ion.toml for projects that are themselves
+/// skills (e.g. binary skill projects). Optional — most Ion.toml files only
+/// have `[skills]` and `[options]`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProjectMeta {
+    /// The project type: "binary" for binary skill projects.
+    #[serde(rename = "type", default)]
+    pub project_type: Option<String>,
+    /// Override the binary executable name (defaults to Cargo.toml package name).
+    #[serde(default)]
+    pub binary: Option<String>,
+}
+
+impl ProjectMeta {
+    /// Returns true if this project declares itself as a binary skill.
+    pub fn is_binary(&self) -> bool {
+        self.project_type.as_deref() == Some("binary")
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Manifest {
+    #[serde(default)]
+    pub project: Option<ProjectMeta>,
     #[serde(default)]
     pub skills: BTreeMap<String, SkillEntry>,
     #[serde(default)]
@@ -169,10 +193,22 @@ impl Manifest {
 
     pub fn empty() -> Self {
         Self {
+            project: None,
             skills: BTreeMap::new(),
             options: ManifestOptions::default(),
         }
     }
+}
+
+/// Read just the `[project]` section from an Ion.toml file, if present.
+///
+/// Returns `None` if the file doesn't exist, can't be parsed, or has no
+/// `[project]` section. This is intentionally lenient — it's used for
+/// auto-detection, not validation.
+pub fn read_project_meta(path: &Path) -> Option<ProjectMeta> {
+    let content = std::fs::read_to_string(path).ok()?;
+    let manifest: Manifest = toml::from_str(&content).ok()?;
+    manifest.project
 }
 
 #[cfg(test)]
