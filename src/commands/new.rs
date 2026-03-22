@@ -307,7 +307,7 @@ fn resolve_skills_dir(project_dir: &Path, dir_flag: Option<&str>) -> String {
 }
 
 /// Scaffold a binary skill project via `ion init --bin [path]`.
-pub fn run_bin(path: Option<&str>, force: bool, json: bool) -> anyhow::Result<()> {
+pub fn run_bin(path: Option<&str>, ci: bool, force: bool, json: bool) -> anyhow::Result<()> {
     let target_dir = match path {
         Some(p) => {
             let dir = resolve_path(p)?;
@@ -335,11 +335,18 @@ pub fn run_bin(path: Option<&str>, force: bool, json: bool) -> anyhow::Result<()
     scaffold_bin_project(&target_dir, &name)?;
     write_skill_md(&target_dir, &name, true, force)?;
 
+    let ci_files = if ci {
+        Some(super::ci::setup_ci(&target_dir, &name, force)?)
+    } else {
+        None
+    };
+
     if json {
         crate::json::print_success(serde_json::json!({
             "name": name,
             "path": target_dir.display().to_string(),
             "binary": true,
+            "ci": ci_files.is_some(),
         }));
         return Ok(());
     }
@@ -347,6 +354,15 @@ pub fn run_bin(path: Option<&str>, force: bool, json: bool) -> anyhow::Result<()
     println!("Created binary skill project in {}", target_dir.display());
     println!("  cargo build              -- compile the binary");
     println!("  cargo run -- self skill  -- test the skill subcommand");
+
+    if let Some(files) = ci_files {
+        println!();
+        println!("CI/CD workflows:");
+        for f in &files {
+            println!("  {f}");
+        }
+    }
+
     Ok(())
 }
 

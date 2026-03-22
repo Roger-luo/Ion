@@ -1,4 +1,5 @@
 pub mod add;
+pub mod ci;
 pub mod completion;
 pub mod config;
 pub mod eject;

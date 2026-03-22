@@ -27,10 +27,19 @@ enum Commands {
         /// Scaffold a binary skill CLI project with ionem
         #[arg(long)]
         bin: bool,
+        /// Set up GitHub Actions CI/CD (requires --bin)
+        #[arg(long)]
+        ci: bool,
         /// Configure specific targets (e.g. claude, cursor, or name:path)
         #[arg(long, short = 't')]
         target: Vec<String>,
         /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
+    /// Set up GitHub Actions CI/CD for a binary skill project
+    Ci {
+        /// Overwrite existing workflow files
         #[arg(long)]
         force: bool,
     },
@@ -232,15 +241,21 @@ fn main() {
         Commands::Init {
             path,
             bin,
+            ci,
             target,
             force,
         } => {
             if bin {
-                commands::new::run_bin(path.as_deref(), force, json)
+                commands::new::run_bin(path.as_deref(), ci, force, json)
+            } else if ci {
+                Err(anyhow::anyhow!(
+                    "--ci requires --bin (CI/CD setup is for binary skill projects)"
+                ))
             } else {
                 commands::init::run(&target, force, json)
             }
         }
+        Commands::Ci { force } => commands::ci::run(force, json),
         Commands::Add {
             source,
             rev,
