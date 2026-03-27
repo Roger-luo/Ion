@@ -4,6 +4,7 @@ version = "0.4.3"
 edition = "2024"
 
 [dependencies]
+ion-cli.workspace = true
 anyhow = "1"
 clap = { version = "4.6.0", features = ["string", "derive"] }
 clap_complete = "4"
@@ -28,9 +29,10 @@ minijinja = "2"
 serde_json.workspace = true
 
 [workspace]
-members = [".", "crates/ion-skill", "crates/ionem"]
+members = [".", "crates/ion-skill", "crates/ionem", "crates/ion-cli"]
 
 [workspace.dependencies]
+ion-cli = { path = "crates/ion-cli" }
 ionem = { path = "crates/ionem", default-features = false }
 dirs = "6"
 flate2 = "1"

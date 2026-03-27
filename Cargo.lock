@@ -1101,6 +1101,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "env_logger",
+ "ion-cli",
  "ion-skill",
  "ionem",
  "log",
@@ -1114,11 +1115,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ion-cli"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "ion-skill"
 version = "0.1.0"
 dependencies = [
  "dirs",
  "flate2",
+ "ion-cli",
  "ionem",
  "log",
  "pathdiff",
