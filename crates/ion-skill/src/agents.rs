@@ -1,9 +1,11 @@
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::Result;
+use crate::installer;
+use crate::source::SkillSource;
+use crate::{Error, Result, git};
 
 /// Configuration for AGENTS.md template management.
 /// Parsed from [agents] in Ion.toml.
@@ -88,6 +90,125 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
     }
 
     Ok(())
+}
+
+/// SHA-256 checksum of raw content, formatted as "sha256:{hex}".
+fn checksum_content(content: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::new().chain_update(content).finalize();
+    format!("sha256:{:x}", hash)
+}
+
+/// Current UTC time as ISO 8601 string (e.g. "2026-03-27T12:00:00Z").
+pub fn now_iso8601() -> String {
+    use std::time::SystemTime;
+    let dur = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = dur.as_secs();
+    let days = secs / 86400;
+    let time_secs = secs % 86400;
+    let hours = time_secs / 3600;
+    let minutes = (time_secs % 3600) / 60;
+    let seconds = time_secs % 60;
+    let (year, month, day) = epoch_days_to_ymd(days);
+    format!("{year:04}-{month:02}-{day:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
+}
+
+fn epoch_days_to_ymd(days: u64) -> (u64, u64, u64) {
+    // Howard Hinnant's algorithm
+    let z = days + 719468;
+    let era = z / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
+}
+
+/// Result of fetching an AGENTS.md template
+pub struct FetchedTemplate {
+    pub content: String,
+    pub rev: Option<String>,
+    pub checksum: String,
+}
+
+/// Fetch an AGENTS.md template from a source.
+///
+/// Resolves the source using SkillSource::infer, fetches the repo/path,
+/// and extracts the AGENTS.md file at the specified path (default: root).
+pub fn fetch_template(
+    source_str: &str,
+    rev: Option<&str>,
+    file_path: Option<&str>,
+    _project_dir: &Path,
+) -> Result<FetchedTemplate> {
+    let mut source = SkillSource::infer(source_str)?;
+    if let Some(r) = rev {
+        source.rev = Some(r.to_string());
+    }
+
+    let agents_md_path = file_path.unwrap_or("AGENTS.md");
+
+    let repo_dir = fetch_source_base(&source)?;
+    let template_file = repo_dir.join(agents_md_path);
+
+    if !template_file.exists() {
+        return Err(Error::Other(format!(
+            "AGENTS.md not found in {} at path '{}'",
+            source_str, agents_md_path
+        )));
+    }
+
+    let content = std::fs::read_to_string(&template_file).map_err(Error::Io)?;
+    let checksum = checksum_content(content.as_bytes());
+
+    let resolved_rev = match source.source_type {
+        crate::source::SourceType::Github | crate::source::SourceType::Git => {
+            git::head_commit(&repo_dir).ok()
+        }
+        _ => None,
+    };
+
+    Ok(FetchedTemplate {
+        content,
+        rev: resolved_rev,
+        checksum,
+    })
+}
+
+/// Fetch source base directory — reuses installer's git clone/cache logic.
+fn fetch_source_base(source: &SkillSource) -> Result<PathBuf> {
+    match source.source_type {
+        crate::source::SourceType::Github | crate::source::SourceType::Git => {
+            let url = source.git_url()?;
+            let repo_hash = format!("{:x}", installer::hash_simple(&url));
+            let repo_dir = installer::data_dir().join(&repo_hash);
+            git::clone_or_fetch(&url, &repo_dir)?;
+            if let Some(ref rev) = source.rev {
+                git::checkout(&repo_dir, rev)?;
+            }
+            Ok(repo_dir)
+        }
+        crate::source::SourceType::Path => {
+            let path = PathBuf::from(&source.source);
+            if !path.exists() {
+                return Err(Error::Source(format!(
+                    "Local path does not exist: {}",
+                    source.source
+                )));
+            }
+            Ok(path)
+        }
+        _ => Err(Error::Source(format!(
+            "Source type {:?} is not supported for AGENTS.md templates",
+            source.source_type
+        ))),
+    }
 }
 
 #[cfg(test)]
@@ -181,5 +302,62 @@ mod tests {
 
         let symlink = project.path().join("CLAUDE.md");
         assert!(symlink.symlink_metadata().unwrap().is_symlink());
+    }
+
+    #[test]
+    fn fetch_template_from_local_path() {
+        let template_dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            template_dir.path().join("AGENTS.md"),
+            "# Template Agents\n\nStandard workflows.\n",
+        )
+        .unwrap();
+
+        let project = tempfile::tempdir().unwrap();
+
+        let result = fetch_template(
+            template_dir.path().to_str().unwrap(),
+            None,
+            None,
+            project.path(),
+        )
+        .unwrap();
+
+        assert_eq!(result.content, "# Template Agents\n\nStandard workflows.\n");
+    }
+
+    #[test]
+    fn fetch_template_with_custom_path() {
+        let template_dir = tempfile::tempdir().unwrap();
+        let subdir = template_dir.path().join("templates");
+        std::fs::create_dir(&subdir).unwrap();
+        std::fs::write(subdir.join("AGENTS.md"), "# Custom Path\n").unwrap();
+
+        let project = tempfile::tempdir().unwrap();
+
+        let result = fetch_template(
+            template_dir.path().to_str().unwrap(),
+            None,
+            Some("templates/AGENTS.md"),
+            project.path(),
+        )
+        .unwrap();
+
+        assert_eq!(result.content, "# Custom Path\n");
+    }
+
+    #[test]
+    fn fetch_template_missing_file_errors() {
+        let template_dir = tempfile::tempdir().unwrap();
+        let project = tempfile::tempdir().unwrap();
+
+        let result = fetch_template(
+            template_dir.path().to_str().unwrap(),
+            None,
+            None,
+            project.path(),
+        );
+
+        assert!(result.is_err());
     }
 }
