@@ -1,6 +1,5 @@
-use ion_skill::installer::{SkillInstaller, hash_simple};
+use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
-use ion_skill::registry::Registry;
 use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
@@ -115,15 +114,8 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
         }
 
         // Unregister from global registry for git-based sources
-        if let Ok(ref source) = entry_source
-            && matches!(source.source_type, SourceType::Github | SourceType::Git)
-            && let Ok(url) = source.git_url()
-        {
-            let repo_hash = format!("{:x}", hash_simple(&url));
-            let project_str = ctx.project_dir.display().to_string();
-            let mut registry = Registry::load()?;
-            registry.unregister(&repo_hash, &project_str);
-            registry.save()?;
+        if let Ok(ref source) = entry_source {
+            crate::commands::install_shared::unregister_from_registry(source, &ctx.project_dir)?;
         }
 
         // Clean up binary files if this is a binary skill
