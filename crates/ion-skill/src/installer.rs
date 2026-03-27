@@ -65,9 +65,11 @@ impl<'a> SkillInstaller<'a> {
         self.options
     }
 
-    /// Compute the canonical skill directory path: `{project_dir}/.agents/skills/{name}`.
+    /// Compute the canonical skill directory path: `{project_dir}/{skills_dir}/{name}`.
     pub fn skill_dir(&self, name: &str) -> PathBuf {
-        self.project_dir.join(".agents").join("skills").join(name)
+        self.project_dir
+            .join(self.options.skills_dir_or_default())
+            .join(name)
     }
 
     pub fn install(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
