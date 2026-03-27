@@ -1,68 +1,20 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use crate::{Error, Result};
 
 /// Clone a git repository to a target directory. If it already exists, fetch updates.
 pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> {
-    if target.join(".git").exists() {
-        let output = Command::new("git")
-            .args(["fetch", "--all"])
-            .current_dir(target)
-            .output()
-            .map_err(|e| Error::Git(format!("Failed to run git fetch: {e}")))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(Error::Git(format!("git fetch failed: {stderr}")));
-        }
-    } else {
-        if let Some(parent) = target.parent() {
-            std::fs::create_dir_all(parent).map_err(Error::Io)?;
-        }
-
-        let output = Command::new("git")
-            .args(["clone", url, &target.display().to_string()])
-            .output()
-            .map_err(|e| Error::Git(format!("Failed to run git clone: {e}")))?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(Error::Git(format!("git clone failed: {stderr}")));
-        }
-    }
-    Ok(())
+    Ok(ion_cli::git::clone_or_fetch(url, target)?)
 }
 
 /// Checkout a specific ref (branch, tag, or commit SHA).
 pub fn checkout(repo_path: &Path, rev: &str) -> Result<()> {
-    let output = Command::new("git")
-        .args(["checkout", rev])
-        .current_dir(repo_path)
-        .output()
-        .map_err(|e| Error::Git(format!("Failed to run git checkout: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Git(format!("git checkout {rev} failed: {stderr}")));
-    }
-    Ok(())
+    Ok(ion_cli::git::checkout(repo_path, rev)?)
 }
 
 /// Get the current HEAD commit SHA.
 pub fn head_commit(repo_path: &Path) -> Result<String> {
-    let output = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .current_dir(repo_path)
-        .output()
-        .map_err(|e| Error::Git(format!("Failed to run git rev-parse: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Git(format!("git rev-parse failed: {stderr}")));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(ion_cli::git::head_commit(repo_path)?)
 }
 
 /// Compute a SHA-256 checksum of a directory's contents (all files, sorted).
@@ -105,53 +57,13 @@ fn collect_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
 /// Get the default branch name for a repo by checking `origin/HEAD` or falling back
 /// to `symbolic-ref HEAD`.
 pub fn default_branch(repo_path: &Path) -> Result<String> {
-    // Try origin/HEAD first (works for cloned repos)
-    let output = Command::new("git")
-        .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
-        .current_dir(repo_path)
-        .output()
-        .map_err(|e| Error::Git(format!("Failed to run git symbolic-ref: {e}")))?;
-
-    if output.status.success() {
-        let full_ref = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if let Some(branch) = full_ref.strip_prefix("refs/remotes/origin/") {
-            return Ok(branch.to_string());
-        }
-    }
-
-    // Fallback: local HEAD's branch name
-    let output = Command::new("git")
-        .args(["symbolic-ref", "--short", "HEAD"])
-        .current_dir(repo_path)
-        .output()
-        .map_err(|e| Error::Git(format!("Failed to run git symbolic-ref: {e}")))?;
-
-    if output.status.success() {
-        return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
-    }
-
-    Err(Error::Git("Could not determine default branch".to_string()))
+    Ok(ion_cli::git::default_branch(repo_path)?)
 }
 
 /// Reset the working tree to the remote's default branch HEAD.
 /// Call this after `clone_or_fetch()` to advance to the latest commit.
 pub fn reset_to_remote_head(repo_path: &Path) -> Result<()> {
-    let branch = default_branch(repo_path)?;
-    let remote_ref = format!("origin/{branch}");
-
-    let output = Command::new("git")
-        .args(["reset", "--hard", &remote_ref])
-        .current_dir(repo_path)
-        .output()
-        .map_err(|e| Error::Git(format!("Failed to run git reset: {e}")))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(Error::Git(format!(
-            "git reset --hard {remote_ref} failed: {stderr}"
-        )));
-    }
-    Ok(())
+    Ok(ion_cli::git::reset_to_remote_head(repo_path)?)
 }
 
 #[cfg(test)]
