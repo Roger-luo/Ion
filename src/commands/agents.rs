@@ -66,7 +66,12 @@ pub fn deploy_agents_update_skill(
 
     // Gitignore the symlinks
     let target_paths: Vec<&str> = options.targets.values().map(|s| s.as_str()).collect();
-    ion_skill::gitignore::add_skill_entries(&ctx.project_dir, skill_name, &target_paths)?;
+    ion_skill::gitignore::add_skill_entries(
+        &ctx.project_dir,
+        skill_name,
+        &target_paths,
+        options.skills_dir_or_default(),
+    )?;
 
     // Register as local skill in Ion.toml if not already present
     let content = std::fs::read_to_string(&ctx.manifest_path).unwrap_or_default();

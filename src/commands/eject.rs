@@ -26,8 +26,8 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let merged_options = ctx.merged_options(&manifest);
     let skills_dir = merged_options.skills_dir_or_default();
 
-    // Find the current installed skill at .agents/skills/<name>
-    let agents_skill = ctx.project_dir.join(".agents").join("skills").join(name);
+    // Find the current installed skill
+    let agents_skill = ctx.project_dir.join(skills_dir).join(name);
     if !agents_skill.exists() {
         anyhow::bail!("Skill '{}' is not installed. Run `ion add` first.", name);
     }

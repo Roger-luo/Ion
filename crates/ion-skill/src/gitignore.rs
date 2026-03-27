@@ -39,17 +39,18 @@ pub fn append_to_gitignore(project_dir: &Path, entries: &[&str]) -> Result<()> {
 }
 
 /// Add per-skill gitignore entries for a remotely installed skill.
-/// Creates entries for `.agents/skills/<name>` and `<target>/<name>` for each target.
+/// Creates entries for `<skills_dir>/<name>` and `<target>/<name>` for each target.
 /// Idempotent — won't duplicate existing entries.
 pub fn add_skill_entries(
     project_dir: &Path,
     skill_name: &str,
     target_paths: &[&str],
+    skills_dir: &str,
 ) -> Result<()> {
     let gitignore_path = project_dir.join(".gitignore");
     let mut content = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
 
-    let mut entries_to_add = vec![format!(".agents/skills/{skill_name}")];
+    let mut entries_to_add = vec![format!("{skills_dir}/{skill_name}")];
     for target in target_paths {
         entries_to_add.push(format!("{target}/{skill_name}"));
     }
@@ -185,7 +186,13 @@ mod tests {
     fn add_skill_gitignore_entries_creates_section() {
         let project = tempfile::tempdir().unwrap();
 
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
 
         let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
         assert!(content.contains("# Managed by ion"));
@@ -197,8 +204,20 @@ mod tests {
     fn add_skill_gitignore_entries_is_idempotent() {
         let project = tempfile::tempdir().unwrap();
 
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
 
         let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
         let count = content.matches(".agents/skills/brainstorming").count();
@@ -210,7 +229,13 @@ mod tests {
         let project = tempfile::tempdir().unwrap();
         std::fs::write(project.path().join(".gitignore"), "node_modules/\n").unwrap();
 
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
 
         let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
         assert!(content.contains("node_modules/"));
@@ -220,8 +245,20 @@ mod tests {
     #[test]
     fn remove_skill_gitignore_entries_removes_all() {
         let project = tempfile::tempdir().unwrap();
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
-        add_skill_entries(project.path(), "writing-plans", &[".claude/skills"]).unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
+        add_skill_entries(
+            project.path(),
+            "writing-plans",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
 
         remove_skill_entries(project.path(), "brainstorming").unwrap();
 
@@ -245,7 +282,13 @@ mod tests {
     #[test]
     fn remove_skill_gitignore_cleans_empty_managed_section() {
         let project = tempfile::tempdir().unwrap();
-        add_skill_entries(project.path(), "brainstorming", &[".claude/skills"]).unwrap();
+        add_skill_entries(
+            project.path(),
+            "brainstorming",
+            &[".claude/skills"],
+            ".agents/skills",
+        )
+        .unwrap();
 
         remove_skill_entries(project.path(), "brainstorming").unwrap();
 

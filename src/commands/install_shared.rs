@@ -113,7 +113,12 @@ pub fn add_gitignore_entries(
             .values()
             .map(|s| s.as_str())
             .collect();
-        ion_skill::gitignore::add_skill_entries(project_dir, name, &target_paths)?;
+        ion_skill::gitignore::add_skill_entries(
+            project_dir,
+            name,
+            &target_paths,
+            merged_options.skills_dir_or_default(),
+        )?;
     }
     Ok(())
 }
