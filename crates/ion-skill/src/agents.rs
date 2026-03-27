@@ -154,8 +154,15 @@ pub fn fetch_template(
 
     let agents_md_path = file_path.unwrap_or("AGENTS.md");
 
-    let repo_dir = fetch_source_base(&source)?;
-    let template_file = repo_dir.join(agents_md_path);
+    let base_path = fetch_source_base(&source)?;
+
+    // If the source resolves to a file, use it directly;
+    // otherwise look for AGENTS.md within the directory
+    let template_file = if base_path.is_file() {
+        base_path.clone()
+    } else {
+        base_path.join(agents_md_path)
+    };
 
     if !template_file.exists() {
         return Err(Error::Other(format!(
@@ -169,7 +176,12 @@ pub fn fetch_template(
 
     let resolved_rev = match source.source_type {
         crate::source::SourceType::Github | crate::source::SourceType::Git => {
-            git::head_commit(&repo_dir).ok()
+            let repo_dir = if base_path.is_file() {
+                base_path.parent().unwrap_or(&base_path)
+            } else {
+                &base_path
+            };
+            git::head_commit(repo_dir).ok()
         }
         _ => None,
     };
@@ -359,5 +371,19 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn fetch_template_from_direct_file_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("my-template.md");
+        std::fs::write(&file_path, "# Direct File Template\n").unwrap();
+
+        let project = tempfile::tempdir().unwrap();
+
+        let result =
+            fetch_template(file_path.to_str().unwrap(), None, None, project.path()).unwrap();
+
+        assert_eq!(result.content, "# Direct File Template\n");
     }
 }
