@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use crate::source::{SkillSource, SourceType};
 use crate::{Error, Result};
 
+/// Default directory where skills are installed within a project.
+pub const DEFAULT_SKILLS_DIR: &str = ".agents/skills";
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SkillEntry {
@@ -112,6 +115,11 @@ impl ManifestOptions {
             "targets" => self.targets.get(field).cloned(),
             _ => None,
         }
+    }
+
+    /// Returns the configured skills directory, or the default `.agents/skills`.
+    pub fn skills_dir_or_default(&self) -> &str {
+        self.skills_dir.as_deref().unwrap_or(DEFAULT_SKILLS_DIR)
     }
 
     /// List all project config values as (key, value) pairs.
@@ -395,5 +403,23 @@ path = "templates/AGENTS.md"
         let toml_str = "[skills]\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         assert!(manifest.agents.is_none());
+    }
+
+    #[test]
+    fn skills_dir_or_default_uses_default() {
+        let opts = ManifestOptions {
+            targets: std::collections::BTreeMap::new(),
+            skills_dir: None,
+        };
+        assert_eq!(opts.skills_dir_or_default(), ".agents/skills");
+    }
+
+    #[test]
+    fn skills_dir_or_default_uses_custom() {
+        let opts = ManifestOptions {
+            targets: std::collections::BTreeMap::new(),
+            skills_dir: Some("custom/skills".to_string()),
+        };
+        assert_eq!(opts.skills_dir_or_default(), "custom/skills");
     }
 }

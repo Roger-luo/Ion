@@ -5,8 +5,6 @@ use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
-const DEFAULT_SKILLS_DIR: &str = ".agents/skills";
-
 fn slugify(name: &str) -> String {
     let slug: String = name
         .chars()
@@ -303,7 +301,9 @@ fn resolve_skills_dir(project_dir: &Path, dir_flag: Option<&str>) -> String {
     {
         return existing;
     }
-    dir_flag.unwrap_or(DEFAULT_SKILLS_DIR).to_string()
+    dir_flag
+        .unwrap_or(ion_skill::manifest::DEFAULT_SKILLS_DIR)
+        .to_string()
 }
 
 /// Scaffold a binary skill project via `ion init --bin [path]`.

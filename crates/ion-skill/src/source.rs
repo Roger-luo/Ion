@@ -179,6 +179,13 @@ impl SkillSource {
         }
     }
 
+    /// Returns true if the source string points to a local filesystem path.
+    pub fn is_local_path(&self) -> bool {
+        self.source.starts_with('/')
+            || self.source.starts_with("./")
+            || self.source.starts_with("../")
+    }
+
     /// Build a git clone URL for this source.
     pub fn git_url(&self) -> Result<String> {
         match self.source_type {
@@ -333,6 +340,36 @@ mod tests {
     fn git_url_path_is_error() {
         let s = SkillSource::infer("./local").unwrap();
         assert!(s.git_url().is_err());
+    }
+
+    #[test]
+    fn is_local_path_for_relative_path() {
+        let s = SkillSource::infer("./my-skill").unwrap();
+        assert!(s.is_local_path());
+    }
+
+    #[test]
+    fn is_local_path_for_absolute_path() {
+        let s = SkillSource::infer("/home/user/skill").unwrap();
+        assert!(s.is_local_path());
+    }
+
+    #[test]
+    fn is_local_path_false_for_github() {
+        let s = SkillSource::infer("org/repo").unwrap();
+        assert!(!s.is_local_path());
+    }
+
+    #[test]
+    fn is_local_path_false_for_url() {
+        let s = SkillSource::infer("https://github.com/org/repo.git").unwrap();
+        assert!(!s.is_local_path());
+    }
+
+    #[test]
+    fn is_local_path_for_parent_relative_path() {
+        let s = SkillSource::infer("../my-skill").unwrap();
+        assert!(s.is_local_path());
     }
 
     #[test]

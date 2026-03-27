@@ -65,9 +65,11 @@ impl<'a> SkillInstaller<'a> {
         self.options
     }
 
-    /// Compute the canonical skill directory path: `{project_dir}/.agents/skills/{name}`.
+    /// Compute the canonical skill directory path: `{project_dir}/{skills_dir}/{name}`.
     pub fn skill_dir(&self, name: &str) -> PathBuf {
-        self.project_dir.join(".agents").join("skills").join(name)
+        self.project_dir
+            .join(self.options.skills_dir_or_default())
+            .join(name)
     }
 
     pub fn install(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
@@ -226,9 +228,7 @@ impl<'a> SkillInstaller<'a> {
         let binary_name = source.binary.as_deref().unwrap_or(name);
         let skill_dir = self.skill_dir(name);
 
-        let is_local_path = source.source.starts_with('/')
-            || source.source.starts_with("./")
-            || source.source.starts_with("../");
+        let is_local_path = source.is_local_path();
 
         if is_local_path {
             let project_path = std::path::PathBuf::from(&source.source);

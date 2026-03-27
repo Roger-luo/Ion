@@ -51,7 +51,13 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
     let locked = installer.install(&name, &source)?;
 
     if !json {
-        println!("  Linked to {}", p.info(&format!(".agents/skills/{name}/")));
+        println!(
+            "  Linked to {}",
+            p.info(&format!(
+                "{}/{name}/",
+                merged_options.skills_dir_or_default()
+            ))
+        );
         for target_name in merged_options.targets.keys() {
             println!("  Linked to {}", p.info(target_name));
         }

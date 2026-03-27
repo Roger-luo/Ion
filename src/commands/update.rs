@@ -21,9 +21,12 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         .skills
         .iter()
         .filter(|(skill_name, _)| name.is_none() || name == Some(skill_name.as_str()))
-        .filter_map(|(skill_name, entry)| {
-            let source = entry.resolve().ok()?;
-            Some((skill_name.clone(), source))
+        .filter_map(|(skill_name, entry)| match entry.resolve() {
+            Ok(source) => Some((skill_name.clone(), source)),
+            Err(e) => {
+                eprintln!("Warning: skipping '{}': {}", skill_name, e);
+                None
+            }
         })
         .collect();
 

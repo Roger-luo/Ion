@@ -7,6 +7,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
+    let merged_options = ctx.merged_options(&manifest);
     let lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
@@ -23,7 +24,13 @@ pub fn run(json: bool) -> anyhow::Result<()> {
             .skills
             .iter()
             .filter_map(|(name, entry)| {
-                let source = entry.resolve().ok()?;
+                let source = match entry.resolve() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Warning: skipping '{}': {}", name, e);
+                        return None;
+                    }
+                };
                 let locked = lockfile.find(name);
                 let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
                 let version = if is_binary {
@@ -38,8 +45,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
                 let commit = locked.and_then(|l| l.commit.as_deref());
                 let installed = ctx
                     .project_dir
-                    .join(".agents")
-                    .join("skills")
+                    .join(merged_options.skills_dir_or_default())
                     .join(name)
                     .exists();
                 Some(serde_json::json!({
@@ -58,7 +64,13 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
     println!("Skills ({}):", p.bold(&manifest.skills.len().to_string()));
     for (name, entry) in &manifest.skills {
-        let source = entry.resolve()?;
+        let source = match entry.resolve() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Warning: skipping '{}': {}", name, e);
+                continue;
+            }
+        };
         let locked = lockfile.find(name);
 
         let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
@@ -85,8 +97,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
         let installed = ctx
             .project_dir
-            .join(".agents")
-            .join("skills")
+            .join(merged_options.skills_dir_or_default())
             .join(name)
             .exists();
         let status = if installed {

@@ -174,7 +174,12 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
 
     for entry in &locked {
         // Add per-skill gitignore entries
-        ion_skill::gitignore::add_skill_entries(project_dir, &entry.name, &target_paths)?;
+        ion_skill::gitignore::add_skill_entries(
+            project_dir,
+            &entry.name,
+            &target_paths,
+            merged_options.skills_dir_or_default(),
+        )?;
 
         // Register in global registry
         if let Some(resolved_skill) = resolved.iter().find(|r| r.name == entry.name) {
@@ -296,6 +301,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                                         project_dir,
                                         &leftover.name,
                                         &target_paths,
+                                        merged_options.skills_dir_or_default(),
                                     )?;
                                     register_in_registry(&source, project_dir)?;
                                     lockfile.upsert(entry);

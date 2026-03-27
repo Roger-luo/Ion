@@ -31,6 +31,23 @@ pub fn register_in_registry(
     Ok(())
 }
 
+/// Unregister a git-based skill source from the global registry.
+pub fn unregister_from_registry(
+    source: &SkillSource,
+    project_dir: &std::path::Path,
+) -> anyhow::Result<()> {
+    if matches!(source.source_type, SourceType::Github | SourceType::Git)
+        && let Ok(url) = source.git_url()
+    {
+        let repo_hash = format!("{:x}", hash_simple(&url));
+        let project_str = project_dir.display().to_string();
+        let mut registry = Registry::load()?;
+        registry.unregister(&repo_hash, &project_str);
+        registry.save()?;
+    }
+    Ok(())
+}
+
 /// Install a skill, handling validation warnings interactively.
 pub fn install_with_warning_prompt(
     installer: &SkillInstaller,
@@ -96,7 +113,12 @@ pub fn add_gitignore_entries(
             .values()
             .map(|s| s.as_str())
             .collect();
-        ion_skill::gitignore::add_skill_entries(project_dir, name, &target_paths)?;
+        ion_skill::gitignore::add_skill_entries(
+            project_dir,
+            name,
+            &target_paths,
+            merged_options.skills_dir_or_default(),
+        )?;
     }
     Ok(())
 }

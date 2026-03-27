@@ -62,7 +62,12 @@ pub fn ensure_installed(
 
     // Gitignore the symlinks (they point to global storage, not project-local content)
     let target_paths: Vec<&str> = options.targets.values().map(|s| s.as_str()).collect();
-    ion_skill::gitignore::add_skill_entries(project_dir, SKILL_NAME, &target_paths)?;
+    ion_skill::gitignore::add_skill_entries(
+        project_dir,
+        SKILL_NAME,
+        &target_paths,
+        options.skills_dir_or_default(),
+    )?;
 
     // Register as local skill in Ion.toml if not already present
     let content = std::fs::read_to_string(manifest_path).unwrap_or_default();

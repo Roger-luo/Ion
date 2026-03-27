@@ -38,9 +38,7 @@ pub fn run(
     }
 
     // Auto-detect binary project from the target's Ion.toml [project] section
-    let is_local_path = source.source.starts_with('/')
-        || source.source.starts_with("./")
-        || source.source.starts_with("../");
+    let is_local_path = source.is_local_path();
     if !bin && is_local_path {
         let project_ion_toml = PathBuf::from(&source.source).join("Ion.toml");
         if let Some(meta) = ion_skill::manifest::read_project_meta(&project_ion_toml)
