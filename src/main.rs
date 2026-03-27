@@ -96,6 +96,11 @@ enum Commands {
         /// Update only a specific skill (default: update all)
         name: Option<String>,
     },
+    /// Manage AGENTS.md templates
+    Agents {
+        #[command(subcommand)]
+        action: AgentsCommands,
+    },
     /// Run a binary skill
     Run {
         /// Name of the binary skill to run
@@ -224,6 +229,25 @@ enum CacheCommands {
     },
 }
 
+#[derive(Subcommand)]
+enum AgentsCommands {
+    /// Set up AGENTS.md template sourcing from a remote repository
+    Init {
+        /// Template source (e.g., org/repo, git URL, or local path)
+        source: String,
+        /// Pin to a specific git ref (branch, tag, or commit SHA)
+        #[arg(long)]
+        rev: Option<String>,
+        /// Path to AGENTS.md within the source repo (default: AGENTS.md at root)
+        #[arg(long)]
+        path: Option<String>,
+    },
+    /// Fetch latest upstream template and stage for merging
+    Update,
+    /// Show diff between local AGENTS.md and upstream template
+    Diff,
+}
+
 fn main() {
     // Refresh the global ion-cli SKILL.md if the binary has been updated.
     // Cheap no-op if already current; ensures `ion self update` propagates
@@ -293,6 +317,13 @@ fn main() {
             commands::search::run(&query, agent, json, source.as_deref(), limit)
         }
         Commands::Update { name } => commands::update::run(name.as_deref(), json),
+        Commands::Agents { action } => match action {
+            AgentsCommands::Init { source, rev, path } => {
+                commands::agents::init(&source, rev.as_deref(), path.as_deref(), json)
+            }
+            AgentsCommands::Update => commands::agents::update(json),
+            AgentsCommands::Diff => commands::agents::diff(),
+        },
         Commands::Run { name, args } => commands::run::run(&name, &args, json),
         Commands::Skill { action } => match action {
             SkillCommands::New {
