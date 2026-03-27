@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add AGENTS.md template management (e7bf9e1)
+- Add CI/CD setup for binary skill projects (f0b773c)
+
+### Fixed
+
+- Apply cargo fmt and add pre-commit checklist to AGENTS.md (4c82627)
+
+### Added
+
 - Auto-detect binary skill projects from Ion.toml [project] section (c65e2b0)
 - Add local binary skill support with dev mode (53ab2a8)
 
