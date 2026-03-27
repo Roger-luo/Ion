@@ -40,20 +40,8 @@ impl SearchSource for AgentSource {
         let escaped = format!("'{}'", query.replace('\'', "'\\''"));
         let command = self.command_template.replace("{query}", &escaped);
         log::debug!("agent: executing command: {command}");
-        let output = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&command)
-            .output()
-            .map_err(|e| crate::Error::Search(format!("Failed to run agent command: {e}")))?;
-        log::debug!("agent: exit status={}", output.status);
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            log::debug!("agent: stderr={stderr}");
-            return Err(crate::Error::Search(format!(
-                "Agent command failed: {stderr}"
-            )));
-        }
-        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stdout =
+            ion_cli::shell::run_sh(&command).map_err(|e| crate::Error::Search(e.to_string()))?;
         log::debug!("agent: stdout={} bytes", stdout.len());
         let results = parse_agent_output(&stdout, limit);
         log::debug!("agent: parsed {} results", results.len());

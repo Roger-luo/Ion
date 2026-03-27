@@ -649,11 +649,7 @@ fn prompt_github_star(source: &SkillSource) {
     }
     let answer = answer.trim();
     if answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes") {
-        let _ = std::process::Command::new("gh")
-            .args(["repo", "star", repo])
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
+        let _ = ion_cli::gh::star_repo(repo);
     }
 
     // Record regardless of yes/no so we don't ask again
