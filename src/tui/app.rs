@@ -149,7 +149,10 @@ impl App {
                 name: "options".to_string(),
                 entries: vec![match &manifest.options.skills_dir {
                     Some(v) => ConfigEntry::new("skills-dir", v),
-                    None => ConfigEntry::with_default("skills-dir", ".agents/skills"),
+                    None => ConfigEntry::with_default(
+                        "skills-dir",
+                        ion_skill::manifest::DEFAULT_SKILLS_DIR,
+                    ),
                 }],
             },
         ]

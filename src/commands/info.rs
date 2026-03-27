@@ -45,10 +45,11 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
 }
 
 fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> anyhow::Result<()> {
+    let manifest = ctx.manifest_or_empty()?;
+    let merged_options = ctx.merged_options(&manifest);
     let skill_md = ctx
         .project_dir
-        .join(".agents")
-        .join("skills")
+        .join(merged_options.skills_dir_or_default())
         .join(name)
         .join("SKILL.md");
 

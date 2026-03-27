@@ -7,6 +7,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
+    let merged_options = ctx.merged_options(&manifest);
     let lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
@@ -44,8 +45,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
                 let commit = locked.and_then(|l| l.commit.as_deref());
                 let installed = ctx
                     .project_dir
-                    .join(".agents")
-                    .join("skills")
+                    .join(merged_options.skills_dir_or_default())
                     .join(name)
                     .exists();
                 Some(serde_json::json!({
@@ -97,8 +97,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
         let installed = ctx
             .project_dir
-            .join(".agents")
-            .join("skills")
+            .join(merged_options.skills_dir_or_default())
             .join(name)
             .exists();
         let status = if installed {

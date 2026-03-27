@@ -24,10 +24,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
 
     // Resolve skills-dir from merged options (default ".agents/skills")
     let merged_options = ctx.merged_options(&manifest);
-    let skills_dir = merged_options
-        .skills_dir
-        .as_deref()
-        .unwrap_or(".agents/skills");
+    let skills_dir = merged_options.skills_dir_or_default();
 
     // Find the current installed skill at .agents/skills/<name>
     let agents_skill = ctx.project_dir.join(".agents").join("skills").join(name);
@@ -48,8 +45,8 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         );
     }
 
-    // Handle the copy based on whether skills-dir is the default ".agents/skills" or custom
-    if skills_dir == ".agents/skills" {
+    // Handle the copy based on whether skills-dir is the default or custom
+    if skills_dir == ion_skill::manifest::DEFAULT_SKILLS_DIR {
         // dest == agents_skill path. Remove the old symlink first, then copy content there.
         if agents_skill.is_symlink() {
             std::fs::remove_file(&agents_skill)?;
