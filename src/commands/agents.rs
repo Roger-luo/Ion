@@ -1,6 +1,85 @@
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
+const AGENTS_UPDATE_SKILL_CONTENT: &str = r#"---
+name: agents-update
+description: Merge upstream AGENTS.md template changes into local AGENTS.md
+---
+
+# AGENTS.md Template Update
+
+When the user asks to update or merge their AGENTS.md with upstream changes, follow this process:
+
+## Prerequisites
+
+Check that `.agents/templates/AGENTS.md.upstream` exists. If it doesn't, tell the user to run `ion agents update` first.
+
+## Process
+
+1. Read `.agents/templates/AGENTS.md.upstream` (the new upstream template version)
+2. Read `AGENTS.md` (the current local version)
+3. Compare the two files and identify:
+   - Sections added in upstream that don't exist locally
+   - Sections modified in upstream that the user hasn't changed
+   - Sections the user has customized (preserve these)
+4. Intelligently merge:
+   - Add new upstream sections
+   - Update unchanged sections to match upstream
+   - Preserve user customizations
+   - Flag conflicts where both upstream and local changed the same section
+5. Write the merged result to `AGENTS.md`
+6. Inform the user what changed
+
+## Guidelines
+
+- Always preserve user customizations over upstream changes when they conflict
+- Add clear comments if you're unsure about a merge decision
+- Show the user what you changed before writing
+"#;
+
+pub fn deploy_agents_update_skill(
+    ctx: &ProjectContext,
+    options: &ion_skill::manifest::ManifestOptions,
+) -> anyhow::Result<()> {
+    use ion_skill::installer::{SkillInstaller, builtin_skills_dir};
+
+    let skill_name = "agents-update";
+    let global_dir = builtin_skills_dir().join(skill_name);
+    let global_skill_md = global_dir.join("SKILL.md");
+
+    // Write/update SKILL.md in global storage
+    let needs_write = if global_skill_md.exists() {
+        std::fs::read_to_string(&global_skill_md).ok().as_deref()
+            != Some(AGENTS_UPDATE_SKILL_CONTENT)
+    } else {
+        true
+    };
+
+    if needs_write {
+        std::fs::create_dir_all(&global_dir)?;
+        std::fs::write(&global_skill_md, AGENTS_UPDATE_SKILL_CONTENT)?;
+    }
+
+    // Deploy symlinks
+    let installer = SkillInstaller::new(&ctx.project_dir, options);
+    installer.deploy(skill_name, &global_dir)?;
+
+    // Gitignore the symlinks
+    let target_paths: Vec<&str> = options.targets.values().map(|s| s.as_str()).collect();
+    ion_skill::gitignore::add_skill_entries(&ctx.project_dir, skill_name, &target_paths)?;
+
+    // Register as local skill in Ion.toml if not already present
+    let content = std::fs::read_to_string(&ctx.manifest_path).unwrap_or_default();
+    if !content.contains(&format!("{skill_name} ="))
+        && !content.contains(&format!("\"{skill_name}\""))
+    {
+        let source = ion_skill::source::SkillSource::local();
+        ion_skill::manifest_writer::add_skill(&ctx.manifest_path, skill_name, &source)?;
+    }
+
+    Ok(())
+}
+
 pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = Paint::new(&ctx.global_config);
@@ -73,6 +152,11 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
         eprintln!("Warning: failed to create agent symlinks: {e}");
+    }
+
+    // Deploy agents-update built-in skill
+    if let Err(e) = deploy_agents_update_skill(&ctx, &merged_options) {
+        eprintln!("Warning: failed to deploy agents-update skill: {e}");
     }
 
     if !json {

@@ -298,6 +298,81 @@ fn agents_diff_errors_without_upstream() {
 }
 
 #[test]
+fn agents_init_deploys_agents_update_skill() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Template\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // agents-update skill should be deployed
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/agents-update/SKILL.md")
+            .exists(),
+        "agents-update skill should be deployed"
+    );
+
+    // Should also be registered in Ion.toml
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("agents-update"));
+}
+
+#[test]
+fn install_all_deploys_agents_update_skill_when_configured() {
+    let project = tempfile::tempdir().unwrap();
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Template\n").unwrap();
+
+    // Set up project with [agents] already configured (simulating a repo clone)
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        format!(
+            "[skills]\n\n[agents]\ntemplate = \"{}\"\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+            template_dir.path().display()
+        ),
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "add failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/agents-update/SKILL.md")
+            .exists(),
+        "agents-update skill should be deployed by install-all"
+    );
+}
+
+#[test]
 fn agents_diff_reports_up_to_date() {
     let project = tempfile::tempdir().unwrap();
     std::fs::write(project.path().join("AGENTS.md"), "# Same content\n").unwrap();
