@@ -1,7 +1,6 @@
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::lockfile::LockedSkill;
-use ion_skill::source::SourceType;
 use ion_skill::validate::ValidationReport;
 
 use crate::commands::install_shared::{SkillEntry, add_gitignore_entries, register_in_registry};
@@ -69,7 +68,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         let source = entry.resolve()?;
 
         // Local skills bypass validation — deploy directly from project tree
-        if source.source_type == SourceType::Local {
+        if source.is_local() {
             let skills_dir = merged_options.skills_dir_or_default();
             let local_skill_dir = ctx.project_dir.join(skills_dir).join(name);
 

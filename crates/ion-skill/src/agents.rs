@@ -174,16 +174,15 @@ pub fn fetch_template(
     let content = std::fs::read_to_string(&template_file).map_err(Error::Io)?;
     let checksum = checksum_content(content.as_bytes());
 
-    let resolved_rev = match source.source_type {
-        crate::source::SourceType::Github | crate::source::SourceType::Git => {
-            let repo_dir = if base_path.is_file() {
-                base_path.parent().unwrap_or(&base_path)
-            } else {
-                &base_path
-            };
-            git::head_commit(repo_dir).ok()
-        }
-        _ => None,
+    let resolved_rev = if source.is_git_based() {
+        let repo_dir = if base_path.is_file() {
+            base_path.parent().unwrap_or(&base_path)
+        } else {
+            &base_path
+        };
+        git::head_commit(repo_dir).ok()
+    } else {
+        None
     };
 
     Ok(FetchedTemplate {
@@ -195,31 +194,29 @@ pub fn fetch_template(
 
 /// Fetch source base directory — reuses installer's git clone/cache logic.
 fn fetch_source_base(source: &SkillSource) -> Result<PathBuf> {
-    match source.source_type {
-        crate::source::SourceType::Github | crate::source::SourceType::Git => {
-            let url = source.git_url()?;
-            let repo_hash = format!("{:x}", installer::hash_simple(&url));
-            let repo_dir = installer::data_dir().join(&repo_hash);
-            git::clone_or_fetch(&url, &repo_dir)?;
-            if let Some(ref rev) = source.rev {
-                git::checkout(&repo_dir, rev)?;
-            }
-            Ok(repo_dir)
+    if source.is_git_based() {
+        let url = source.git_url()?;
+        let repo_hash = format!("{:x}", installer::hash_simple(&url));
+        let repo_dir = installer::data_dir().join(&repo_hash);
+        git::clone_or_fetch(&url, &repo_dir)?;
+        if let Some(ref rev) = source.rev {
+            git::checkout(&repo_dir, rev)?;
         }
-        crate::source::SourceType::Path => {
-            let path = PathBuf::from(&source.source);
-            if !path.exists() {
-                return Err(Error::Source(format!(
-                    "Local path does not exist: {}",
-                    source.source
-                )));
-            }
-            Ok(path)
+        Ok(repo_dir)
+    } else if source.is_path() {
+        let path = PathBuf::from(&source.source);
+        if !path.exists() {
+            return Err(Error::Source(format!(
+                "Local path does not exist: {}",
+                source.source
+            )));
         }
-        _ => Err(Error::Source(format!(
-            "Source type {:?} is not supported for AGENTS.md templates",
-            source.source_type
-        ))),
+        Ok(path)
+    } else {
+        Err(Error::Source(format!(
+            "Source kind {:?} is not supported for AGENTS.md templates",
+            source.kind
+        )))
     }
 }
 

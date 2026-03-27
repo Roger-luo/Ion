@@ -1,6 +1,5 @@
 use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
-use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -71,7 +70,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // For local skills, only remove symlinks — preserve the actual skill directory
         if let Ok(ref source) = entry_source
-            && source.source_type == SourceType::Local
+            && source.is_local()
         {
             for target_path in merged_options.targets.values() {
                 let target_dir = ctx.project_dir.join(target_path).join(skill_name);
@@ -105,10 +104,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
         }
 
         // Skip gitignore removal for local skills (they were never gitignored)
-        if !matches!(
-            entry_source.as_ref().map(|s| &s.source_type),
-            Ok(SourceType::Local)
-        ) {
+        if !matches!(entry_source.as_ref().map(|s| s.is_local()), Ok(true)) {
             ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
             if !json {
                 println!("  Updated {}", p.dim(".gitignore"));

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 use crate::commands::install_shared::SkillEntry;
 use crate::commands::validation::{confirm_proceed_with_collection, select_warned_skills};
@@ -45,15 +45,17 @@ pub fn run(
             && meta.is_binary()
         {
             bin = true;
-            source.source_type = SourceType::Binary;
-            if let Some(ref b) = meta.binary {
-                source.binary = Some(b.clone());
-            }
+            let binary_name = meta.binary.clone().unwrap_or_else(|| source.display_name());
+            source = source.with_binary(binary_name);
         }
     }
 
     if bin {
-        source.source_type = SourceType::Binary;
+        if !source.is_binary() {
+            // Convert to binary kind with a default binary name
+            let binary_name = source.display_name();
+            source = source.with_binary(binary_name);
+        }
 
         if dev {
             if !is_local_path {
@@ -61,17 +63,21 @@ pub fn run(
                     "--dev can only be used with local path sources (e.g., ./my-project)"
                 );
             }
-            source.dev = true;
+            source = source.with_dev(true);
         }
 
         // For local binary skills, resolve the binary name from cargo metadata
         // if not explicitly overridden
-        if is_local_path && source.binary.is_none() {
+        let has_binary_name = matches!(
+            &source.kind,
+            ion_skill::source::SkillSourceKind::Binary { binary_name, .. } if !binary_name.is_empty()
+        );
+        if is_local_path && has_binary_name {
+            // Already has a binary name from auto-detection or flag
+        } else if is_local_path {
             let project_path = std::path::PathBuf::from(&source.source);
             let info = ion_skill::binary::cargo_project_info(&project_path)?;
-            source.binary = Some(info.binary_name);
-        } else if source.binary.is_none() {
-            source.binary = Some(source.display_name());
+            source = source.with_binary(info.binary_name);
         }
     }
 
@@ -82,12 +88,16 @@ pub fn run(
 
     // Binary skills always install as a single skill — no collection fallback
     if bin {
-        let name = name_override.map(|s| s.to_string()).unwrap_or_else(|| {
-            source
-                .binary
-                .clone()
-                .unwrap_or_else(|| source.display_name())
-        });
+        let name = name_override
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| match &source.kind {
+                ion_skill::source::SkillSourceKind::Binary { binary_name, .. }
+                    if !binary_name.is_empty() =>
+                {
+                    binary_name.clone()
+                }
+                _ => source.display_name(),
+            });
         let mode = if dev { " (dev)" } else { "" };
         println!(
             "Adding binary skill {}{} from {}...",
@@ -158,20 +168,19 @@ pub fn run(
                     if let Some(meta) = ion_skill::manifest::read_project_meta(&repo_ion_toml)
                         && meta.is_binary()
                     {
-                        let mut bin_source = source.clone();
-                        bin_source.source_type = SourceType::Binary;
-                        if let Some(ref b) = meta.binary {
-                            bin_source.binary = Some(b.clone());
-                        }
-                        if bin_source.binary.is_none() {
-                            bin_source.binary = Some(bin_source.display_name());
-                        }
-                        let bin_name = name_override.map(|s| s.to_string()).unwrap_or_else(|| {
-                            bin_source
-                                .binary
-                                .clone()
-                                .unwrap_or_else(|| bin_source.display_name())
-                        });
+                        let binary_name =
+                            meta.binary.clone().unwrap_or_else(|| source.display_name());
+                        let bin_source = source.clone().with_binary(binary_name);
+                        let bin_name =
+                            name_override.map(|s| s.to_string()).unwrap_or_else(
+                                || match &bin_source.kind {
+                                    ion_skill::source::SkillSourceKind::Binary {
+                                        binary_name,
+                                        ..
+                                    } if !binary_name.is_empty() => binary_name.clone(),
+                                    _ => bin_source.display_name(),
+                                },
+                            );
                         println!(
                             "Detected binary skill project, installing {} from {}...",
                             p.bold(&format!("'{bin_name}'")),
@@ -593,7 +602,7 @@ fn finish_single_install(
         println!("  Linked to {}", p.info(target_name));
     }
 
-    if source.source_type != SourceType::Path {
+    if !source.is_path() {
         println!("  Updated {}", p.dim(".gitignore"));
     }
 
@@ -630,7 +639,7 @@ fn save_starred_repos(repos: &[String]) {
 }
 
 fn prompt_github_star(source: &SkillSource) {
-    if source.source_type != SourceType::Github || !std::io::stdin().is_terminal() {
+    if !source.is_github() || !std::io::stdin().is_terminal() {
         return;
     }
 

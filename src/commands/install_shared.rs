@@ -3,7 +3,7 @@ use ion_skill::installer::{InstallValidationOptions, SkillInstaller, hash_simple
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::registry::Registry;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 use ion_skill::validate::ValidationReport;
 
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
@@ -19,7 +19,7 @@ pub fn register_in_registry(
     source: &SkillSource,
     project_dir: &std::path::Path,
 ) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git)
+    if source.is_git_based()
         && let Ok(url) = source.git_url()
     {
         let repo_hash = format!("{:x}", hash_simple(&url));
@@ -36,7 +36,7 @@ pub fn unregister_from_registry(
     source: &SkillSource,
     project_dir: &std::path::Path,
 ) -> anyhow::Result<()> {
-    if matches!(source.source_type, SourceType::Github | SourceType::Git)
+    if source.is_git_based()
         && let Ok(url) = source.git_url()
     {
         let repo_hash = format!("{:x}", hash_simple(&url));
@@ -107,7 +107,7 @@ pub fn add_gitignore_entries(
     source: &SkillSource,
     merged_options: &ManifestOptions,
 ) -> anyhow::Result<()> {
-    if !matches!(source.source_type, SourceType::Path | SourceType::Local) {
+    if source.is_remote_installable() {
         let target_paths: Vec<&str> = merged_options
             .targets
             .values()

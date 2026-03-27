@@ -1,6 +1,6 @@
 use ion_skill::installer::SkillInstaller;
 use ion_skill::lockfile::LockedSkill;
-use ion_skill::source::SourceType;
+use ion_skill::source::SkillSourceKind;
 use ion_skill::update::Updater;
 use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
@@ -59,15 +59,12 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
 
     for (skill_name, source) in &skills_to_check {
         // Skip Path and Http source types silently
-        if matches!(
-            source.source_type,
-            SourceType::Path | SourceType::Http | SourceType::Local
-        ) {
+        if source.is_path() || source.is_http() || source.is_local() {
             continue;
         }
 
         // Skip non-binary skills with rev set (pinned)
-        if source.source_type != SourceType::Binary
+        if !source.is_binary()
             && let Some(ref rev) = source.rev
         {
             if !json {
@@ -86,31 +83,35 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         }
 
         // Select updater based on source type
-        let updater: Box<dyn Updater> = match source.source_type {
-            SourceType::Binary => Box::new(BinaryUpdater),
-            SourceType::Github | SourceType::Git => Box::new(GitUpdater),
+        let updater: Box<dyn Updater> = match &source.kind {
+            SkillSourceKind::Binary { .. } => Box::new(BinaryUpdater),
+            SkillSourceKind::Github | SkillSourceKind::Git => Box::new(GitUpdater),
             _ => continue,
         };
 
         // Get or create locked skill
         let locked = lockfile.find(skill_name).cloned().unwrap_or_else(|| {
-            let mut fallback = match source.source_type {
-                SourceType::Binary => {
-                    let binary_name = source.binary.as_deref().unwrap_or(skill_name.as_str());
-                    LockedSkill::binary(
-                        skill_name.clone(),
-                        source.source.clone(),
-                        binary_name,
-                        None,
-                        None,
-                    )
-                }
-                _ => LockedSkill::git(
+            let mut fallback = if source.is_binary() {
+                let binary_name = match &source.kind {
+                    SkillSourceKind::Binary { binary_name, .. } if !binary_name.is_empty() => {
+                        binary_name.as_str()
+                    }
+                    _ => skill_name.as_str(),
+                };
+                LockedSkill::binary(
+                    skill_name.clone(),
+                    source.source.clone(),
+                    binary_name,
+                    None,
+                    None,
+                )
+            } else {
+                LockedSkill::git(
                     skill_name.clone(),
                     source.source.clone(),
                     String::new(),
                     String::new(),
-                ),
+                )
             };
             if let Some(ref path) = source.path {
                 fallback = fallback.with_path(path.clone());
@@ -153,11 +154,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         match updater.apply(&locked, source, &installer) {
             Ok(new_locked) => {
                 if !json {
-                    let binary_suffix = if source.source_type == SourceType::Binary {
-                        " (binary)"
-                    } else {
-                        ""
-                    };
+                    let binary_suffix = if source.is_binary() { " (binary)" } else { "" };
                     println!(
                         "  {} {}  {} → {}{}",
                         p.success("✓"),
@@ -171,7 +168,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
                     "name": skill_name,
                     "old_version": info.old_version,
                     "new_version": info.new_version,
-                    "binary": source.source_type == SourceType::Binary,
+                    "binary": source.is_binary(),
                 }));
                 lockfile.upsert(new_locked);
                 updated_count += 1;

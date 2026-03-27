@@ -15,9 +15,14 @@ brainstorming = "obra/superpowers/brainstorming"
     let entry = manifest.skills.get("mytool").unwrap();
     let source = entry.resolve().unwrap();
 
-    assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
+    assert!(source.is_binary());
     assert_eq!(source.source, "owner/mytool");
-    assert_eq!(source.binary.as_deref(), Some("mytool"));
+    match &source.kind {
+        ion_skill::source::SkillSourceKind::Binary { binary_name, .. } => {
+            assert_eq!(binary_name, "mytool");
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 }
 
 /// Test that LockedSkill with binary fields roundtrips through TOML.
@@ -73,19 +78,18 @@ local = { type = "path", source = "./my-local-skill" }
     assert_eq!(manifest.skills.len(), 3);
 
     let binary_source = manifest.skills["mytool"].resolve().unwrap();
-    assert_eq!(
-        binary_source.source_type,
-        ion_skill::source::SourceType::Binary
-    );
+    assert!(binary_source.is_binary());
     assert_eq!(binary_source.rev.as_deref(), Some("v1.0"));
-    assert_eq!(binary_source.binary.as_deref(), Some("mytool"));
+    match &binary_source.kind {
+        ion_skill::source::SkillSourceKind::Binary { binary_name, .. } => {
+            assert_eq!(binary_name, "mytool");
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 
     let regular_source = manifest.skills["brainstorming"].resolve().unwrap();
-    assert_eq!(
-        regular_source.source_type,
-        ion_skill::source::SourceType::Github
-    );
-    assert!(regular_source.binary.is_none());
+    assert!(regular_source.is_github());
+    assert!(!regular_source.is_binary());
 }
 
 /// Test manifest_writer handles binary skills in Ion.toml.
@@ -300,10 +304,19 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
 "#;
     let manifest = Manifest::parse(toml_str).unwrap();
     let source = manifest.skills["mytool"].resolve().unwrap();
-    assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
-    assert_eq!(source.binary.as_deref(), Some("mytool"));
-    assert_eq!(
-        source.asset_pattern.as_deref(),
-        Some("mytool-{version}-{os}-{arch}.tar.gz")
-    );
+    assert!(source.is_binary());
+    match &source.kind {
+        ion_skill::source::SkillSourceKind::Binary {
+            binary_name,
+            asset_pattern,
+            ..
+        } => {
+            assert_eq!(binary_name, "mytool");
+            assert_eq!(
+                asset_pattern.as_deref(),
+                Some("mytool-{version}-{os}-{arch}.tar.gz")
+            );
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 }

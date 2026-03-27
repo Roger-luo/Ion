@@ -84,10 +84,19 @@ impl SkillEntry {
                 if path.is_some() {
                     resolved.path = path.clone();
                 }
-                resolved.binary = binary.clone();
-                resolved.asset_pattern = asset_pattern.clone();
-                resolved.forked_from = forked_from.clone();
-                resolved.dev = dev.unwrap_or(false);
+                // Apply kind-specific fields via builder methods
+                if let Some(b) = binary {
+                    resolved = resolved.with_binary(b.as_str());
+                }
+                if let Some(ap) = asset_pattern {
+                    resolved = resolved.with_asset_pattern(ap.as_str());
+                }
+                if let Some(ff) = forked_from {
+                    resolved = resolved.with_forked_from(ff.as_str());
+                }
+                if dev.unwrap_or(false) {
+                    resolved = resolved.with_dev(true);
+                }
                 Ok(resolved)
             }
         }

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::lockfile::LockedSkill;
 use crate::manifest::ManifestOptions;
 use crate::skill::SkillMetadata;
-use crate::source::{SkillSource, SourceType};
+use crate::source::{SkillSource, SkillSourceKind};
 use crate::validate;
 use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
@@ -103,7 +103,7 @@ impl<'a> SkillInstaller<'a> {
         validation: InstallValidationOptions,
     ) -> Result<LockedSkill> {
         // Binary sources use a different pipeline
-        if source.source_type == SourceType::Binary {
+        if source.is_binary() {
             return self.install_binary(name, source);
         }
 
@@ -225,14 +225,27 @@ impl<'a> SkillInstaller<'a> {
     fn install_binary(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
         use crate::binary;
 
-        let binary_name = source.binary.as_deref().unwrap_or(name);
+        let (binary_name_owned, asset_pattern, dev) = match &source.kind {
+            SkillSourceKind::Binary {
+                binary_name,
+                asset_pattern,
+                dev,
+                ..
+            } => (binary_name.clone(), asset_pattern.clone(), *dev),
+            _ => (String::new(), None, false),
+        };
+        let binary_name = if binary_name_owned.is_empty() {
+            name
+        } else {
+            &binary_name_owned
+        };
         let skill_dir = self.skill_dir(name);
 
         let is_local_path = source.is_local_path();
 
         if is_local_path {
             let project_path = std::path::PathBuf::from(&source.source);
-            return if source.dev {
+            return if dev {
                 self.install_binary_dev(name, &project_path, binary_name, &skill_dir, source)
             } else {
                 self.install_binary_local(name, &project_path, binary_name, &skill_dir, source)
@@ -258,7 +271,7 @@ impl<'a> SkillInstaller<'a> {
                 binary_name,
                 source.rev.as_deref(),
                 &skill_dir,
-                source.asset_pattern.as_deref(),
+                asset_pattern.as_deref(),
             )?
         };
 
@@ -393,35 +406,35 @@ impl<'a> SkillInstaller<'a> {
             .ok()
             .unwrap_or_else(|| source.source.clone());
 
-        let mut locked = match source.source_type {
-            SourceType::Github | SourceType::Git => {
+        let mut locked = match &source.kind {
+            SkillSourceKind::Github | SkillSourceKind::Git => {
                 let repo_dir = find_repo_root(skill_dir);
                 let commit = git::head_commit(&repo_dir).ok().unwrap_or_default();
                 let checksum = git::checksum_dir(skill_dir).ok().unwrap_or_default();
                 LockedSkill::git(name, &git_url, commit, checksum)
             }
-            SourceType::Path => {
+            SkillSourceKind::Path => {
                 let mut l = LockedSkill::path(name, &git_url);
                 if let Ok(checksum) = git::checksum_dir(skill_dir) {
                     l = l.with_checksum(checksum);
                 }
                 l
             }
-            SourceType::Http => {
+            SkillSourceKind::Http => {
                 let mut l = LockedSkill::http(name, &git_url);
                 if let Ok(checksum) = git::checksum_dir(skill_dir) {
                     l = l.with_checksum(checksum);
                 }
                 l
             }
-            SourceType::Local => {
+            SkillSourceKind::Local { .. } => {
                 let mut l = LockedSkill::local(name).with_source(&git_url);
                 if let Ok(checksum) = git::checksum_dir(skill_dir) {
                     l = l.with_checksum(checksum);
                 }
                 l
             }
-            SourceType::Binary => {
+            SkillSourceKind::Binary { .. } => {
                 // Binary sources should not reach this path
                 LockedSkill::local(name).with_source(&git_url)
             }
@@ -438,23 +451,28 @@ impl<'a> SkillInstaller<'a> {
     }
 }
 
+/// Compute the cache directory for a git-based source (does not clone or check existence).
+pub fn repo_dir_for_source(source: &SkillSource) -> Result<PathBuf> {
+    let url = source.git_url()?;
+    let repo_hash = format!("{:x}", hash_simple(&url));
+    Ok(data_dir().join(&repo_hash))
+}
+
 /// Return the cached clone directory for a git-based source, if it exists.
 ///
 /// This does NOT clone or fetch — it only checks whether a previous clone
 /// left a cached directory on disk. Returns `None` for non-git sources or
 /// if the cache directory doesn't exist.
 pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
-    let url = source.git_url().ok()?;
-    let repo_hash = format!("{:x}", hash_simple(&url));
-    let path = data_dir().join(&repo_hash);
+    let path = repo_dir_for_source(source).ok()?;
     if path.exists() { Some(path) } else { None }
 }
 
 /// Fetch a source to its cached repo directory (for git sources) or local path.
 /// Does NOT resolve the skill path within the repo.
 fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
-    match source.source_type {
-        SourceType::Github | SourceType::Git => {
+    match &source.kind {
+        SkillSourceKind::Github | SkillSourceKind::Git => {
             let url = source.git_url()?;
             let repo_hash = format!("{:x}", hash_simple(&url));
             let repo_dir = data_dir().join(&repo_hash);
@@ -467,7 +485,7 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
 
             Ok(repo_dir)
         }
-        SourceType::Path => {
+        SkillSourceKind::Path => {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(
@@ -477,11 +495,11 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
             }
             Ok(path)
         }
-        SourceType::Http => fetch_http_skill(source),
-        SourceType::Binary => Err(Error::Source(
+        SkillSourceKind::Http => fetch_http_skill(source),
+        SkillSourceKind::Binary { .. } => Err(Error::Source(
             "Binary source uses dedicated installer".to_string(),
         )),
-        SourceType::Local => {
+        SkillSourceKind::Local { .. } => {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(

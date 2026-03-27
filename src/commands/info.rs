@@ -19,7 +19,7 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
     if json {
         let mut data = serde_json::json!({
             "name": skill_str,
-            "source_type": format!("{:?}", source.source_type),
+            "source_type": format!("{:?}", source.kind),
             "source": source.source,
         });
         if let Some(ref path) = source.path {
@@ -33,7 +33,7 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
     }
 
     println!("Fetching info for '{skill_str}'...");
-    println!("  Source type: {:?}", source.source_type);
+    println!("  Source type: {:?}", source.kind);
     println!("  Source: {}", source.source);
     if let Some(ref path) = source.path {
         println!("  Path: {path}");

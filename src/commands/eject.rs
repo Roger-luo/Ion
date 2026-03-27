@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 use crate::context::ProjectContext;
 use crate::style::Paint;
@@ -18,7 +18,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Skill '{}' not found in Ion.toml", name))?;
     let source = entry.resolve()?;
 
-    if matches!(source.source_type, SourceType::Local | SourceType::Path) {
+    if source.is_local() || source.is_path() {
         anyhow::bail!("Skill '{}' is already local", name);
     }
 
@@ -151,7 +151,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
 /// For GitHub skills with a path, format as "owner/repo/path".
 /// For other types, use the source string directly.
 fn build_forked_from(source: &SkillSource) -> String {
-    if source.source_type == SourceType::Github
+    if source.is_github()
         && let Some(ref path) = source.path
     {
         return format!("{}/{}", source.source, path);

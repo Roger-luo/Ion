@@ -2,7 +2,7 @@ use std::path::Path;
 
 use toml_edit::{DocumentMut, Item, Table, value};
 
-use crate::source::{SkillSource, SourceType};
+use crate::source::{SkillSource, SkillSourceKind};
 use crate::{Error, Result};
 
 /// Add a skill entry to an Ion.toml string. Returns the updated TOML string.
@@ -141,49 +141,72 @@ pub fn write_agents_config(
 
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
+    // Extract kind-specific optional fields
+    let (binary_name, asset_pattern, dev) = match &source.kind {
+        SkillSourceKind::Binary {
+            binary_name,
+            asset_pattern,
+            dev,
+            ..
+        } => (Some(binary_name.as_str()), asset_pattern.as_deref(), *dev),
+        _ => (None, None, false),
+    };
+    let forked_from = match &source.kind {
+        SkillSourceKind::Local { forked_from } => forked_from.as_deref(),
+        _ => None,
+    };
+
     let needs_table = source.rev.is_some()
         || source.version.is_some()
         || source.path.is_some()
-        || source.binary.is_some()
-        || source.asset_pattern.is_some()
-        || source.forked_from.is_some()
-        || source.dev
-        || source.source_type == SourceType::Local;
+        || binary_name.is_some()
+        || asset_pattern.is_some()
+        || forked_from.is_some()
+        || dev
+        || source.is_local();
 
     if !needs_table {
-        let display = match (&source.source_type, &source.path) {
-            (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
-            _ => source.source.clone(),
+        let display = if source.is_github() {
+            match &source.path {
+                Some(path) => format!("{}/{}", source.source, path),
+                None => source.source.clone(),
+            }
+        } else {
+            source.source.clone()
         };
         return value(display);
     }
 
     let mut table = toml_edit::InlineTable::new();
 
-    match source.source_type {
-        SourceType::Github => {}
-        SourceType::Git => {
+    match &source.kind {
+        SkillSourceKind::Github => {}
+        SkillSourceKind::Git => {
             table.insert("type", "git".into());
         }
-        SourceType::Http => {
+        SkillSourceKind::Http => {
             table.insert("type", "http".into());
         }
-        SourceType::Path => {
+        SkillSourceKind::Path => {
             table.insert("type", "path".into());
         }
-        SourceType::Binary => {
+        SkillSourceKind::Binary { .. } => {
             table.insert("type", "binary".into());
         }
-        SourceType::Local => {
+        SkillSourceKind::Local { .. } => {
             table.insert("type", "local".into());
         }
     }
 
     // Local skills have no source field
-    if source.source_type != SourceType::Local {
-        let source_str = match (&source.source_type, &source.path) {
-            (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
-            _ => source.source.clone(),
+    if !source.is_local() {
+        let source_str = if source.is_github() {
+            match &source.path {
+                Some(path) => format!("{}/{}", source.source, path),
+                None => source.source.clone(),
+            }
+        } else {
+            source.source.clone()
         };
         table.insert("source", source_str.into());
     }
@@ -195,20 +218,20 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         table.insert("rev", r.as_str().into());
     }
     if let Some(ref p) = source.path
-        && source.source_type != SourceType::Github
+        && !source.is_github()
     {
         table.insert("path", p.as_str().into());
     }
-    if let Some(ref b) = source.binary {
-        table.insert("binary", b.as_str().into());
+    if let Some(b) = binary_name {
+        table.insert("binary", b.into());
     }
-    if let Some(ref ap) = source.asset_pattern {
-        table.insert("asset-pattern", ap.as_str().into());
+    if let Some(ap) = asset_pattern {
+        table.insert("asset-pattern", ap.into());
     }
-    if let Some(ref ff) = source.forked_from {
-        table.insert("forked-from", ff.as_str().into());
+    if let Some(ff) = forked_from {
+        table.insert("forked-from", ff.into());
     }
-    if source.dev {
+    if dev {
         table.insert("dev", true.into());
     }
 

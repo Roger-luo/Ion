@@ -213,6 +213,13 @@ impl SkillSource {
         self
     }
 
+    pub fn with_dev(mut self, dev_mode: bool) -> Self {
+        if let SkillSourceKind::Binary { ref mut dev, .. } = self.kind {
+            *dev = dev_mode;
+        }
+        self
+    }
+
     // ── Convenience predicates ──────────────────────────────────────
 
     pub fn is_github(&self) -> bool {

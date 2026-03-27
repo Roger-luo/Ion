@@ -45,7 +45,19 @@ impl Updater for BinaryUpdater {
             return Ok(skill.clone());
         }
 
-        let binary_name = source.binary.as_deref().unwrap_or(&skill.name);
+        let (binary_name_owned, asset_pattern) = match &source.kind {
+            crate::source::SkillSourceKind::Binary {
+                binary_name,
+                asset_pattern,
+                ..
+            } => (binary_name.clone(), asset_pattern.clone()),
+            _ => (String::new(), None),
+        };
+        let binary_name = if binary_name_owned.is_empty() {
+            &skill.name
+        } else {
+            &binary_name_owned
+        };
         let skill_dir = installer.skill_dir(&skill.name);
 
         let result = binary::install_binary_from_github(
@@ -53,7 +65,7 @@ impl Updater for BinaryUpdater {
             binary_name,
             source.rev.as_deref(),
             &skill_dir,
-            source.asset_pattern.as_deref(),
+            asset_pattern.as_deref(),
         )?;
 
         // Clean up old version if different
