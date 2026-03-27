@@ -908,7 +908,7 @@ Also add a timestamp helper (since `chrono` is not a dependency):
 
 ```rust
 /// Current UTC time as ISO 8601 string (e.g. "2026-03-27T12:00:00Z").
-fn now_iso8601() -> String {
+pub fn now_iso8601() -> String {
     use std::time::SystemTime;
     let dur = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -941,7 +941,7 @@ fn epoch_days_to_ymd(days: u64) -> (u64, u64, u64) {
 }
 ```
 
-Both helpers live in `crates/ion-skill/src/agents.rs` alongside the other functions.
+Both helpers live in `crates/ion-skill/src/agents.rs` alongside the other functions. `now_iso8601` must be `pub fn` since it's called from the CLI crate (`src/commands/agents.rs`) as `ion_skill::agents::now_iso8601()`. `checksum_content` can remain private (only used within the same module).
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1167,8 +1167,9 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
     let agents_md_path = ctx.project_dir.join("AGENTS.md");
     let upstream_dir = ctx.project_dir.join(".agents/templates");
     let upstream_path = upstream_dir.join("AGENTS.md.upstream");
+    let already_existed = agents_md_path.exists();
 
-    if agents_md_path.exists() {
+    if already_existed {
         // Existing AGENTS.md — stage upstream for merging
         std::fs::create_dir_all(&upstream_dir)?;
         std::fs::write(&upstream_path, &fetched.content)?;
@@ -1202,7 +1203,7 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
         template: source.to_string(),
         rev: fetched.rev,
         checksum: fetched.checksum,
-        updated_at: now_iso8601(),
+        updated_at: ion_skill::agents::now_iso8601(),
     });
     lockfile.write_to(&ctx.lockfile_path)?;
 
@@ -1227,7 +1228,7 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
     if json {
         crate::json::print_success(serde_json::json!({
             "template": source,
-            "agents_md_created": !agents_md_path.exists() || true,
+            "agents_md_created": !already_existed,
         }));
     }
 
@@ -1436,7 +1437,7 @@ pub fn update(json: bool) -> anyhow::Result<()> {
         template: agents_config.clone(),
         rev: fetched.rev,
         checksum: fetched.checksum,
-        updated_at: now_iso8601(),
+        updated_at: ion_skill::agents::now_iso8601(),
     });
     lockfile.write_to(&ctx.lockfile_path)?;
 
@@ -1538,7 +1539,7 @@ pub fn update_template_non_fatal(
         template: agents_config.clone(),
         rev: fetched.rev,
         checksum: fetched.checksum,
-        updated_at: now_iso8601(),
+        updated_at: ion_skill::agents::now_iso8601(),
     });
 
     if !json {
