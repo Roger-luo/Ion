@@ -26,6 +26,17 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         eprintln!("Warning: failed to create agent symlinks: {e}");
     }
 
+    // Deploy agents-update skill if [agents] template is configured
+    if manifest
+        .agents
+        .as_ref()
+        .and_then(|a| a.template.as_ref())
+        .is_some()
+        && let Err(e) = crate::commands::agents::deploy_agents_update_skill(&ctx, &merged_options)
+    {
+        log::warn!("Failed to deploy agents-update skill: {e}");
+    }
+
     let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {
