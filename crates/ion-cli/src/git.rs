@@ -101,7 +101,10 @@ pub fn reset_to_remote_head(repo: &Path) -> Result<()> {
 /// Stage files in a git repository.
 pub fn stage_files(repo: &Path, files: &[&str]) -> Result<()> {
     let mut cmd = Command::new("git");
-    cmd.arg("add").current_dir(repo);
+    cmd.arg("add")
+        .current_dir(repo)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
     for file in files {
         cmd.arg(file);
     }
@@ -116,7 +119,9 @@ pub fn has_staged_changes(repo: &Path) -> Result<bool> {
     let result = run_status(
         Command::new("git")
             .args(["diff", "--cached", "--quiet"])
-            .current_dir(repo),
+            .current_dir(repo)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null()),
         "git",
     );
 
@@ -132,7 +137,9 @@ pub fn create_commit(repo: &Path, message: &str) -> Result<String> {
     run_status(
         Command::new("git")
             .args(["commit", "-m", message])
-            .current_dir(repo),
+            .current_dir(repo)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null()),
         "git",
     )?;
 
