@@ -240,6 +240,58 @@ pub fn update_template_non_fatal(
 }
 
 pub fn diff() -> anyhow::Result<()> {
-    // Placeholder — implemented in Task 10
-    anyhow::bail!("not yet implemented")
+    let ctx = ProjectContext::load()?;
+
+    let agents_md = ctx.project_dir.join("AGENTS.md");
+    let upstream_path = ctx.project_dir.join(".agents/templates/AGENTS.md.upstream");
+
+    if !upstream_path.exists() {
+        anyhow::bail!("No upstream template staged. Run `ion agents update` first.");
+    }
+
+    if !agents_md.exists() {
+        anyhow::bail!("No AGENTS.md found in project root.");
+    }
+
+    let local_content = std::fs::read_to_string(&agents_md)?;
+    let upstream_content = std::fs::read_to_string(&upstream_path)?;
+
+    if local_content == upstream_content {
+        println!("AGENTS.md is up to date with upstream.");
+        return Ok(());
+    }
+
+    // Use diff command for colorized output
+    let status = std::process::Command::new("diff")
+        .args([
+            "-u",
+            "--label",
+            "local/AGENTS.md",
+            "--label",
+            "upstream/AGENTS.md",
+        ])
+        .arg(&agents_md)
+        .arg(&upstream_path)
+        .status();
+
+    match status {
+        Ok(s) if s.code() == Some(1) => {
+            // diff returns 1 when files differ — that's expected
+            Ok(())
+        }
+        Ok(s) if s.success() => {
+            println!("AGENTS.md is up to date with upstream.");
+            Ok(())
+        }
+        Ok(s) => {
+            anyhow::bail!("diff command failed with exit code: {:?}", s.code())
+        }
+        Err(_) => {
+            // diff not available — fall back to simple comparison
+            println!("--- local/AGENTS.md");
+            println!("+++ upstream/AGENTS.md");
+            println!("(files differ — install `diff` for detailed output)");
+            Ok(())
+        }
+    }
 }

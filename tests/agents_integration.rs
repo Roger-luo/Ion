@@ -254,3 +254,70 @@ fn agents_update_errors_without_config() {
         "should error about missing config: {stderr}"
     );
 }
+
+#[test]
+fn agents_diff_shows_differences() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Local version\n").unwrap();
+    std::fs::create_dir_all(project.path().join(".agents/templates")).unwrap();
+    std::fs::write(
+        project.path().join(".agents/templates/AGENTS.md.upstream"),
+        "# Upstream version\n",
+    )
+    .unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should show some diff output
+    assert!(!stdout.is_empty() || !String::from_utf8_lossy(&output.stderr).is_empty());
+}
+
+#[test]
+fn agents_diff_errors_without_upstream() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Local\n").unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("no upstream") || stderr.contains("not found") || stderr.contains("update"),
+        "should mention missing upstream: {stderr}"
+    );
+}
+
+#[test]
+fn agents_diff_reports_up_to_date() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Same content\n").unwrap();
+    std::fs::create_dir_all(project.path().join(".agents/templates")).unwrap();
+    std::fs::write(
+        project.path().join(".agents/templates/AGENTS.md.upstream"),
+        "# Same content\n",
+    )
+    .unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("up to date"),
+        "should say up to date: {stdout}"
+    );
+}
