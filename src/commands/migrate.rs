@@ -477,64 +477,33 @@ fn search_for_skill(
 }
 
 fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
-    // Stage all ion-related files
-    let files_to_stage = ["Ion.toml", "Ion.lock", ".gitignore", ".agents/"];
+    // Stage all ion-related files that exist
+    let candidates = ["Ion.toml", "Ion.lock", ".gitignore", ".agents/"];
+    let files_to_stage: Vec<&str> = candidates
+        .iter()
+        .copied()
+        .filter(|f| {
+            let path = project_dir.join(f);
+            path.exists() || path.is_symlink()
+        })
+        .collect();
 
-    for file in &files_to_stage {
-        let path = project_dir.join(file);
-        if path.exists() || path.is_symlink() {
-            let _ = std::process::Command::new("git")
-                .args(["add", file])
-                .current_dir(project_dir)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status();
-        }
+    if !files_to_stage.is_empty() {
+        let _ = ion_cli::git::stage_files(project_dir, &files_to_stage);
     }
 
-    // Also stage target directories that might contain symlinks
     // Check if there are any staged changes
-    let status = std::process::Command::new("git")
-        .args(["diff", "--cached", "--quiet"])
-        .current_dir(project_dir)
-        .status();
-
-    match status {
-        Ok(s) if !s.success() => {
-            // There are staged changes — commit them
-            let commit = std::process::Command::new("git")
-                .args([
-                    "commit",
-                    "-m",
-                    "chore: migrate skills to ion management\n\nMigrated from skills-lock.json to Ion.toml/Ion.lock.\nSkill directories are now symlinks to ion-managed global storage.\nLeftover skills handled as local or matched to remote sources.",
-                ])
-                .current_dir(project_dir)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .output();
-
-            if let Ok(output) = commit
-                && output.status.success()
-            {
-                // Get the commit hash
-                let hash = std::process::Command::new("git")
-                    .args(["rev-parse", "HEAD"])
-                    .current_dir(project_dir)
-                    .output()
-                    .ok()
-                    .and_then(|o| {
-                        if o.status.success() {
-                            Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
-                        } else {
-                            None
-                        }
-                    });
-                return hash;
-            }
-            None
-        }
-        _ => None, // No changes to commit or not a git repo
+    let has_changes = ion_cli::git::has_staged_changes(project_dir).ok()?;
+    if !has_changes {
+        return None; // No changes to commit or not a git repo
     }
+
+    // There are staged changes — commit them and return the SHA
+    ion_cli::git::create_commit(
+        project_dir,
+        "chore: migrate skills to ion management\n\nMigrated from skills-lock.json to Ion.toml/Ion.lock.\nSkill directories are now symlinks to ion-managed global storage.\nLeftover skills handled as local or matched to remote sources.",
+    )
+    .ok()
 }
 
 fn resolve_skill(skill: &DiscoveredSkill, stdin: &mut impl BufRead) -> Option<ResolvedSkill> {
