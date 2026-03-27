@@ -350,37 +350,13 @@ pub fn diff() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Use diff command for colorized output
-    let status = std::process::Command::new("diff")
-        .args([
-            "-u",
-            "--label",
-            "local/AGENTS.md",
-            "--label",
-            "upstream/AGENTS.md",
-        ])
-        .arg(&agents_md)
-        .arg(&upstream_path)
-        .status();
+    use similar::TextDiff;
 
-    match status {
-        Ok(s) if s.code() == Some(1) => {
-            // diff returns 1 when files differ — that's expected
-            Ok(())
-        }
-        Ok(s) if s.success() => {
-            println!("AGENTS.md is up to date with upstream.");
-            Ok(())
-        }
-        Ok(s) => {
-            anyhow::bail!("diff command failed with exit code: {:?}", s.code())
-        }
-        Err(_) => {
-            // diff not available — fall back to simple comparison
-            println!("--- local/AGENTS.md");
-            println!("+++ upstream/AGENTS.md");
-            println!("(files differ — install `diff` for detailed output)");
-            Ok(())
-        }
-    }
+    let diff = TextDiff::from_lines(&local_content, &upstream_content);
+    print!(
+        "{}",
+        diff.unified_diff()
+            .header("local/AGENTS.md", "upstream/AGENTS.md")
+    );
+    Ok(())
 }
