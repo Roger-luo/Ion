@@ -98,14 +98,20 @@ pub struct ManifestOptions {
     pub targets: BTreeMap<String, String>,
     #[serde(default)]
     pub skills_dir: Option<String>,
+    /// URL (or GitHub shorthand) for the org-standard AGENTS.md.
+    #[serde(default)]
+    pub agents_md_url: Option<String>,
 }
 
 impl ManifestOptions {
     /// Get a project config value by key. Supports dot-notation for targets
-    /// and top-level keys like "skills-dir".
+    /// and top-level keys like "skills-dir" and "agents-md-url".
     pub fn get_value(&self, key: &str) -> Option<String> {
         if key == "skills-dir" {
             return self.skills_dir.clone();
+        }
+        if key == "agents-md-url" {
+            return self.agents_md_url.clone();
         }
         let (section, field) = key.split_once('.')?;
         match section {
@@ -123,6 +129,9 @@ impl ManifestOptions {
             .collect();
         if let Some(dir) = &self.skills_dir {
             values.push(("skills-dir".to_string(), dir.clone()));
+        }
+        if let Some(url) = &self.agents_md_url {
+            values.push(("agents-md-url".to_string(), url.clone()));
         }
         values
     }

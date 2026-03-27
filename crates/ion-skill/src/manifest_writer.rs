@@ -107,6 +107,32 @@ pub fn write_skills_dir(manifest_path: &Path, skills_dir: &str) -> Result<String
     Ok(result)
 }
 
+/// Write an agents-md-url value to an Ion.toml file's [options] section.
+/// Creates the file with a [skills] section if it doesn't exist.
+/// Preserves all existing content.
+pub fn write_agents_md_url(manifest_path: &Path, url: &str) -> Result<String> {
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("skills") {
+        doc["skills"] = Item::Table(Table::new());
+    }
+
+    if !doc.contains_key("options") {
+        doc["options"] = Item::Table(Table::new());
+    }
+    let options = doc["options"]
+        .as_table_mut()
+        .ok_or_else(|| Error::Manifest("[options] is not a table".to_string()))?;
+
+    options["agents-md-url"] = value(url);
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
     let needs_table = source.rev.is_some()

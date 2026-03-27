@@ -593,6 +593,7 @@ mod tests {
         ManifestOptions {
             targets: std::collections::BTreeMap::new(),
             skills_dir: None,
+            agents_md_url: None,
         }
     }
 
@@ -618,6 +619,7 @@ mod tests {
         let options = ManifestOptions {
             targets,
             skills_dir: None,
+            agents_md_url: None,
         };
 
         let installer = SkillInstaller::new(project.path(), &options);
@@ -644,6 +646,7 @@ mod tests {
         let options = ManifestOptions {
             targets,
             skills_dir: None,
+            agents_md_url: None,
         };
 
         let installer = SkillInstaller::new(project.path(), &options);
@@ -787,6 +790,7 @@ mod tests {
         let options = ManifestOptions {
             targets,
             skills_dir: None,
+            agents_md_url: None,
         };
 
         let installer = SkillInstaller::new(project.path(), &options);

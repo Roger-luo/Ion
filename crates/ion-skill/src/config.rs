@@ -20,6 +20,8 @@ pub struct GlobalConfig {
     pub registries: BTreeMap<String, RegistryConfig>,
     #[serde(default)]
     pub search: SearchConfig,
+    #[serde(default)]
+    pub agents: AgentsConfig,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -46,6 +48,14 @@ pub struct RegistryConfig {
 #[serde(rename_all = "kebab-case")]
 pub struct SearchConfig {
     pub agent_command: Option<String>,
+}
+
+/// Global agents-management configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct AgentsConfig {
+    /// URL (or GitHub shorthand) for the org-standard AGENTS.md.
+    pub md_url: Option<String>,
 }
 
 impl GlobalConfig {
@@ -135,6 +145,10 @@ impl GlobalConfig {
                 "agent-command" => self.search.agent_command.clone(),
                 _ => None,
             },
+            "agents" => match field {
+                "md-url" => self.agents.md_url.clone(),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -150,10 +164,10 @@ impl GlobalConfig {
         })?;
 
         match section {
-            "targets" | "sources" | "cache" | "ui" | "registries" | "search" => {}
+            "targets" | "sources" | "cache" | "ui" | "registries" | "search" | "agents" => {}
             _ => {
                 return Err(Error::Manifest(format!(
-                    "Unknown config section '{section}'. Valid sections: targets, sources, cache, ui, registries, search"
+                    "Unknown config section '{section}'. Valid sections: targets, sources, cache, ui, registries, search, agents"
                 )));
             }
         }
@@ -238,6 +252,9 @@ impl GlobalConfig {
         }
         if let Some(ref cmd) = self.search.agent_command {
             entries.push(("search.agent-command".to_string(), cmd.clone()));
+        }
+        if let Some(ref url) = self.agents.md_url {
+            entries.push(("agents.md-url".to_string(), url.clone()));
         }
         entries
     }

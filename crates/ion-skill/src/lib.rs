@@ -1,3 +1,4 @@
+pub mod agents_md;
 pub mod binary;
 pub mod config;
 pub mod error;

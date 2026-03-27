@@ -48,6 +48,11 @@ impl ProjectContext {
         ManifestOptions {
             targets: merged_targets,
             skills_dir: manifest.options.skills_dir.clone(),
+            agents_md_url: manifest
+                .options
+                .agents_md_url
+                .clone()
+                .or_else(|| self.global_config.agents.md_url.clone()),
         }
     }
 

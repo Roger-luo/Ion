@@ -121,6 +121,11 @@ enum Commands {
         #[arg(long, short = 'y')]
         yes: bool,
     },
+    /// Manage the AGENTS.md file for this project
+    Agents {
+        #[command(subcommand)]
+        action: AgentsCommands,
+    },
     /// Manage the skill cache
     Cache {
         #[command(subcommand)]
@@ -190,6 +195,21 @@ enum SkillCommands {
         /// Name of the skill to eject
         name: String,
     },
+}
+
+#[derive(Subcommand)]
+enum AgentsCommands {
+    /// Fetch AGENTS.md from a URL and write (or update) it in the project root
+    Fetch {
+        /// URL or GitHub shorthand (owner/repo/path) to fetch AGENTS.md from.
+        /// If omitted, the URL stored in Ion.toml or global config is used.
+        url: Option<String>,
+        /// Overwrite the entire AGENTS.md (rather than just updating the managed section)
+        #[arg(long)]
+        force: bool,
+    },
+    /// Re-fetch and update the managed section in AGENTS.md
+    Update,
 }
 
 #[derive(Subcommand)]
@@ -312,6 +332,12 @@ fn main() {
         }
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
+        },
+        Commands::Agents { action } => match action {
+            AgentsCommands::Fetch { url, force } => {
+                commands::agents::run_fetch(url.as_deref(), force, json)
+            }
+            AgentsCommands::Update => commands::agents::run_update(json),
         },
         Commands::Config { action } => commands::config::run(action, json),
         Commands::Self_ { action } => match action {

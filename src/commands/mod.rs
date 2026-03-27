@@ -1,4 +1,5 @@
 pub mod add;
+pub mod agents;
 pub mod ci;
 pub mod completion;
 pub mod config;
