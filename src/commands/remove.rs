@@ -82,8 +82,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             // Remove .agents symlink only if it IS a symlink (custom skills-dir)
             let agents_dir = ctx
                 .project_dir
-                .join(".agents")
-                .join("skills")
+                .join(merged_options.skills_dir_or_default())
                 .join(skill_name);
             if agents_dir.is_symlink() {
                 std::fs::remove_file(&agents_dir)?;
@@ -97,7 +96,10 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             if !json {
                 println!(
                     "  Removed from {}",
-                    p.info(&format!(".agents/skills/{skill_name}/"))
+                    p.info(&format!(
+                        "{}/{skill_name}/",
+                        merged_options.skills_dir_or_default()
+                    ))
                 );
             }
         }

@@ -367,6 +367,12 @@ mod tests {
     }
 
     #[test]
+    fn is_local_path_for_parent_relative_path() {
+        let s = SkillSource::infer("../my-skill").unwrap();
+        assert!(s.is_local_path());
+    }
+
+    #[test]
     fn local_source_type_serializes() {
         let source = SkillSource::new(SourceType::Local, "./my-skill")
             .with_forked_from("org/original-skill");

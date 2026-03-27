@@ -228,9 +228,7 @@ impl<'a> SkillInstaller<'a> {
         let binary_name = source.binary.as_deref().unwrap_or(name);
         let skill_dir = self.skill_dir(name);
 
-        let is_local_path = source.source.starts_with('/')
-            || source.source.starts_with("./")
-            || source.source.starts_with("../");
+        let is_local_path = source.is_local_path();
 
         if is_local_path {
             let project_path = std::path::PathBuf::from(&source.source);

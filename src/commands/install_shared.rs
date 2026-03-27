@@ -32,7 +32,6 @@ pub fn register_in_registry(
 }
 
 /// Unregister a git-based skill source from the global registry.
-#[allow(dead_code)]
 pub fn unregister_from_registry(
     source: &SkillSource,
     project_dir: &std::path::Path,
