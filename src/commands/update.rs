@@ -93,21 +93,30 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         };
 
         // Get or create locked skill
-        let locked = lockfile
-            .find(skill_name)
-            .cloned()
-            .unwrap_or_else(|| LockedSkill {
-                name: skill_name.clone(),
-                source: source.source.clone(),
-                path: source.path.clone(),
-                version: None,
-                commit: None,
-                checksum: None,
-                binary: None,
-                binary_version: None,
-                binary_checksum: None,
-                dev: None,
-            });
+        let locked = lockfile.find(skill_name).cloned().unwrap_or_else(|| {
+            let mut fallback = match source.source_type {
+                SourceType::Binary => {
+                    let binary_name = source.binary.as_deref().unwrap_or(skill_name.as_str());
+                    LockedSkill::binary(
+                        skill_name.clone(),
+                        source.source.clone(),
+                        binary_name,
+                        None,
+                        None,
+                    )
+                }
+                _ => LockedSkill::git(
+                    skill_name.clone(),
+                    source.source.clone(),
+                    String::new(),
+                    String::new(),
+                ),
+            };
+            if let Some(ref path) = source.path {
+                fallback = fallback.with_path(path.clone());
+            }
+            fallback
+        });
 
         // Check for update
         let info = match updater.check(&locked, source) {

@@ -22,11 +22,7 @@ impl Updater for BinaryUpdater {
         let release = binary::fetch_github_release(&source.source, source.rev.as_deref())?;
         let latest_version = binary::parse_version_from_tag(&release.tag_name).to_string();
 
-        let current_version = skill
-            .binary_version
-            .as_deref()
-            .unwrap_or("unknown")
-            .to_string();
+        let current_version = skill.binary_version().unwrap_or("unknown").to_string();
 
         if current_version == latest_version {
             return Ok(None);
@@ -61,18 +57,28 @@ impl Updater for BinaryUpdater {
         )?;
 
         // Clean up old version if different
-        if let Some(ref old_version) = skill.binary_version
-            && *old_version != result.version
+        if let Some(old_version) = skill.binary_version()
+            && old_version != result.version
         {
             let _ = binary::remove_binary_version(binary_name, old_version);
         }
 
         // Build updated lock entry, preserving non-binary fields
-        let mut updated = skill.clone();
-        updated.binary_version = Some(result.version);
-        updated.binary_checksum = Some(result.binary_checksum);
+        let mut locked = LockedSkill::binary(
+            skill.name.clone(),
+            skill.source.clone(),
+            binary_name,
+            Some(result.version),
+            Some(result.binary_checksum),
+        );
+        if let Some(path) = skill.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = skill.version.clone() {
+            locked = locked.with_version(version);
+        }
 
-        Ok(updated)
+        Ok(locked)
     }
 }
 

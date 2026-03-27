@@ -188,9 +188,8 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
 
         if !json {
             let commit_display = entry
-                .commit
-                .as_deref()
-                .map(|c| if c.len() > 7 { &c[..7] } else { c })
+                .commit()
+                .map(|c: &str| if c.len() > 7 { &c[..7] } else { c })
                 .unwrap_or("(none)");
             println!(
                 "  {} ... installed, commit {}",
@@ -385,7 +384,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
             "migrated": locked.iter().map(|s| serde_json::json!({
                 "name": s.name,
                 "source": s.source,
-                "commit": s.commit,
+                "commit": s.commit(),
             })).collect::<Vec<_>>(),
             "matched": matched_skills,
             "custom": custom_skills,

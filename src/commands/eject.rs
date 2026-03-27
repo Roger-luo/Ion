@@ -106,13 +106,20 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         println!("  Updated {} — removed skill entries", p.dim(".gitignore"));
     }
 
-    // Update lockfile: drop commit hash, keep checksum
+    // Update lockfile: convert to local kind, preserve checksum
     let mut lockfile = ctx.lockfile()?;
     if let Some(locked) = lockfile.find(name).cloned() {
-        let updated = ion_skill::lockfile::LockedSkill {
-            commit: None,
-            ..locked
-        };
+        let mut updated =
+            ion_skill::lockfile::LockedSkill::local(name).with_source(locked.source.clone());
+        if let Some(checksum) = locked.checksum() {
+            updated = updated.with_checksum(checksum);
+        }
+        if let Some(path) = locked.path.clone() {
+            updated = updated.with_path(path);
+        }
+        if let Some(version) = locked.version.clone() {
+            updated = updated.with_version(version);
+        }
         lockfile.upsert(updated);
         lockfile.write_to(&ctx.lockfile_path)?;
         if !json {

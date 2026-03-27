@@ -85,19 +85,12 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             println!("  Installing {}...", p.bold(&format!("'{name}'")));
             installer.deploy(name, &local_skill_dir)?;
 
-            let checksum = ion_skill::git::checksum_dir(&local_skill_dir).ok();
-            lockfile.upsert(LockedSkill {
-                name: name.clone(),
-                source: source.source.clone(),
-                path: None,
-                version: None,
-                commit: None,
-                checksum,
-                binary: None,
-                binary_version: None,
-                binary_checksum: None,
-                dev: None,
-            });
+            let mut locked_local =
+                LockedSkill::local(name.clone()).with_source(source.source.clone());
+            if let Ok(checksum) = ion_skill::git::checksum_dir(&local_skill_dir) {
+                locked_local = locked_local.with_checksum(checksum);
+            }
+            lockfile.upsert(locked_local);
 
             continue;
         }

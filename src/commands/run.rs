@@ -19,7 +19,7 @@ pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
         )
     })?;
 
-    let binary_name = locked.binary.as_deref().ok_or_else(|| {
+    let binary_name = locked.binary_name().ok_or_else(|| {
         anyhow::anyhow!(
             "Skill '{}' is not a binary skill (no binary field in lockfile).",
             name
@@ -27,11 +27,11 @@ pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
     })?;
 
     // Dev mode: forward to `cargo run` in the local project
-    if locked.dev == Some(true) {
+    if locked.is_dev() {
         return run_dev(&locked.source, binary_name, args, json);
     }
 
-    let version = locked.binary_version.as_deref().ok_or_else(|| {
+    let version = locked.binary_version().ok_or_else(|| {
         anyhow::anyhow!(
             "Skill '{}' has no binary_version in lockfile. Try `ion install`.",
             name

@@ -285,18 +285,20 @@ impl<'a> SkillInstaller<'a> {
             format!("https://github.com/{}.git", source.source)
         };
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: locked_source,
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(result.version),
-            binary_checksum: Some(result.binary_checksum),
-            dev: None,
-        })
+        let mut locked = LockedSkill::binary(
+            name,
+            locked_source,
+            binary_name,
+            Some(result.version),
+            Some(result.binary_checksum),
+        );
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     /// Install a local binary skill by building in release mode.
@@ -324,18 +326,20 @@ impl<'a> SkillInstaller<'a> {
 
         self.deploy(name, skill_dir)?;
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: source.source.clone(),
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(result.version),
-            binary_checksum: Some(result.binary_checksum),
-            dev: None,
-        })
+        let mut locked = LockedSkill::binary(
+            name,
+            source.source.clone(),
+            binary_name,
+            Some(result.version),
+            Some(result.binary_checksum),
+        );
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     /// Set up a dev-mode local binary skill (no release build).
@@ -359,18 +363,22 @@ impl<'a> SkillInstaller<'a> {
 
         self.deploy(name, skill_dir)?;
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: source.source.clone(),
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(info.version).filter(|v| v != "0.0.0"),
-            binary_checksum: None,
-            dev: Some(true),
-        })
+        let binary_version = Some(info.version).filter(|v| v != "0.0.0");
+        let mut locked = LockedSkill::binary(
+            name,
+            source.source.clone(),
+            binary_name,
+            binary_version,
+            None,
+        )
+        .with_dev();
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     fn build_locked_entry(
@@ -380,36 +388,53 @@ impl<'a> SkillInstaller<'a> {
         meta: &SkillMetadata,
         skill_dir: &Path,
     ) -> Result<LockedSkill> {
-        let (commit, checksum) = match source.source_type {
-            SourceType::Github | SourceType::Git => {
-                let repo_dir = find_repo_root(skill_dir);
-                let commit = git::head_commit(&repo_dir).ok();
-                let checksum = git::checksum_dir(skill_dir).ok();
-                (commit, checksum)
-            }
-            SourceType::Path | SourceType::Http | SourceType::Binary | SourceType::Local => {
-                let checksum = git::checksum_dir(skill_dir).ok();
-                (None, checksum)
-            }
-        };
-
         let git_url = source
             .git_url()
             .ok()
             .unwrap_or_else(|| source.source.clone());
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: git_url,
-            path: source.path.clone(),
-            version: meta.version().map(|s| s.to_string()),
-            commit,
-            checksum,
-            binary: None,
-            binary_version: None,
-            binary_checksum: None,
-            dev: None,
-        })
+        let mut locked = match source.source_type {
+            SourceType::Github | SourceType::Git => {
+                let repo_dir = find_repo_root(skill_dir);
+                let commit = git::head_commit(&repo_dir).ok().unwrap_or_default();
+                let checksum = git::checksum_dir(skill_dir).ok().unwrap_or_default();
+                LockedSkill::git(name, &git_url, commit, checksum)
+            }
+            SourceType::Path => {
+                let mut l = LockedSkill::path(name, &git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SourceType::Http => {
+                let mut l = LockedSkill::http(name, &git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SourceType::Local => {
+                let mut l = LockedSkill::local(name).with_source(&git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SourceType::Binary => {
+                // Binary sources should not reach this path
+                LockedSkill::local(name).with_source(&git_url)
+            }
+        };
+
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+
+        Ok(locked)
     }
 }
 

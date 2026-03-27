@@ -122,8 +122,8 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // Clean up binary files if this is a binary skill
         if let Some(locked) = lockfile.find(skill_name)
-            && let Some(ref binary_name) = locked.binary
-            && let Some(ref version) = locked.binary_version
+            && let Some(binary_name) = locked.binary_name()
+            && let Some(version) = locked.binary_version()
         {
             ion_skill::binary::remove_binary_version(binary_name, version)?;
             if !json {

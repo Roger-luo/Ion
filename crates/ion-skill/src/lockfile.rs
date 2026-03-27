@@ -154,6 +154,10 @@ impl LockedSkill {
         matches!(self.kind, LockedSkillKind::Binary { .. })
     }
 
+    pub fn is_dev(&self) -> bool {
+        matches!(self.kind, LockedSkillKind::Binary { dev: true, .. })
+    }
+
     pub fn binary_name(&self) -> Option<&str> {
         match &self.kind {
             LockedSkillKind::Binary { binary_name, .. } => Some(binary_name),

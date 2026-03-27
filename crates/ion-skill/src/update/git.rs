@@ -23,7 +23,7 @@ impl Updater for GitUpdater {
         git::reset_to_remote_head(&repo_dir)?;
 
         let new_commit = git::head_commit(&repo_dir)?;
-        let old_commit = skill.commit.clone().unwrap_or_default();
+        let old_commit = skill.commit().unwrap_or_default().to_string();
 
         if new_commit == old_commit {
             return Ok(None);
@@ -78,18 +78,19 @@ impl Updater for GitUpdater {
             .ok()
             .unwrap_or_else(|| source.source.clone());
 
-        Ok(LockedSkill {
-            name: skill.name.clone(),
-            source: git_url,
-            path: source.path.clone(),
-            version: meta.version().map(|s| s.to_string()),
-            commit,
-            checksum,
-            binary: None,
-            binary_version: None,
-            binary_checksum: None,
-            dev: None,
-        })
+        let mut locked = LockedSkill::git(
+            skill.name.clone(),
+            git_url,
+            commit.unwrap_or_default(),
+            checksum.unwrap_or_default(),
+        );
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 }
 
@@ -182,18 +183,12 @@ mod tests {
         add_commit(&upstream, "second commit");
 
         // Build a locked skill pointing to the old commit
-        let locked = LockedSkill {
-            name: "test-skill".to_string(),
-            source: upstream.display().to_string(),
-            path: None,
-            version: None,
-            commit: Some(old_commit),
-            checksum: None,
-            binary: None,
-            binary_version: None,
-            binary_checksum: None,
-            dev: None,
-        };
+        let locked = LockedSkill::git(
+            "test-skill",
+            upstream.display().to_string(),
+            old_commit,
+            String::new(),
+        );
 
         // Use the upstream path as a Git source — but we need to ensure
         // the updater uses the same repo_dir. Override data_dir by using
@@ -222,18 +217,12 @@ mod tests {
         git::clone_or_fetch(&url, &repo_dir).unwrap();
         let current_commit = git::head_commit(&repo_dir).unwrap();
 
-        let locked = LockedSkill {
-            name: "test-skill".to_string(),
-            source: upstream.display().to_string(),
-            path: None,
-            version: None,
-            commit: Some(current_commit),
-            checksum: None,
-            binary: None,
-            binary_version: None,
-            binary_checksum: None,
-            dev: None,
-        };
+        let locked = LockedSkill::git(
+            "test-skill",
+            upstream.display().to_string(),
+            current_commit,
+            String::new(),
+        );
 
         let updater = GitUpdater;
         let result = updater.check(&locked, &source).unwrap();

@@ -32,17 +32,15 @@ pub fn run(json: bool) -> anyhow::Result<()> {
                     }
                 };
                 let locked = lockfile.find(name);
-                let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
+                let is_binary = locked.is_some_and(|l| l.is_binary());
                 let version = if is_binary {
-                    locked
-                        .and_then(|l| l.binary_version.as_deref())
-                        .unwrap_or("unknown")
+                    locked.and_then(|l| l.binary_version()).unwrap_or("unknown")
                 } else {
                     locked
                         .and_then(|l| l.version.as_deref())
                         .unwrap_or("unknown")
                 };
-                let commit = locked.and_then(|l| l.commit.as_deref());
+                let commit = locked.and_then(|l| l.commit());
                 let installed = ctx
                     .project_dir
                     .join(merged_options.skills_dir_or_default())
@@ -73,12 +71,10 @@ pub fn run(json: bool) -> anyhow::Result<()> {
         };
         let locked = lockfile.find(name);
 
-        let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
+        let is_binary = locked.is_some_and(|l| l.is_binary());
 
         let version_str = if is_binary {
-            locked
-                .and_then(|l| l.binary_version.as_deref())
-                .unwrap_or("unknown")
+            locked.and_then(|l| l.binary_version()).unwrap_or("unknown")
         } else {
             locked
                 .and_then(|l| l.version.as_deref())
@@ -89,7 +85,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
             format!(" {}", p.info("(binary)"))
         } else {
             let commit_str = locked
-                .and_then(|l| l.commit.as_deref())
+                .and_then(|l| l.commit())
                 .map(|c| &c[..c.len().min(8)])
                 .unwrap_or("none");
             format!(" {}", p.dim(&format!("({commit_str})")))
