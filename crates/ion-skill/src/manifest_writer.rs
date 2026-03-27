@@ -107,6 +107,38 @@ pub fn write_skills_dir(manifest_path: &Path, skills_dir: &str) -> Result<String
     Ok(result)
 }
 
+/// Write an [agents] section to an Ion.toml file.
+/// Creates the file with a [skills] section if it doesn't exist.
+/// Preserves all existing content.
+pub fn write_agents_config(
+    manifest_path: &Path,
+    template: &str,
+    rev: Option<&str>,
+    path: Option<&str>,
+) -> Result<String> {
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("skills") {
+        doc["skills"] = Item::Table(Table::new());
+    }
+
+    let mut agents_table = Table::new();
+    agents_table["template"] = value(template);
+    if let Some(r) = rev {
+        agents_table["rev"] = value(r);
+    }
+    if let Some(p) = path {
+        agents_table["path"] = value(p);
+    }
+    doc["agents"] = Item::Table(agents_table);
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
     let needs_table = source.rev.is_some()
@@ -329,6 +361,47 @@ mod tests {
             !result.contains("source ="),
             "local skills should not have a source field"
         );
+    }
+
+    #[test]
+    fn write_agents_config_to_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(
+            &path,
+            "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
+        )
+        .unwrap();
+
+        write_agents_config(&path, "org/agents-templates", None, None).unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[agents]"));
+        assert!(content.contains("template = \"org/agents-templates\""));
+        assert!(
+            content.contains("brainstorming"),
+            "existing skills preserved"
+        );
+    }
+
+    #[test]
+    fn write_agents_config_with_rev_and_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        write_agents_config(
+            &path,
+            "org/agents-templates",
+            Some("v2.0"),
+            Some("templates/AGENTS.md"),
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("template = \"org/agents-templates\""));
+        assert!(content.contains("rev = \"v2.0\""));
+        assert!(content.contains("path = \"templates/AGENTS.md\""));
     }
 
     #[test]

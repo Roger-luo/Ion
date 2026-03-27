@@ -19,6 +19,24 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
 
     ctx.ensure_builtin_skill(&merged_options);
 
+    // Create agent file symlinks (e.g. CLAUDE.md -> AGENTS.md)
+    if let Err(e) =
+        ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
+    {
+        eprintln!("Warning: failed to create agent symlinks: {e}");
+    }
+
+    // Deploy agents-update skill if [agents] template is configured
+    if manifest
+        .agents
+        .as_ref()
+        .and_then(|a| a.template.as_ref())
+        .is_some()
+        && let Err(e) = crate::commands::agents::deploy_agents_update_skill(&ctx, &merged_options)
+    {
+        log::warn!("Failed to deploy agents-update skill: {e}");
+    }
+
     let mut lockfile = ctx.lockfile()?;
 
     if manifest.skills.is_empty() {

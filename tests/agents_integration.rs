@@ -1,0 +1,398 @@
+use std::process::Command;
+
+fn ion_cmd() -> Command {
+    Command::new(env!("CARGO_BIN_EXE_ion"))
+}
+
+#[test]
+fn agents_init_from_local_path() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        template_dir.path().join("AGENTS.md"),
+        "# Org Standard Agents\n\nDo things the org way.\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "agents init failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Should copy AGENTS.md as starting point
+    let agents_md = project.path().join("AGENTS.md");
+    assert!(agents_md.exists(), "AGENTS.md should be created");
+    let content = std::fs::read_to_string(&agents_md).unwrap();
+    assert!(content.contains("Org Standard Agents"));
+
+    // Should write [agents] to Ion.toml
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("[agents]"));
+    assert!(manifest.contains("template"));
+
+    // Should write to Ion.lock
+    let lockfile = std::fs::read_to_string(project.path().join("Ion.lock")).unwrap();
+    assert!(lockfile.contains("[agents]"));
+    assert!(lockfile.contains("checksum"));
+}
+
+#[test]
+fn agents_init_preserves_existing_agents_md() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+    std::fs::write(
+        project.path().join("AGENTS.md"),
+        "# My Custom Agents\n\nMy local content.\n",
+    )
+    .unwrap();
+
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Org Template\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // Original AGENTS.md should be preserved
+    let content = std::fs::read_to_string(project.path().join("AGENTS.md")).unwrap();
+    assert!(content.contains("My Custom Agents"));
+
+    // Upstream should be staged
+    let upstream = project.path().join(".agents/templates/AGENTS.md.upstream");
+    assert!(upstream.exists());
+}
+
+#[test]
+fn agents_init_errors_when_already_configured() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[agents]\ntemplate = \"org/old\"\n",
+    )
+    .unwrap();
+
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# New\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should error when already configured"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("already configured"));
+}
+
+#[test]
+fn init_creates_claude_symlink_when_agents_md_exists() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# My Agents\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "init failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let symlink = project.path().join("CLAUDE.md");
+    assert!(symlink.exists(), "CLAUDE.md should exist after init");
+    assert!(
+        symlink.symlink_metadata().unwrap().is_symlink(),
+        "CLAUDE.md should be a symlink"
+    );
+}
+
+#[test]
+fn init_no_symlink_without_agents_md() {
+    let project = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    assert!(
+        !project.path().join("CLAUDE.md").exists(),
+        "CLAUDE.md should not exist without AGENTS.md"
+    );
+}
+
+#[test]
+fn install_all_creates_claude_symlink() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# My Agents\n").unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "add failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let symlink = project.path().join("CLAUDE.md");
+    assert!(symlink.exists(), "CLAUDE.md should exist after install-all");
+    assert!(symlink.symlink_metadata().unwrap().is_symlink());
+}
+
+#[test]
+fn agents_update_detects_changes() {
+    let project = tempfile::tempdir().unwrap();
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Version 1\n").unwrap();
+
+    // Init the template
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // Update the template source
+    std::fs::write(
+        template_dir.path().join("AGENTS.md"),
+        "# Version 2\n\nNew content.\n",
+    )
+    .unwrap();
+
+    // Run agents update
+    let output = ion_cmd()
+        .args(["agents", "update"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "agents update failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Upstream file should contain new content
+    let upstream =
+        std::fs::read_to_string(project.path().join(".agents/templates/AGENTS.md.upstream"))
+            .unwrap();
+    assert!(upstream.contains("Version 2"));
+
+    // Local AGENTS.md should NOT be changed
+    let local = std::fs::read_to_string(project.path().join("AGENTS.md")).unwrap();
+    assert!(local.contains("Version 1"));
+}
+
+#[test]
+fn agents_update_noop_when_unchanged() {
+    let project = tempfile::tempdir().unwrap();
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Same\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    // Update without changes
+    let output = ion_cmd()
+        .args(["agents", "update"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+}
+
+#[test]
+fn agents_update_errors_without_config() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "update"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("No [agents]")
+            || stderr.contains("no agents")
+            || stderr.contains("not configured"),
+        "should error about missing config: {stderr}"
+    );
+}
+
+#[test]
+fn agents_diff_shows_differences() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Local version\n").unwrap();
+    std::fs::create_dir_all(project.path().join(".agents/templates")).unwrap();
+    std::fs::write(
+        project.path().join(".agents/templates/AGENTS.md.upstream"),
+        "# Upstream version\n",
+    )
+    .unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should show some diff output
+    assert!(!stdout.is_empty() || !String::from_utf8_lossy(&output.stderr).is_empty());
+}
+
+#[test]
+fn agents_diff_errors_without_upstream() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Local\n").unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("no upstream") || stderr.contains("not found") || stderr.contains("update"),
+        "should mention missing upstream: {stderr}"
+    );
+}
+
+#[test]
+fn agents_init_deploys_agents_update_skill() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Template\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "init", template_dir.path().to_str().unwrap()])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // agents-update skill should be deployed
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/agents-update/SKILL.md")
+            .exists(),
+        "agents-update skill should be deployed"
+    );
+
+    // Should also be registered in Ion.toml
+    let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(manifest.contains("agents-update"));
+}
+
+#[test]
+fn install_all_deploys_agents_update_skill_when_configured() {
+    let project = tempfile::tempdir().unwrap();
+    let template_dir = tempfile::tempdir().unwrap();
+    std::fs::write(template_dir.path().join("AGENTS.md"), "# Template\n").unwrap();
+
+    // Set up project with [agents] already configured (simulating a repo clone)
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        format!(
+            "[skills]\n\n[agents]\ntemplate = \"{}\"\n\n[options.targets]\nclaude = \".claude/skills\"\n",
+            template_dir.path().display()
+        ),
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "add failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/agents-update/SKILL.md")
+            .exists(),
+        "agents-update skill should be deployed by install-all"
+    );
+}
+
+#[test]
+fn agents_diff_reports_up_to_date() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("AGENTS.md"), "# Same content\n").unwrap();
+    std::fs::create_dir_all(project.path().join(".agents/templates")).unwrap();
+    std::fs::write(
+        project.path().join(".agents/templates/AGENTS.md.upstream"),
+        "# Same content\n",
+    )
+    .unwrap();
+    std::fs::write(project.path().join("Ion.toml"), "[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["agents", "diff"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("up to date"),
+        "should say up to date: {stdout}"
+    );
+}

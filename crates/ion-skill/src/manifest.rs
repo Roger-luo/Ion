@@ -158,6 +158,8 @@ pub struct Manifest {
     pub skills: BTreeMap<String, SkillEntry>,
     #[serde(default)]
     pub options: ManifestOptions,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents: Option<crate::agents::AgentsConfig>,
 }
 
 impl Manifest {
@@ -196,6 +198,7 @@ impl Manifest {
             project: None,
             skills: BTreeMap::new(),
             options: ManifestOptions::default(),
+            agents: None,
         }
     }
 }
@@ -368,5 +371,29 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
             manifest.options.get_value("skills-dir"),
             Some("my-skills".to_string())
         );
+    }
+
+    #[test]
+    fn parse_agents_config() {
+        let toml_str = r#"
+[skills]
+
+[agents]
+template = "org/agents-templates"
+rev = "v2.0"
+path = "templates/AGENTS.md"
+"#;
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let agents = manifest.agents.as_ref().unwrap();
+        assert_eq!(agents.template.as_deref(), Some("org/agents-templates"));
+        assert_eq!(agents.rev.as_deref(), Some("v2.0"));
+        assert_eq!(agents.path.as_deref(), Some("templates/AGENTS.md"));
+    }
+
+    #[test]
+    fn parse_manifest_without_agents() {
+        let toml_str = "[skills]\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        assert!(manifest.agents.is_none());
     }
 }

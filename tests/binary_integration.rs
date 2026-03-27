@@ -38,6 +38,7 @@ fn test_binary_locked_skill_roundtrip() {
 
     let lockfile = ion_skill::lockfile::Lockfile {
         skills: vec![locked],
+        agents: None,
     };
 
     let tmp = tempdir().unwrap();
