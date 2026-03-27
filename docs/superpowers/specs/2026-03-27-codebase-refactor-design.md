@@ -175,8 +175,10 @@ pub enum LockedSkillKind {
     },
     Binary {
         binary_name: String,
-        binary_version: String,
-        binary_checksum: String,
+        /// None for dev-mode builds where version is unknown/0.0.0.
+        binary_version: Option<String>,
+        /// None for dev-mode builds (no release artifact to checksum).
+        binary_checksum: Option<String>,
         dev: bool,
     },
     Local {
@@ -227,11 +229,18 @@ struct RawLockedSkill {
 
 fn is_false(v: &bool) -> bool { !v }
 
-impl From<RawLockedSkill> for LockedSkill { ... }
+impl TryFrom<RawLockedSkill> for LockedSkill {
+    type Error = String;
+    fn try_from(raw: RawLockedSkill) -> Result<Self, String> {
+        // Match on raw.kind to construct the correct LockedSkillKind variant.
+        // Unknown kind values produce: Err("unknown locked skill kind '...'")
+        ...
+    }
+}
 impl From<LockedSkill> for RawLockedSkill { ... }
 ```
 
-The `Lockfile` struct uses `#[serde(from = "RawLockfile", into = "RawLockfile")]` (or manual `Serialize`/`Deserialize` impls) to route through the flat representation. The `From` impl on `RawLockedSkill → LockedSkill` matches on `kind` string to construct the correct `LockedSkillKind` variant, returning an error (via `TryFrom` or panicking for invalid `kind` values in a controlled way) if the discriminant is unknown.
+The `Lockfile` struct uses `#[serde(try_from = "RawLockfile", into = "RawLockfile")]` to route through the flat representation. The conversion is fallible: `impl TryFrom<RawLockedSkill> for LockedSkill` with `type Error = String` matches on the `kind` string to construct the correct `LockedSkillKind` variant. Unknown `kind` values produce a descriptive error ("unknown locked skill kind '...' — you may need to update Ion"). This error surfaces as a serde deserialization error, which `Lockfile::from_file()` catches and wraps with the "run `ion install` to regenerate" guidance message.
 
 Note: `version` stays on the outer struct because both git and binary skills can have a SKILL.md-declared version.
 
@@ -249,13 +258,24 @@ impl LockedSkill {
         }
     }
 
-    pub fn binary(name: impl Into<String>, source: impl Into<String>, binary_name: String, binary_version: String, binary_checksum: String) -> Self {
+    pub fn binary(
+        name: impl Into<String>,
+        source: impl Into<String>,
+        binary_name: impl Into<String>,
+        binary_version: Option<String>,
+        binary_checksum: Option<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             source: source.into(),
             path: None,
             version: None,
-            kind: LockedSkillKind::Binary { binary_name, binary_version, binary_checksum, dev: false },
+            kind: LockedSkillKind::Binary {
+                binary_name: binary_name.into(),
+                binary_version,
+                binary_checksum,
+                dev: false,
+            },
         }
     }
 
@@ -288,12 +308,13 @@ impl LockedSkill {
 
 ```rust
 // installer.rs::install_binary_dev
-Ok(LockedSkill::binary(name, &source.source, binary_name.into(), version, String::new())
+let version = Some(info.version).filter(|v| v != "0.0.0");
+Ok(LockedSkill::binary(name, &source.source, binary_name, version, None)
     .with_version(...)
     .with_dev())
 ```
 
-This ensures dev binary skills are always correctly tagged in the lockfile.
+Dev-mode binary skills have `binary_version: None` (or filtered 0.0.0) and `binary_checksum: None` since there's no release artifact. `BinaryUpdater::check()` handles `None` version by always reporting an update available.
 ```
 
 **Convenience accessors** for common cross-variant queries:
@@ -497,66 +518,76 @@ The post-install sequence varies between two contexts:
 
 These are NOT the same operation. Extract two helpers to `install_shared.rs`:
 
+The core building block is `finalize_skill_install`, which takes an options struct to control which steps run:
+
 ```rust
-/// Post-install bookkeeping for a NEW skill (add/link): gitignore, registry, manifest, lockfile.
-pub fn finalize_new_skill(
+pub struct FinalizeOptions {
+    /// Write a new entry to Ion.toml (false for `ion install` since skills are already declared).
+    pub write_manifest: bool,
+    /// Register in global registry (false when caller handles registry once at batch end).
+    pub register_in_registry: bool,
+}
+
+/// Post-install bookkeeping: conditionally does gitignore, registry, manifest, lockfile.
+pub fn finalize_skill_install(
     ctx: &ProjectContext,
     merged_options: &ManifestOptions,
     name: &str,
     source: &SkillSource,
     locked: LockedSkill,
     lockfile: &mut Lockfile,
+    opts: &FinalizeOptions,
 ) -> anyhow::Result<()> {
     add_gitignore_entries(&ctx.project_dir, name, source, merged_options)?;
-    register_in_registry(source, &ctx.project_dir)?;
-    manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
+    if opts.register_in_registry {
+        register_in_registry(source, &ctx.project_dir)?;
+    }
+    if opts.write_manifest {
+        manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
+    }
     lockfile.upsert(locked);
     Ok(())
 }
+```
 
-/// Post-install bookkeeping for an EXISTING skill (install): gitignore, registry, lockfile.
-/// Does NOT write to Ion.toml — the skill is already declared there.
-pub fn finalize_existing_skill(
-    ctx: &ProjectContext,
-    merged_options: &ManifestOptions,
-    name: &str,
-    source: &SkillSource,
-    locked: LockedSkill,
-    lockfile: &mut Lockfile,
-) -> anyhow::Result<()> {
-    add_gitignore_entries(&ctx.project_dir, name, source, merged_options)?;
-    register_in_registry(source, &ctx.project_dir)?;
-    lockfile.upsert(locked);
-    Ok(())
+Common presets:
+
+```rust
+impl FinalizeOptions {
+    /// For `ion add` (single skill): write manifest, register.
+    pub const ADD: Self = Self { write_manifest: true, register_in_registry: true };
+    /// For `ion install` (skills already in Ion.toml): no manifest write, register.
+    pub const INSTALL: Self = Self { write_manifest: false, register_in_registry: true };
+    /// For `ion add` collection loop: write manifest per-skill, registry once at end.
+    pub const ADD_COLLECTION: Self = Self { write_manifest: true, register_in_registry: false };
 }
 ```
 
 Note: lockfile is mutated but not written. The caller writes once at the end after processing all skills. This matches the deferred-write pattern used in `install.rs` and `add.rs::install_collection`.
 
-For single-skill commands (`add` single path, `link`), add a variant that also writes:
+For single-skill commands (`add` single path, `link`), add a convenience that also writes:
 
 ```rust
-pub fn finalize_new_skill_and_write(
+pub fn finalize_skill_install_and_write(
     ctx: &ProjectContext,
     merged_options: &ManifestOptions,
     name: &str,
     source: &SkillSource,
     locked: LockedSkill,
+    opts: &FinalizeOptions,
 ) -> anyhow::Result<()> {
     let mut lockfile = ctx.lockfile()?;
-    finalize_new_skill(ctx, merged_options, name, source, locked, &mut lockfile)?;
+    finalize_skill_install(ctx, merged_options, name, source, locked, &mut lockfile, opts)?;
     lockfile.write_to(&ctx.lockfile_path)?;
     Ok(())
 }
 ```
 
-**Additional note on collection installs:** In `add.rs::install_collection`, `register_in_registry()` is called once for the base source after the loop, not per-skill. The `finalize_new_skill` helper calls it per-skill. Since `register_in_registry` is idempotent (registers the same repo hash), calling it per-skill is harmless but wasteful. For collections, callers can use a lower-level approach: call `add_gitignore_entries` + `manifest_writer::add_skill` + `lockfile.upsert` per-skill, then `register_in_registry` once. Alternatively, add a `skip_registry: bool` parameter.
-
 **Call sites:**
-- `add.rs::finish_single_install` → `finalize_new_skill_and_write()`
-- `add.rs::install_collection` install loops → `finalize_new_skill()` (with registry once at end)
-- `install.rs` install loops → `finalize_existing_skill()`
-- `link.rs` → `finalize_new_skill_and_write()`
+- `add.rs::finish_single_install` → `finalize_skill_install_and_write(opts: ADD)`
+- `add.rs::install_collection` install loops → `finalize_skill_install(opts: ADD_COLLECTION)` per-skill, then `register_in_registry()` once at end
+- `install.rs` install loops → `finalize_skill_install(opts: INSTALL)`
+- `link.rs` → `finalize_skill_install_and_write(opts: ADD)`
 
 ### 4.2 `ValidationBuckets` — shared validation phase
 
@@ -701,9 +732,11 @@ Usage in `add.rs::install_collection`:
 let installed = install_approved_skills(
     &installer, &buckets, &warned_selections, &p, json,
     |name, source, locked| {
-        finalize_new_skill(ctx, merged_options, name, source, locked, &mut lockfile)
+        finalize_skill_install(ctx, merged_options, name, source, locked, &mut lockfile, &FinalizeOptions::ADD_COLLECTION)
     },
 )?;
+// Register once for the whole collection
+register_in_registry(base_source, &ctx.project_dir)?;
 ```
 
 Usage in `install.rs::run`:
@@ -711,7 +744,7 @@ Usage in `install.rs::run`:
 let installed = install_approved_skills(
     &installer, &buckets, &warned_selections, &p, json,
     |name, source, locked| {
-        finalize_existing_skill(ctx, merged_options, name, source, locked, &mut lockfile)
+        finalize_skill_install(ctx, merged_options, name, source, locked, &mut lockfile, &FinalizeOptions::INSTALL)
     },
 )?;
 ```
@@ -828,6 +861,6 @@ Audit all `eprintln!("Warning:` calls and route through `Paint::warn()` or `log:
 - **Track 2 blast radius:** Changing `LockedSkill` and `SkillSource` touches nearly every file. Mitigation: thorough `cargo clippy` + `cargo nextest run` between each sub-change within the track.
 - **Lockfile format break:** Users with existing `Ion.lock` files will need to re-run `ion install`. Mitigation: clear error message in `Lockfile::from_file()` when parse fails — "Ion.lock format has changed. Run `ion install` to regenerate it."
 - **`SourceType` kept for serde compatibility:** `SkillEntry::Full` in `Ion.toml` uses `type = "local"` / `type = "binary"` / etc. `SourceType` is kept as a serde-only enum for this purpose, but no longer appears on `SkillSource`. `SkillEntry::resolve()` converts `SourceType` → `SkillSourceKind`. Risk: if any code outside `manifest.rs` still references `SourceType` for non-serde purposes, it needs to switch to `SkillSourceKind` matching.
-- **`RawLockedSkill` serde bridge complexity:** The `From<RawLockedSkill> for LockedSkill` conversion must handle unknown `kind` values gracefully (e.g., from a newer Ion version). Mitigation: return an error with a message suggesting to update Ion.
+- **`RawLockedSkill` serde bridge complexity:** The `TryFrom<RawLockedSkill> for LockedSkill` conversion must handle unknown `kind` values gracefully (e.g., from a newer Ion version). Mitigation: `TryFrom` returns a descriptive error, and `#[serde(try_from)]` surfaces it as a deserialization error wrapped with guidance to update Ion or regenerate the lockfile.
 - **Track 4 behavioral difference:** `install_approved_skills` with `finalize_new_skill` calls `register_in_registry` per-skill. For collections, this is redundant (same repo registered N times). This is harmless (registry is idempotent) but slightly wasteful. Acceptable for code simplicity.
 - **Error handling policy:** `install.rs` uses `entry.resolve()?` (hard failure on bad entry), while `update.rs` and `list.rs` will use warn-and-skip after Track 1. Track 4's `ValidationBuckets::collect()` must decide which policy to use — it should match its caller (`install` = hard fail, `add` collection = hard fail). Document this in the function's contract.
