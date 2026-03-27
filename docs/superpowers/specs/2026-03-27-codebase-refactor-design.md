@@ -15,13 +15,14 @@ The codebase has grown organically and accumulated:
 
 ## Approach
 
-Five sequential tracks, each a standalone shippable unit:
+Six sequential tracks, each a standalone shippable unit:
 
 1. **Constants & small fixes** — single source of truth for defaults, bug fixes
-2. **Type redesign** — `LockedSkill` enum, `SkillSource` per-type data
-3. **`ProjectContext` enrichment** — reduce command preamble boilerplate
-4. **Command pipeline extraction** — shared install-commit and validation-bucket flows
-5. **Config & writer consolidation** — `manifest_writer` unification, `migrate.rs` cleanup
+2. **CLI wrappers crate** — new `ion-cli` crate with typed wrappers for git, cargo, gh
+3. **Type redesign** — `LockedSkill` enum, `SkillSource` per-type data
+4. **`ProjectContext` enrichment** — reduce command preamble boilerplate
+5. **Command pipeline extraction** — shared install-commit and validation-bucket flows
+6. **Config & writer consolidation** — `manifest_writer` unification, `migrate.rs` cleanup
 
 ---
 
@@ -143,7 +144,361 @@ Replace the inline code in `remove.rs` with a call to this.
 
 ---
 
-## Track 2: Type Redesign
+## Track 2: CLI Wrappers Crate (`ion-cli`)
+
+### Problem
+
+Four external CLIs are shelled out to across the codebase, with inconsistent error handling and scattered call sites:
+
+| CLI | Current location | Operations |
+|-----|-----------------|------------|
+| **git** | `ion-skill/src/git.rs` (partial), `src/commands/migrate.rs` (ad-hoc) | clone, fetch, checkout, rev-parse, reset, symbolic-ref, stage, diff, commit |
+| **cargo** | `ion-skill/src/binary.rs`, `src/commands/run.rs`, `src/commands/new.rs` | metadata, build, run, init |
+| **gh** | `ion-skill/src/search/github.rs` (private `run_gh`), `src/commands/add.rs` | search code, search repos, api, repo star |
+| **sh** | `ion-skill/src/search/agent.rs` | arbitrary user-configured command |
+
+Each call site reinvents the `Command::new` → check status → parse stderr → map to error pattern. Downstream users of `ion-skill` who need git or cargo operations must reimplement these wrappers.
+
+### Solution
+
+New workspace crate `crates/ion-cli/` providing typed, public wrappers for each CLI. Both `ion-skill` and `ion` depend on it.
+
+```
+crates/ion-cli/
+  Cargo.toml
+  src/
+    lib.rs          — re-exports, shared error type, CommandExt trait
+    git.rs          — git operations
+    cargo.rs        — cargo operations
+    gh.rs           — GitHub CLI operations
+    shell.rs        — arbitrary shell command execution
+```
+
+### 2.1 Shared infrastructure
+
+```rust
+// crates/ion-cli/src/lib.rs
+
+pub mod git;
+pub mod cargo;
+pub mod gh;
+pub mod shell;
+
+use std::path::Path;
+use std::process::{Command, Output};
+
+/// Error from a CLI invocation.
+#[derive(Debug, thiserror::Error)]
+pub enum CliError {
+    /// The CLI binary was not found on PATH.
+    #[error("{cli} not found. {hint}")]
+    NotFound { cli: String, hint: String },
+
+    /// The command ran but exited with a non-zero status.
+    #[error("{cli} failed (exit {code}): {stderr}")]
+    Failed { cli: String, code: i32, stderr: String },
+
+    /// I/O error spawning the process.
+    #[error("failed to spawn {cli}: {source}")]
+    Spawn { cli: String, source: std::io::Error },
+
+    /// Output was not valid UTF-8.
+    #[error("{cli} produced invalid UTF-8 output")]
+    InvalidUtf8 { cli: String },
+}
+
+pub type Result<T> = std::result::Result<T, CliError>;
+
+/// Check if a CLI is available on PATH.
+pub fn is_available(name: &str) -> bool {
+    Command::new(name)
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+/// Run a command and return its stdout as a String, or a CliError.
+/// This is the central execution point — all wrappers route through this.
+fn run_command(cmd: &mut Command, cli_name: &str) -> Result<String> {
+    let output = cmd.output().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            CliError::NotFound {
+                cli: cli_name.to_string(),
+                hint: String::new(),
+            }
+        } else {
+            CliError::Spawn { cli: cli_name.to_string(), source: e }
+        }
+    })?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(CliError::Failed {
+            cli: cli_name.to_string(),
+            code: output.status.code().unwrap_or(-1),
+            stderr,
+        });
+    }
+
+    String::from_utf8(output.stdout)
+        .map(|s| s.trim_end().to_string())
+        .map_err(|_| CliError::InvalidUtf8 { cli: cli_name.to_string() })
+}
+
+/// Run a command and return only the exit status (for commands where we only care about success/failure).
+fn run_status(cmd: &mut Command, cli_name: &str) -> Result<()> {
+    let status = cmd.status().map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            CliError::NotFound {
+                cli: cli_name.to_string(),
+                hint: String::new(),
+            }
+        } else {
+            CliError::Spawn { cli: cli_name.to_string(), source: e }
+        }
+    })?;
+
+    if !status.success() {
+        return Err(CliError::Failed {
+            cli: cli_name.to_string(),
+            code: status.code().unwrap_or(-1),
+            stderr: String::new(),
+        });
+    }
+
+    Ok(())
+}
+```
+
+### 2.2 `git` module
+
+Consolidates the existing `ion-skill/src/git.rs` + the missing operations from `migrate.rs`:
+
+```rust
+// crates/ion-cli/src/git.rs
+
+use std::path::Path;
+use crate::{Result, run_command, run_status};
+
+/// Clone a git repository. If it already exists, fetch updates.
+pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> { ... }
+
+/// Checkout a specific ref (branch, tag, or commit SHA).
+pub fn checkout(repo: &Path, rev: &str) -> Result<()> { ... }
+
+/// Get the current HEAD commit SHA.
+pub fn head_commit(repo: &Path) -> Result<String> { ... }
+
+/// Get the default branch name (checks origin/HEAD, falls back to symbolic-ref HEAD).
+pub fn default_branch(repo: &Path) -> Result<String> { ... }
+
+/// Reset the working tree to the remote's default branch HEAD.
+pub fn reset_to_remote_head(repo: &Path) -> Result<()> { ... }
+
+/// Stage files for commit.
+pub fn stage_files(repo: &Path, files: &[&str]) -> Result<()> { ... }
+
+/// Check if there are staged changes.
+pub fn has_staged_changes(repo: &Path) -> Result<bool> { ... }
+
+/// Create a commit with the given message. Returns the new commit SHA.
+pub fn create_commit(repo: &Path, message: &str) -> Result<String> { ... }
+
+/// Initialize a new git repository.
+pub fn init(path: &Path) -> Result<()> { ... }
+```
+
+**Migration from existing code:** `ion-skill/src/git.rs` is replaced by re-exports from `ion-cli::git`. The `checksum_dir()` function (which uses `sha2`, not `git`) stays in `ion-skill` — it's not a CLI wrapper.
+
+### 2.3 `cargo` module
+
+Consolidates scattered cargo calls from `binary.rs`, `run.rs`, `new.rs`:
+
+```rust
+// crates/ion-cli/src/cargo.rs
+
+use std::path::Path;
+use crate::{Result, run_command, run_status};
+
+/// Parsed output of `cargo metadata`.
+#[derive(Debug)]
+pub struct CargoMetadata {
+    pub package_name: String,
+    pub version: String,
+    pub binary_targets: Vec<String>,
+}
+
+/// Run `cargo metadata --no-deps` and parse the result.
+pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> { ... }
+
+/// Run `cargo build --release` for a project.
+pub fn build_release(manifest_path: &Path) -> Result<()> { ... }
+
+/// Run `cargo build --release` for a specific binary target.
+pub fn build_release_bin(manifest_path: &Path, bin: &str) -> Result<()> { ... }
+
+/// Run `cargo run` with the given arguments. Returns stdout.
+pub fn run(manifest_path: &Path, bin: &str, args: &[&str]) -> Result<String> { ... }
+
+/// Run `cargo run` inheriting stdio (for interactive use).
+pub fn run_interactive(manifest_path: &Path, bin: &str, args: &[&str]) -> Result<()> { ... }
+
+/// Run `cargo init` to create a new project.
+pub fn init(path: &Path, name: &str) -> Result<()> { ... }
+```
+
+**Migration from existing code:**
+- `binary.rs::cargo_project_info()` → calls `ion_cli::cargo::metadata()` and maps the result to its `CargoProject` type
+- `binary.rs::install_binary_from_local()` → calls `ion_cli::cargo::build_release()`
+- `binary.rs::setup_dev_binary()` → calls `ion_cli::cargo::run()` for `self skill`
+- `src/commands/run.rs` → calls `ion_cli::cargo::run()` / `run_interactive()`
+- `src/commands/new.rs` → calls `ion_cli::cargo::init()`
+
+### 2.4 `gh` module
+
+Consolidates the private `run_gh` from `search/github.rs` and the ad-hoc `gh repo star` from `add.rs`:
+
+```rust
+// crates/ion-cli/src/gh.rs
+
+use crate::{Result, CliError, run_command, is_available};
+
+/// Check if `gh` is installed and authenticated.
+pub fn available() -> bool {
+    is_available("gh")
+}
+
+/// Run an arbitrary `gh` command with the given args. Returns stdout.
+pub fn run(args: &[&str]) -> Result<String> { ... }
+
+/// Star a GitHub repository. Silent no-op if `gh` is not available.
+pub fn star_repo(repo: &str) -> Result<()> { ... }
+
+/// Search code on GitHub. Returns raw JSON string.
+pub fn search_code(args: &[&str]) -> Result<String> { ... }
+
+/// Search repos on GitHub. Returns raw JSON string.
+pub fn search_repos(args: &[&str]) -> Result<String> { ... }
+
+/// Fetch content via the GitHub API. Returns raw JSON string.
+pub fn api(endpoint: &str, args: &[&str]) -> Result<String> { ... }
+```
+
+**Migration from existing code:**
+- `search/github.rs::GitHubSource::run_gh()` → `ion_cli::gh::run()`
+- `search/github.rs::GitHubSource::gh_available()` → `ion_cli::gh::available()`
+- `add.rs::prompt_github_star()` → `ion_cli::gh::star_repo()`
+
+### 2.5 `shell` module
+
+For the agent search source that runs arbitrary user-configured commands:
+
+```rust
+// crates/ion-cli/src/shell.rs
+
+use crate::{Result, run_command};
+
+/// Run a shell command via `sh -c`. Returns stdout.
+pub fn run_sh(command: &str) -> Result<String> { ... }
+```
+
+### 2.6 Workspace integration
+
+```toml
+# crates/ion-cli/Cargo.toml
+[package]
+name = "ion-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+```
+
+Minimal dependencies — only `thiserror` for the error type, `serde`/`serde_json` for `cargo metadata` parsing, and `log` for debug output.
+
+```toml
+# Workspace Cargo.toml additions
+[workspace]
+members = [".", "crates/ion-skill", "crates/ionem", "crates/ion-cli"]
+
+# crates/ion-skill/Cargo.toml — add dependency
+ion-cli = { path = "../ion-cli" }
+
+# Root Cargo.toml (ion binary) — add dependency
+ion-cli = { path = "crates/ion-cli" }
+```
+
+### 2.7 Error integration
+
+`ion-skill` maps `ion_cli::CliError` to its own `Error` variants:
+
+```rust
+// crates/ion-skill/src/error.rs
+impl From<ion_cli::CliError> for Error {
+    fn from(e: ion_cli::CliError) -> Self {
+        match &e {
+            ion_cli::CliError::NotFound { cli, .. } if cli == "git" => Error::Git(e.to_string()),
+            ion_cli::CliError::Failed { cli, .. } if cli == "git" => Error::Git(e.to_string()),
+            _ => Error::Other(e.to_string()),
+        }
+    }
+}
+```
+
+This preserves the existing `Error::Git(...)` variant behavior while routing all CLI errors through the typed `CliError` first.
+
+### Files created
+- `crates/ion-cli/Cargo.toml`
+- `crates/ion-cli/src/lib.rs`
+- `crates/ion-cli/src/git.rs`
+- `crates/ion-cli/src/cargo.rs`
+- `crates/ion-cli/src/gh.rs`
+- `crates/ion-cli/src/shell.rs`
+
+### Files modified
+- `Cargo.toml` — add `ion-cli` to workspace members and dependencies
+- `crates/ion-skill/Cargo.toml` — add `ion-cli` dependency
+- `crates/ion-skill/src/git.rs` — replace `Command::new("git")` calls with `ion_cli::git::*`, keep `checksum_dir()` (not a CLI wrapper)
+- `crates/ion-skill/src/binary.rs` — replace cargo calls with `ion_cli::cargo::*`
+- `crates/ion-skill/src/search/github.rs` — replace `run_gh` / `gh_available` with `ion_cli::gh::*`
+- `crates/ion-skill/src/search/agent.rs` — replace `Command::new("sh")` with `ion_cli::shell::run_sh()`
+- `crates/ion-skill/src/error.rs` — add `From<ion_cli::CliError>`
+- `src/commands/migrate.rs` — replace raw git `Command::new` calls with `ion_cli::git::*`
+- `src/commands/add.rs` — replace `Command::new("gh")` with `ion_cli::gh::star_repo()`
+- `src/commands/run.rs` — replace `Command::new("cargo")` with `ion_cli::cargo::*`
+- `src/commands/new.rs` — replace `Command::new("cargo")` with `ion_cli::cargo::init()`
+- `src/commands/agents.rs` — replace `Command::new("diff")` with the `similar` crate for pure-Rust unified diff (see section 2.8)
+
+### 2.8 Replace `diff` CLI with `similar` crate
+
+`agents.rs` shells out to `diff -u` to show a unified diff between local and upstream `AGENTS.md`. This is the only call site and has a fallback for when `diff` is not installed.
+
+**Replace with the [`similar`](https://crates.io/crates/similar) crate** — a pure-Rust diff library. Add `similar = "2"` to `ion`'s `Cargo.toml` (not `ion-cli` — this is display logic, not a CLI wrapper).
+
+```rust
+// src/commands/agents.rs — replace the diff shell-out
+use similar::{ChangeTag, TextDiff};
+
+fn print_unified_diff(old: &str, new: &str, old_label: &str, new_label: &str) {
+    let diff = TextDiff::from_lines(old, new);
+    let unified = diff.unified_diff()
+        .header(old_label, new_label)
+        .to_string();
+    print!("{unified}");
+}
+```
+
+This eliminates the last non-CLI shell-out, removes the `diff` not-found fallback path, and works on all platforms without external dependencies
+
+---
+
+## Track 3: Type Redesign
 
 ### 2.1 `LockedSkill` → enum-based kind
 
@@ -447,7 +802,7 @@ pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
 
 ---
 
-## Track 3: `ProjectContext` Enrichment
+## Track 4: `ProjectContext` Enrichment
 
 ### 3.1 `ctx.paint()` method
 
@@ -508,7 +863,7 @@ This is a small win but used in 8+ commands, so it reduces noise.
 
 ---
 
-## Track 4: Command Pipeline Extraction
+## Track 5: Command Pipeline Extraction
 
 ### 4.1 Post-install bookkeeping — two separate helpers
 
@@ -755,9 +1110,9 @@ After this extraction:
 
 ---
 
-## Track 5: Config & Writer Consolidation
+## Track 6: Config & Writer Consolidation
 
-### 5.1 Move `set_project_value` into `manifest_writer`
+### 6.1 Move `set_project_value` into `manifest_writer`
 
 `config.rs:143-198` contains `set_value_in_file()` which handles both global config *and* project `Ion.toml` writes. The `--project` flag in `config.rs` command routes through this. The project-specific part should live in `manifest_writer`:
 
@@ -770,21 +1125,11 @@ pub fn delete_option(manifest_path: &Path, key: &str) -> Result<()> { ... }
 
 These handle the `[options]` section of `Ion.toml`. The `config` command routes project writes through these instead of `GlobalConfig::set_value_in_file`.
 
-### 5.2 Centralize `migrate.rs` git operations
+### 6.2 `migrate.rs` git operations
 
-`migrate.rs:474-530` calls git directly via `std::process::Command` for `git add`, `git diff --cached`, `git commit`, `git rev-parse HEAD`.
+`migrate.rs:474-530` calls git directly via `std::process::Command`. These are migrated to `ion_cli::git::*` in Track 2. No additional work needed in Track 6 — this section is resolved by Track 2.
 
-**Change:** Add to `crates/ion-skill/src/git.rs`:
-
-```rust
-pub fn stage_files(repo_dir: &Path, files: &[&str]) -> Result<()> { ... }
-pub fn has_staged_changes(repo_dir: &Path) -> Result<bool> { ... }
-pub fn create_commit(repo_dir: &Path, message: &str) -> Result<String> { ... }
-```
-
-Replace the raw `Command` calls in `migrate.rs` with these. This keeps all git subprocess management in one place.
-
-### 5.3 Normalize warning output
+### 6.3 Normalize warning output
 
 Currently both `eprintln!("Warning: ...")` and `log::warn!(...)` are used for non-fatal side effects. Standardize:
 
@@ -812,7 +1157,10 @@ Audit all `eprintln!("Warning:` calls and route through `Paint::warn()` or `log:
 - `src/commands/install_shared.rs` — add `unregister_from_registry()`
 - `src/commands/remove.rs` — use `unregister_from_registry()`
 
-### Track 2
+### Track 2 (CLI Wrappers)
+- See section "Track 2: CLI Wrappers Crate" for full file lists (created + modified)
+
+### Track 3
 - `crates/ion-skill/src/lockfile.rs` — `LockedSkill` redesign + builders + `RawLockedSkill` serde bridge
 - `crates/ion-skill/src/source.rs` — `SkillSource` redesign with `SkillSourceKind` enum
 - `crates/ion-skill/src/installer.rs` — update all `LockedSkill` construction, add `repo_dir_for_source()`
@@ -827,11 +1175,11 @@ Audit all `eprintln!("Warning:` calls and route through `Paint::warn()` or `log:
 - Every other command file — update pattern matches from `SourceType` to `SkillSourceKind`
 - All tests — update `LockedSkill` and `SkillSource` construction
 
-### Track 3
+### Track 4
 - `src/context.rs` — add `paint()`, `skills_dir()`, `skill_path()`, `installer()`
 - All command files — replace preamble boilerplate with new methods
 
-### Track 4
+### Track 5
 - `src/commands/install_shared.rs` — add `commit_skill_install()`, `ValidationBuckets`, `install_approved_skills()`
 - `src/commands/validation.rs` — add `print_validation_summary()`
 - `src/commands/add.rs` — simplify using shared pipeline
@@ -839,11 +1187,10 @@ Audit all `eprintln!("Warning:` calls and route through `Paint::warn()` or `log:
 - `src/commands/link.rs` — use `commit_skill_install_and_write()`
 - `src/commands/migrate.rs` — use shared pipeline where applicable
 
-### Track 5
+### Track 6
 - `crates/ion-skill/src/manifest_writer.rs` — add `set_option()`, `delete_option()`
 - `crates/ion-skill/src/config.rs` — remove project-specific write logic
-- `crates/ion-skill/src/git.rs` — add `stage_files()`, `has_staged_changes()`, `create_commit()`
-- `src/commands/migrate.rs` — use centralized git ops
+- `src/commands/migrate.rs` — use `ion_cli::git::*` for stage/commit operations (already migrated in Track 2)
 - Various command files — normalize warning output
 
 ---
@@ -851,16 +1198,18 @@ Audit all `eprintln!("Warning:` calls and route through `Paint::warn()` or `log:
 ## Testing Strategy
 
 - **Track 1:** Existing integration tests should pass after constant/path fixes. Add a unit test for `skills_dir_or_default()`. Add a test that `info` and `list` work with custom `skills-dir`.
-- **Track 2:** All existing `LockedSkill` and `SkillSource` unit tests must be rewritten for new constructors. Integration tests (`/tests/`) should pass after updating lockfile expectations. Add a test that old-format lockfiles produce a clear error message.
-- **Track 3:** No new tests needed — this is pure refactoring. Existing tests validate behavior.
-- **Track 4:** Extract tests from integration suite that cover the multi-skill install path. Verify the shared pipeline works for both `add` collection and `install` bulk cases.
-- **Track 5:** Add unit tests for new `git.rs` functions. Existing `migrate.rs` integration tests validate the migration path.
+- **Track 2:** Unit tests for each `ion-cli` module — test that wrappers call the right commands and parse outputs correctly. Tests for git module can use real git repos in tempdir (same pattern as existing `git.rs` tests). Cargo tests need a minimal Cargo project fixture. `gh` tests should test availability checks and error handling (avoid real API calls).
+- **Track 3:** All existing `LockedSkill` and `SkillSource` unit tests must be rewritten for new constructors. Integration tests (`/tests/`) should pass after updating lockfile expectations. Add a test that old-format lockfiles produce a clear error message.
+- **Track 4:** No new tests needed — this is pure refactoring. Existing tests validate behavior.
+- **Track 5:** Extract tests from integration suite that cover the multi-skill install path. Verify the shared pipeline works for both `add` collection and `install` bulk cases.
+- **Track 6:** Existing `migrate.rs` integration tests validate the migration path. Add unit test for `similar`-based diff output in `agents.rs`.
 
 ## Risks
 
-- **Track 2 blast radius:** Changing `LockedSkill` and `SkillSource` touches nearly every file. Mitigation: thorough `cargo clippy` + `cargo nextest run` between each sub-change within the track.
+- **Track 2 new crate integration:** Adding `ion-cli` to the workspace requires all three existing crates to compile with the new dependency. Mitigation: add `ion-cli` with empty stubs first, verify workspace builds, then migrate one CLI at a time.
+- **Track 3 blast radius:** Changing `LockedSkill` and `SkillSource` touches nearly every file. Mitigation: thorough `cargo clippy` + `cargo nextest run` between each sub-change within the track.
 - **Lockfile format break:** Users with existing `Ion.lock` files will need to re-run `ion install`. Mitigation: clear error message in `Lockfile::from_file()` when parse fails — "Ion.lock format has changed. Run `ion install` to regenerate it."
 - **`SourceType` kept for serde compatibility:** `SkillEntry::Full` in `Ion.toml` uses `type = "local"` / `type = "binary"` / etc. `SourceType` is kept as a serde-only enum for this purpose, but no longer appears on `SkillSource`. `SkillEntry::resolve()` converts `SourceType` → `SkillSourceKind`. Risk: if any code outside `manifest.rs` still references `SourceType` for non-serde purposes, it needs to switch to `SkillSourceKind` matching.
 - **`RawLockedSkill` serde bridge complexity:** The `TryFrom<RawLockedSkill> for LockedSkill` conversion must handle unknown `kind` values gracefully (e.g., from a newer Ion version). Mitigation: `TryFrom` returns a descriptive error, and `#[serde(try_from)]` surfaces it as a deserialization error wrapped with guidance to update Ion or regenerate the lockfile.
-- **Track 4 behavioral difference:** `install_approved_skills` with `finalize_new_skill` calls `register_in_registry` per-skill. For collections, this is redundant (same repo registered N times). This is harmless (registry is idempotent) but slightly wasteful. Acceptable for code simplicity.
-- **Error handling policy:** `install.rs` uses `entry.resolve()?` (hard failure on bad entry), while `update.rs` and `list.rs` will use warn-and-skip after Track 1. Track 4's `ValidationBuckets::collect()` must decide which policy to use — it should match its caller (`install` = hard fail, `add` collection = hard fail). Document this in the function's contract.
+- **Track 5 behavioral difference:** `install_approved_skills` with `FinalizeOptions::ADD_COLLECTION` skips per-skill registry but the caller must call `register_in_registry` once at the end. This is documented in the function contract and the call-site examples.
+- **Error handling policy:** `install.rs` uses `entry.resolve()?` (hard failure on bad entry), while `update.rs` and `list.rs` will use warn-and-skip after Track 1. Track 5's `ValidationBuckets::collect()` must decide which policy to use — it should match its caller (`install` = hard fail, `add` collection = hard fail). Document this in the function's contract.
