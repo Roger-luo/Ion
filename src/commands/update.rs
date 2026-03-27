@@ -184,6 +184,23 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         lockfile.write_to(&ctx.lockfile_path)?;
     }
 
+    // Check for agents template update (non-fatal)
+    if manifest
+        .agents
+        .as_ref()
+        .and_then(|a| a.template.as_ref())
+        .is_some()
+        && let Err(e) =
+            crate::commands::agents::update_template_non_fatal(&ctx, &mut lockfile, &p, json)
+        && !json
+    {
+        println!(
+            "  {} agents template: {}",
+            p.warn("⚠"),
+            p.warn(&e.to_string())
+        );
+    }
+
     if json {
         crate::json::print_success(serde_json::json!({
             "updated": json_updated,
