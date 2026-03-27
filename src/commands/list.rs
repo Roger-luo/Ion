@@ -23,7 +23,13 @@ pub fn run(json: bool) -> anyhow::Result<()> {
             .skills
             .iter()
             .filter_map(|(name, entry)| {
-                let source = entry.resolve().ok()?;
+                let source = match entry.resolve() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("Warning: skipping '{}': {}", name, e);
+                        return None;
+                    }
+                };
                 let locked = lockfile.find(name);
                 let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
                 let version = if is_binary {
@@ -58,7 +64,13 @@ pub fn run(json: bool) -> anyhow::Result<()> {
 
     println!("Skills ({}):", p.bold(&manifest.skills.len().to_string()));
     for (name, entry) in &manifest.skills {
-        let source = entry.resolve()?;
+        let source = match entry.resolve() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Warning: skipping '{}': {}", name, e);
+                continue;
+            }
+        };
         let locked = lockfile.find(name);
 
         let is_binary = locked.and_then(|l| l.binary.as_deref()).is_some();
