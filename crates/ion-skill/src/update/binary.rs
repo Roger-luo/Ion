@@ -50,11 +50,7 @@ impl Updater for BinaryUpdater {
         }
 
         let binary_name = source.binary.as_deref().unwrap_or(&skill.name);
-        let skill_dir = installer
-            .project_dir()
-            .join(".agents")
-            .join("skills")
-            .join(&skill.name);
+        let skill_dir = installer.skill_dir(&skill.name);
 
         let result = binary::install_binary_from_github(
             &source.source,
