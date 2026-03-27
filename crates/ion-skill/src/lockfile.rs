@@ -30,6 +30,8 @@ pub struct LockedSkill {
 pub struct Lockfile {
     #[serde(default, rename = "skill")]
     pub skills: Vec<LockedSkill>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agents: Option<crate::agents::AgentsLockEntry>,
 }
 
 impl Lockfile {
@@ -190,5 +192,61 @@ checksum = "sha256:deadbeef"
     fn from_missing_file_returns_empty() {
         let lockfile = Lockfile::from_file(Path::new("/nonexistent/Ion.lock")).unwrap();
         assert!(lockfile.skills.is_empty());
+    }
+
+    #[test]
+    fn parse_lockfile_with_agents() {
+        let content = r#"
+[[skill]]
+name = "brainstorming"
+source = "https://github.com/obra/superpowers.git"
+path = "brainstorming"
+commit = "abc123"
+
+[agents]
+template = "org/agents-templates"
+rev = "def456"
+checksum = "sha256:deadbeef"
+updated-at = "2026-03-27T00:00:00Z"
+"#;
+        let lockfile: Lockfile = toml::from_str(content).unwrap();
+        assert_eq!(lockfile.skills.len(), 1);
+        let agents = lockfile.agents.as_ref().unwrap();
+        assert_eq!(agents.template, "org/agents-templates");
+        assert_eq!(agents.rev.as_deref(), Some("def456"));
+        assert_eq!(agents.checksum, "sha256:deadbeef");
+        assert_eq!(agents.updated_at, "2026-03-27T00:00:00Z");
+    }
+
+    #[test]
+    fn parse_lockfile_without_agents_is_backward_compatible() {
+        let content = r#"
+[[skill]]
+name = "test"
+source = "https://github.com/org/repo.git"
+"#;
+        let lockfile: Lockfile = toml::from_str(content).unwrap();
+        assert!(lockfile.agents.is_none());
+        assert_eq!(lockfile.skills.len(), 1);
+    }
+
+    #[test]
+    fn roundtrip_lockfile_with_agents() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.lock");
+
+        let mut lockfile = Lockfile::default();
+        lockfile.agents = Some(crate::agents::AgentsLockEntry {
+            template: "org/agents-templates".to_string(),
+            rev: Some("abc123".to_string()),
+            checksum: "sha256:deadbeef".to_string(),
+            updated_at: "2026-03-27T00:00:00Z".to_string(),
+        });
+
+        lockfile.write_to(&path).unwrap();
+        let loaded = Lockfile::from_file(&path).unwrap();
+        let agents = loaded.agents.unwrap();
+        assert_eq!(agents.template, "org/agents-templates");
+        assert_eq!(agents.checksum, "sha256:deadbeef");
     }
 }
