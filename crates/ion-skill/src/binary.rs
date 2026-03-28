@@ -463,7 +463,7 @@ pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
         )));
     }
 
-    let meta = ionem_shell::cargo::metadata(&manifest_path)?;
+    let meta = ionem_shell::cargo::project(&manifest_path).metadata()?;
     let binary_name = meta
         .binary_targets
         .first()
@@ -494,7 +494,7 @@ pub fn install_binary_from_local(
     }
 
     let manifest_path = project_path.join("Cargo.toml");
-    ionem_shell::cargo::build_release(&manifest_path)?;
+    ionem_shell::cargo::project(&manifest_path).build_release()?;
 
     // Find the built binary in target/release/
     let target_dir = project_path.join("target").join("release");
@@ -567,7 +567,8 @@ pub fn setup_dev_binary(
             .map_err(|e| crate::Error::Other(format!("Failed to read SKILL.md: {}", e)))?
     } else {
         let manifest_path = project_path.join("Cargo.toml");
-        let stdout = ionem_shell::cargo::run(&manifest_path, binary_name, &["self", "skill"])?;
+        let stdout =
+            ionem_shell::cargo::project(&manifest_path).run(binary_name, &["self", "skill"])?;
 
         if stdout.trim().is_empty() {
             return Err(crate::Error::Other(

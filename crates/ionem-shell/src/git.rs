@@ -1,63 +1,93 @@
 //! Git CLI wrappers.
+//!
+//! Use [`require()`] to verify `git` is installed, then call methods on the
+//! returned [`Git`] handle:
+//!
+//! ```ignore
+//! let git = git::require()?;
+//! let repo = git.repo(project_dir);
+//! repo.stage_files(&["Ion.toml", "Ion.lock"])?;
+//! if repo.has_staged_changes()? {
+//!     let sha = repo.create_commit("chore: update manifest")?;
+//! }
+//! ```
 
 use std::path::Path;
-use std::process::Command;
 
-use crate::{CliError, Result, run_command, run_status};
+use crate::{Cli, CliError, Result};
+
+/// The `git` CLI descriptor.
+pub const CLI: Cli = Cli {
+    name: "git",
+    hint: "Install from https://git-scm.com",
+};
+
+/// Verify `git` is installed and return a handle to run commands.
+pub fn require() -> Result<Git> {
+    CLI.require()?;
+    Ok(Git)
+}
+
+/// A validated handle proving the `git` CLI is available.
+///
+/// Obtained via [`require()`]. Context constructors and standalone
+/// operations live here.
+pub struct Git;
+
+impl Git {
+    /// Create a [`Repo`] context bound to the given working directory.
+    pub fn repo<'a>(&self, path: &'a Path) -> Repo<'a> {
+        repo(path)
+    }
+
+    /// Clone a git repository, or fetch updates if it already exists.
+    pub fn clone_or_fetch(&self, url: &str, target: &Path) -> Result<()> {
+        clone_or_fetch(url, target)
+    }
+
+    /// Initialize a new git repository.
+    pub fn init(&self, path: &Path) -> Result<()> {
+        init(path)
+    }
+}
 
 /// Clone a git repository to a target directory. If it already exists, fetch updates.
 pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> {
     if target.join(".git").exists() {
-        run_status(
-            Command::new("git")
-                .args(["fetch", "--all"])
-                .current_dir(target),
-            "git",
-        )
+        CLI.run_status(CLI.command().args(["fetch", "--all"]).current_dir(target))
     } else {
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent).map_err(|e| CliError::Spawn {
-                cli: "git".to_string(),
+                cli: CLI.name.to_string(),
                 source: e,
             })?;
         }
 
-        run_status(
-            Command::new("git").args(["clone", url, &target.display().to_string()]),
-            "git",
+        CLI.run_status(
+            CLI.command()
+                .args(["clone", url, &target.display().to_string()]),
         )
     }
 }
 
 /// Checkout a specific ref (branch, tag, or commit SHA).
 pub fn checkout(repo: &Path, rev: &str) -> Result<()> {
-    run_status(
-        Command::new("git")
-            .args(["checkout", rev])
-            .current_dir(repo),
-        "git",
-    )
+    CLI.run_status(CLI.command().args(["checkout", rev]).current_dir(repo))
 }
 
 /// Get the current HEAD commit SHA.
 pub fn head_commit(repo: &Path) -> Result<String> {
-    run_command(
-        Command::new("git")
-            .args(["rev-parse", "HEAD"])
-            .current_dir(repo),
-        "git",
-    )
+    CLI.run_command(CLI.command().args(["rev-parse", "HEAD"]).current_dir(repo))
 }
 
 /// Get the default branch name for a repo by checking `origin/HEAD` or falling back
 /// to `symbolic-ref HEAD`.
 pub fn default_branch(repo: &Path) -> Result<String> {
     // Try origin/HEAD first (works for cloned repos)
-    let origin_result = run_command(
-        Command::new("git")
+    let origin_result = CLI.run_command(
+        CLI.command()
             .args(["symbolic-ref", "refs/remotes/origin/HEAD"])
             .current_dir(repo),
-        "git",
     );
 
     if let Ok(full_ref) = origin_result
@@ -67,17 +97,16 @@ pub fn default_branch(repo: &Path) -> Result<String> {
     }
 
     // Fallback: local HEAD's branch name
-    let local_result = run_command(
-        Command::new("git")
+    let local_result = CLI.run_command(
+        CLI.command()
             .args(["symbolic-ref", "--short", "HEAD"])
             .current_dir(repo),
-        "git",
     );
 
     match local_result {
         Ok(branch) => Ok(branch),
         Err(_) => Err(CliError::Failed {
-            cli: "git".to_string(),
+            cli: CLI.name.to_string(),
             code: 1,
             stderr: "Could not determine default branch".to_string(),
         }),
@@ -90,17 +119,16 @@ pub fn reset_to_remote_head(repo: &Path) -> Result<()> {
     let branch = default_branch(repo)?;
     let remote_ref = format!("origin/{branch}");
 
-    run_status(
-        Command::new("git")
+    CLI.run_status(
+        CLI.command()
             .args(["reset", "--hard", &remote_ref])
             .current_dir(repo),
-        "git",
     )
 }
 
 /// Stage files in a git repository.
 pub fn stage_files(repo: &Path, files: &[&str]) -> Result<()> {
-    let mut cmd = Command::new("git");
+    let mut cmd = CLI.command();
     cmd.arg("add")
         .current_dir(repo)
         .stdout(std::process::Stdio::null())
@@ -108,7 +136,7 @@ pub fn stage_files(repo: &Path, files: &[&str]) -> Result<()> {
     for file in files {
         cmd.arg(file);
     }
-    run_status(&mut cmd, "git")
+    CLI.run_status(&mut cmd)
 }
 
 /// Check if there are staged changes in a git repository.
@@ -116,13 +144,12 @@ pub fn stage_files(repo: &Path, files: &[&str]) -> Result<()> {
 /// Returns `true` if there are staged changes, `false` if there are none.
 /// `git diff --cached --quiet` exits with code 1 when there are changes.
 pub fn has_staged_changes(repo: &Path) -> Result<bool> {
-    let result = run_status(
-        Command::new("git")
+    let result = CLI.run_status(
+        CLI.command()
             .args(["diff", "--cached", "--quiet"])
             .current_dir(repo)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null()),
-        "git",
     );
 
     match result {
@@ -134,13 +161,12 @@ pub fn has_staged_changes(repo: &Path) -> Result<bool> {
 
 /// Create a commit with the given message and return the new HEAD commit SHA.
 pub fn create_commit(repo: &Path, message: &str) -> Result<String> {
-    run_status(
-        Command::new("git")
+    CLI.run_status(
+        CLI.command()
             .args(["commit", "-m", message])
             .current_dir(repo)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null()),
-        "git",
     )?;
 
     head_commit(repo)
@@ -148,10 +174,68 @@ pub fn create_commit(repo: &Path, message: &str) -> Result<String> {
 
 /// Initialize a new git repository at the given path.
 pub fn init(path: &Path) -> Result<()> {
-    run_status(
-        Command::new("git").args(["init", &path.display().to_string()]),
-        "git",
-    )
+    CLI.run_status(CLI.command().args(["init", &path.display().to_string()]))
+}
+
+// ---------------------------------------------------------------------------
+// Repo context
+// ---------------------------------------------------------------------------
+
+/// Create a [`Repo`] context bound to the given working directory.
+pub fn repo(path: &Path) -> Repo<'_> {
+    Repo { path }
+}
+
+/// A git repository context that binds a working directory, so you can call
+/// multiple operations without repeating the path.
+pub struct Repo<'a> {
+    path: &'a Path,
+}
+
+impl<'a> Repo<'a> {
+    /// Checkout a specific ref (branch, tag, or commit SHA).
+    pub fn checkout(&self, rev: &str) -> Result<()> {
+        checkout(self.path, rev)
+    }
+
+    /// Get the current HEAD commit SHA.
+    pub fn head_commit(&self) -> Result<String> {
+        head_commit(self.path)
+    }
+
+    /// Get the default branch name.
+    pub fn default_branch(&self) -> Result<String> {
+        default_branch(self.path)
+    }
+
+    /// Reset the working tree to the remote's default branch HEAD.
+    pub fn reset_to_remote_head(&self) -> Result<()> {
+        reset_to_remote_head(self.path)
+    }
+
+    /// Stage files.
+    pub fn stage_files(&self, files: &[&str]) -> Result<()> {
+        stage_files(self.path, files)
+    }
+
+    /// Check if there are staged changes.
+    pub fn has_staged_changes(&self) -> Result<bool> {
+        has_staged_changes(self.path)
+    }
+
+    /// Create a commit with the given message and return the new HEAD SHA.
+    pub fn create_commit(&self, message: &str) -> Result<String> {
+        create_commit(self.path, message)
+    }
+
+    /// Fetch updates from all remotes (requires an existing clone).
+    pub fn fetch_all(&self) -> Result<()> {
+        CLI.run_status(
+            CLI.command()
+                .args(["fetch", "--all"])
+                .current_dir(self.path),
+        )
+    }
 }
 
 #[cfg(test)]

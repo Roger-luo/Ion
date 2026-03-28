@@ -101,46 +101,28 @@ pub fn parse_gh_repo_response(body: &str, limit: usize) -> crate::Result<Vec<Sea
 /// Searches GitHub using the `gh` CLI.
 pub struct GitHubSource;
 
-impl GitHubSource {
-    fn gh_available() -> bool {
-        ionem_shell::gh::available()
-    }
-
-    fn run_gh(args: &[&str]) -> crate::Result<String> {
-        log::debug!("github: running gh {}", args.join(" "));
-        ionem_shell::gh::run(args).map_err(|e| crate::Error::Search(e.to_string()))
-    }
-}
-
 impl SearchSource for GitHubSource {
     fn name(&self) -> &str {
         "github"
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        if !Self::gh_available() {
-            return Err(crate::Error::Search(
-                "GitHub CLI (gh) not found. Install it from https://cli.github.com and run `gh auth login`".to_string(),
-            ));
-        }
+        let gh = ionem_shell::gh::require().map_err(|e| crate::Error::Search(e.to_string()))?;
 
-        let fetch_limit = (limit * 3).max(30).to_string();
+        let fetch_limit = (limit * 3).max(30);
         let mut results = Vec::new();
         let mut seen_sources = std::collections::HashSet::new();
 
         // 1. Code search (content): find SKILL.md files whose content matches the query
         log::debug!("github: code search (content) for {query:?}");
-        if let Ok(body) = Self::run_gh(&[
-            "search",
-            "code",
-            "--filename",
-            "SKILL.md",
-            query,
-            "--json",
-            "path,repository",
-            "--limit",
-            &fetch_limit,
-        ]) {
+        if let Ok(body) = gh
+            .search_code(query)
+            .filename("SKILL.md")
+            .json(&["path", "repository"])
+            .limit(fetch_limit)
+            .run()
+            .map_err(|e| crate::Error::Search(e.to_string()))
+        {
             for r in parse_gh_code_response(&body, limit * 3)? {
                 if seen_sources.insert(r.source.clone()) {
                     results.push(r);
@@ -151,19 +133,15 @@ impl SearchSource for GitHubSource {
 
         // 2. Code search (path): find SKILL.md files in directories matching the query
         log::debug!("github: code search (path) for {query:?}");
-        if let Ok(body) = Self::run_gh(&[
-            "search",
-            "code",
-            "--filename",
-            "SKILL.md",
-            "--match",
-            "path",
-            query,
-            "--json",
-            "path,repository",
-            "--limit",
-            &fetch_limit,
-        ]) {
+        if let Ok(body) = gh
+            .search_code(query)
+            .filename("SKILL.md")
+            .match_on("path")
+            .json(&["path", "repository"])
+            .limit(fetch_limit)
+            .run()
+            .map_err(|e| crate::Error::Search(e.to_string()))
+        {
             let before = results.len();
             for r in parse_gh_code_response(&body, limit * 3)? {
                 if seen_sources.insert(r.source.clone()) {
@@ -178,15 +156,13 @@ impl SearchSource for GitHubSource {
 
         // 3. Repo search: find repos whose name/description matches the query
         log::debug!("github: repo search for {query:?}");
-        if let Ok(body) = Self::run_gh(&[
-            "search",
-            "repos",
-            query,
-            "--json",
-            "fullName,description,stargazersCount",
-            "--limit",
-            "10",
-        ]) {
+        if let Ok(body) = gh
+            .search_repos(query)
+            .json(&["fullName", "description", "stargazersCount"])
+            .limit(10)
+            .run()
+            .map_err(|e| crate::Error::Search(e.to_string()))
+        {
             let repo_results = parse_gh_repo_response(&body, 10)?;
             log::debug!("github: repo search found {} repos", repo_results.len());
             for repo in &repo_results {
@@ -250,20 +226,14 @@ fn enumerate_repo_skills(
     limit: usize,
     seen: &std::collections::HashSet<String>,
 ) -> Vec<SearchResult> {
-    let limit_str = limit.to_string();
     log::debug!("github: enumerating skills in {repo}");
-    let body = match GitHubSource::run_gh(&[
-        "search",
-        "code",
-        "--filename",
-        "SKILL.md",
-        "--repo",
-        repo,
-        "--json",
-        "path,repository",
-        "--limit",
-        &limit_str,
-    ]) {
+    let body = match ionem_shell::gh::search_code("")
+        .filename("SKILL.md")
+        .repo(repo)
+        .json(&["path", "repository"])
+        .limit(limit)
+        .run()
+    {
         Ok(b) => b,
         Err(e) => {
             log::debug!("github: failed to enumerate {repo}: {e}");
@@ -285,18 +255,13 @@ fn enumerate_repo_skills(
 /// Check whether a repo has a SKILL.md at its root.
 fn repo_has_skill_md(repo: &str) -> bool {
     log::debug!("github: checking if {repo} has SKILL.md");
-    let Ok(body) = GitHubSource::run_gh(&[
-        "search",
-        "code",
-        "--filename",
-        "SKILL.md",
-        "--repo",
-        repo,
-        "--json",
-        "path,repository",
-        "--limit",
-        "1",
-    ]) else {
+    let Ok(body) = ionem_shell::gh::search_code("")
+        .filename("SKILL.md")
+        .repo(repo)
+        .json(&["path", "repository"])
+        .limit(1)
+        .run()
+    else {
         return false;
     };
     parse_gh_code_response(&body, 1).is_ok_and(|r| !r.is_empty())
@@ -423,13 +388,10 @@ fn fetch_skill_description(source: &str) -> Option<String> {
         .unwrap_or_else(|| "SKILL.md".to_string());
 
     log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let stdout = ionem_shell::gh::run(&[
-        "api",
-        &format!("repos/{repo}/contents/{skill_path}"),
-        "--jq",
-        ".content",
-    ])
-    .ok()?;
+    let stdout = ionem_shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
+        .jq(".content")
+        .run()
+        .ok()?;
 
     let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
     let decoded = base64_decode(&b64_clean)?;
@@ -443,9 +405,10 @@ fn fetch_stars(source: &str) -> Option<u64> {
         return None;
     }
 
-    let stdout =
-        ionem_shell::gh::run(&["api", &format!("repos/{repo}"), "--jq", ".stargazers_count"])
-            .ok()?;
+    let stdout = ionem_shell::gh::api(format!("repos/{repo}"))
+        .jq(".stargazers_count")
+        .run()
+        .ok()?;
 
     stdout.trim().parse().ok()
 }

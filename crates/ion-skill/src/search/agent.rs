@@ -40,8 +40,20 @@ impl SearchSource for AgentSource {
         let escaped = format!("'{}'", query.replace('\'', "'\\''"));
         let command = self.command_template.replace("{query}", &escaped);
         log::debug!("agent: executing command: {command}");
-        let stdout = ionem_shell::shell::run_sh(&command)
-            .map_err(|e| crate::Error::Search(e.to_string()))?;
+        let output = std::process::Command::new("sh")
+            .args(["-c", &command])
+            .output()
+            .map_err(|e| crate::Error::Search(format!("failed to run agent command: {e}")))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(crate::Error::Search(format!(
+                "agent command failed (exit {}): {}",
+                output.status.code().unwrap_or(-1),
+                stderr.trim()
+            )));
+        }
+        let stdout = String::from_utf8(output.stdout)
+            .map_err(|_| crate::Error::Search("agent command produced invalid UTF-8".into()))?;
         log::debug!("agent: stdout={} bytes", stdout.len());
         let results = parse_agent_output(&stdout, limit);
         log::debug!("agent: parsed {} results", results.len());
