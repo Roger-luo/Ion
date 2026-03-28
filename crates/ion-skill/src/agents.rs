@@ -64,7 +64,9 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
                 if let Ok(target) = std::fs::read_link(&symlink_path)
                     && target == std::path::Path::new("AGENTS.md")
                 {
-                    continue; // Already correct
+                    // Already correct — ensure gitignored
+                    crate::gitignore::ensure_agent_file_ignored(project_dir, symlink_filename)?;
+                    continue;
                 }
                 eprintln!(
                     "Warning: {} already exists as a symlink pointing elsewhere, skipping",
@@ -73,12 +75,19 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
                 continue;
             }
             Ok(_) => {
-                eprintln!(
-                    "Warning: {} already exists as a file, skipping symlink \
-                     (remove it manually if you want ion to manage it)",
-                    symlink_filename
-                );
-                continue;
+                // Regular file — check if it's a pointer
+                let content = std::fs::read_to_string(&symlink_path).unwrap_or_default();
+                if is_agents_pointer(&content) {
+                    std::fs::remove_file(&symlink_path).map_err(crate::Error::Io)?;
+                    // Fall through to create symlink below
+                } else {
+                    eprintln!(
+                        "Warning: {} already exists as a file, skipping symlink \
+                         (remove it manually or run `ion migrate` to convert)",
+                        symlink_filename
+                    );
+                    continue;
+                }
             }
             Err(_) => {
                 // Doesn't exist — create it
@@ -87,9 +96,35 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
 
         #[cfg(unix)]
         std::os::unix::fs::symlink("AGENTS.md", &symlink_path).map_err(crate::Error::Io)?;
+
+        crate::gitignore::ensure_agent_file_ignored(project_dir, symlink_filename)?;
     }
 
     Ok(())
+}
+
+/// Check whether a file's content is just a pointer to AGENTS.md.
+///
+/// Returns `true` if every non-blank line's only purpose is to reference
+/// `@AGENTS.md` — e.g. the bare string `@AGENTS.md` or prose like
+/// "treat @AGENTS.md the same as this file".
+///
+/// Returns `false` if the file contains additional instructions beyond
+/// the reference, has no `@AGENTS.md` at all, or is empty.
+pub fn is_agents_pointer(content: &str) -> bool {
+    let non_blank: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+
+    if non_blank.is_empty() {
+        return false;
+    }
+
+    // Must contain @AGENTS.md somewhere
+    if !non_blank.iter().any(|l| l.contains("@AGENTS.md")) {
+        return false;
+    }
+
+    // Every non-blank line must mention @AGENTS.md
+    non_blank.iter().all(|l| l.contains("@AGENTS.md"))
 }
 
 /// SHA-256 checksum of raw content, formatted as "sha256:{hex}".
@@ -382,5 +417,120 @@ mod tests {
             fetch_template(file_path.to_str().unwrap(), None, None, project.path()).unwrap();
 
         assert_eq!(result.content, "# Direct File Template\n");
+    }
+
+    #[test]
+    fn pointer_bare_reference() {
+        assert!(is_agents_pointer("@AGENTS.md"));
+    }
+
+    #[test]
+    fn pointer_with_prose() {
+        assert!(is_agents_pointer("treat @AGENTS.md the same as this file"));
+    }
+
+    #[test]
+    fn pointer_with_whitespace() {
+        assert!(is_agents_pointer("\n  @AGENTS.md  \n\n"));
+    }
+
+    #[test]
+    fn pointer_multiline_prose() {
+        assert!(is_agents_pointer(
+            "Contents of @AGENTS.md\n\ntreat @AGENTS.md the same as this file"
+        ));
+    }
+
+    #[test]
+    fn not_pointer_no_reference() {
+        assert!(!is_agents_pointer("# My Project\n\nSome instructions.\n"));
+    }
+
+    #[test]
+    fn not_pointer_has_extra_content() {
+        assert!(!is_agents_pointer(
+            "treat @AGENTS.md the same as this file\n\n# Extra Rules\n\nAlways use TypeScript.\n"
+        ));
+    }
+
+    #[test]
+    fn not_pointer_empty() {
+        assert!(!is_agents_pointer(""));
+    }
+
+    #[test]
+    fn not_pointer_only_whitespace() {
+        assert!(!is_agents_pointer("   \n\n  "));
+    }
+
+    #[test]
+    fn replaces_pointer_file_with_symlink() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+        std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md").unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+        assert!(
+            meta.is_symlink(),
+            "pointer file should be replaced with symlink"
+        );
+    }
+
+    #[test]
+    fn skips_real_content_file() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+        std::fs::write(
+            project.path().join("CLAUDE.md"),
+            "# My Project Rules\n\nAlways use Rust.\n",
+        )
+        .unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+        assert!(
+            !meta.is_symlink(),
+            "real content file should NOT be replaced"
+        );
+    }
+
+    #[test]
+    fn symlink_creation_gitignores_claude_md() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(gitignore.contains("CLAUDE.md"));
+    }
+
+    #[test]
+    fn existing_correct_symlink_gitignores_claude_md() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("AGENTS.md", project.path().join("CLAUDE.md")).unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(gitignore.contains("CLAUDE.md"));
     }
 }

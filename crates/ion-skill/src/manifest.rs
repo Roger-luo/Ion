@@ -234,13 +234,14 @@ pub fn read_project_meta(path: &Path) -> Option<ProjectMeta> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::source::SkillSourceKind;
 
     #[test]
     fn parse_shorthand_entry() {
         let toml_str = "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["brainstorming"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Github);
+        assert_eq!(source.kind, SkillSourceKind::Github);
         assert_eq!(source.source, "obra/superpowers");
         assert_eq!(source.path.as_deref(), Some("brainstorming"));
     }
@@ -250,7 +251,7 @@ mod tests {
         let toml_str = "[skills]\nmy-tool = { type = \"github\", source = \"org/skills/my-tool\", rev = \"v2.0\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["my-tool"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Github);
+        assert_eq!(source.kind, SkillSourceKind::Github);
         assert_eq!(source.rev.as_deref(), Some("v2.0"));
     }
 
@@ -259,7 +260,7 @@ mod tests {
         let toml_str = "[skills]\ngitlab-skill = { type = \"git\", source = \"https://gitlab.com/org/skills.git\", path = \"my-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["gitlab-skill"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Git);
+        assert_eq!(source.kind, SkillSourceKind::Git);
         assert_eq!(source.path.as_deref(), Some("my-skill"));
     }
 
@@ -269,7 +270,7 @@ mod tests {
             "[skills]\nlocal-skill = { type = \"path\", source = \"../my-local-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["local-skill"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Path);
+        assert_eq!(source.kind, SkillSourceKind::Path);
     }
 
     #[test]
@@ -332,9 +333,11 @@ mod tests {
         let toml_str = "[skills]\nmytool = { type = \"binary\", source = \"owner/mytool\", binary = \"mytool\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["mytool"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Binary);
+        assert!(source.is_binary());
         assert_eq!(source.source, "owner/mytool");
-        assert_eq!(source.binary.as_deref(), Some("mytool"));
+        assert!(
+            matches!(&source.kind, SkillSourceKind::Binary { binary_name, .. } if binary_name == "mytool")
+        );
     }
 
     #[test]
@@ -344,10 +347,10 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
 "#;
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["mytool"].resolve().unwrap();
-        assert_eq!(
-            source.asset_pattern.as_deref(),
-            Some("mytool-{version}-{os}-{arch}.tar.gz")
-        );
+        assert!(matches!(
+            &source.kind,
+            SkillSourceKind::Binary { asset_pattern: Some(ap), .. } if ap == "mytool-{version}-{os}-{arch}.tar.gz"
+        ));
     }
 
     #[test]
@@ -364,9 +367,12 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
         let toml_str = "[skills]\nmy-skill = { type = \"local\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["my-skill"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Local);
+        assert!(source.is_local());
         assert_eq!(source.source, "");
-        assert!(source.forked_from.is_none());
+        assert!(matches!(
+            &source.kind,
+            SkillSourceKind::Local { forked_from: None }
+        ));
     }
 
     #[test]
@@ -375,8 +381,10 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
             "[skills]\nmy-skill = { type = \"local\", forked-from = \"org/original-skill\" }\n";
         let manifest = Manifest::parse(toml_str).unwrap();
         let source = manifest.skills["my-skill"].resolve().unwrap();
-        assert_eq!(source.source_type, SourceType::Local);
-        assert_eq!(source.forked_from.as_deref(), Some("org/original-skill"));
+        assert!(source.is_local());
+        assert!(
+            matches!(&source.kind, SkillSourceKind::Local { forked_from: Some(ff) } if ff == "org/original-skill")
+        );
     }
 
     #[test]

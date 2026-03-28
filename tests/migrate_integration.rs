@@ -575,3 +575,146 @@ fn help_shows_migrate_command() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("migrate"));
 }
+
+#[test]
+fn migrate_replaces_pointer_claude_md_with_symlink() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create AGENTS.md and a pointer CLAUDE.md
+    std::fs::write(project.path().join("AGENTS.md"), "# My Project\n").unwrap();
+    std::fs::write(
+        project.path().join("CLAUDE.md"),
+        "treat @AGENTS.md the same as this file",
+    )
+    .unwrap();
+
+    // Create Ion.toml with claude target
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate pointer failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // CLAUDE.md should now be a symlink
+    let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+    assert!(meta.is_symlink(), "CLAUDE.md should be a symlink");
+
+    // .gitignore should contain CLAUDE.md
+    let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+    assert!(gitignore.contains("CLAUDE.md"));
+}
+
+#[test]
+fn migrate_skips_claude_md_when_not_target() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Create AGENTS.md and a pointer CLAUDE.md
+    std::fs::write(project.path().join("AGENTS.md"), "# My Project\n").unwrap();
+    std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md").unwrap();
+
+    // Create Ion.toml with cursor target only (no claude)
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[options.targets]\ncursor = \".cursor/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+
+    // CLAUDE.md should still be a regular file (untouched)
+    let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+    assert!(!meta.is_symlink(), "CLAUDE.md should not be touched");
+}
+
+#[test]
+fn migrate_yes_skips_real_content_conflict() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Both files have real content
+    std::fs::write(project.path().join("AGENTS.md"), "# Agents Instructions\n").unwrap();
+    std::fs::write(
+        project.path().join("CLAUDE.md"),
+        "# Claude-specific rules\n\nUse TypeScript.\n",
+    )
+    .unwrap();
+
+    // Create Ion.toml with claude target
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate conflict failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // CLAUDE.md should still be a regular file (not touched because --yes skips conflicts)
+    let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+    assert!(
+        !meta.is_symlink(),
+        "real content CLAUDE.md should not be auto-replaced"
+    );
+
+    // Content should be preserved
+    let content = std::fs::read_to_string(project.path().join("CLAUDE.md")).unwrap();
+    assert!(content.contains("Claude-specific rules"));
+}
+
+#[test]
+fn migrate_json_reports_agents_md_pointer() {
+    let project = tempfile::tempdir().unwrap();
+
+    std::fs::write(project.path().join("AGENTS.md"), "# Project\n").unwrap();
+    std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md\n").unwrap();
+
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["--json", "migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "json migrate pointer failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(parsed["data"]["agents_md"]["action"], "symlinked");
+}
