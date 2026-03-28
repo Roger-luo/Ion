@@ -1,6 +1,6 @@
 [package]
 name = "ionem"
-version = "0.1.3"
+version = "0.2.0"
 edition = "2024"
 description = "Library for building Ion binary skills with standard self-management commands"
 license = "MIT"
