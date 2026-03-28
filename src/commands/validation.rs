@@ -7,6 +7,9 @@ use crossterm::{
 };
 use ion_skill::validate::ValidationReport;
 
+use crate::commands::install_shared::ValidationBuckets;
+use crate::style::Paint;
+
 pub fn print_validation_report(skill_name: &str, report: &ValidationReport) {
     println!("  Validation findings for '{skill_name}':");
     for finding in &report.findings {
@@ -206,4 +209,40 @@ fn run_select_loop(
             render_select(stdout, skills, selected, *cursor_pos, total_lines)?;
         }
     }
+}
+
+/// Print the validation summary for a batch.
+#[allow(dead_code)]
+pub fn print_validation_summary(p: &Paint, buckets: &ValidationBuckets) {
+    for entry in &buckets.clean {
+        println!("  {} {} — passed", p.success("✓"), p.bold(&entry.name));
+    }
+    for (entry, report) in &buckets.warned {
+        println!(
+            "  {} {} — {} warning(s)",
+            p.warn("⚠"),
+            p.bold(&entry.name),
+            report.warning_count
+        );
+        for finding in &report.findings {
+            println!(
+                "      {} [{}] {}",
+                finding.severity, finding.checker, finding.message
+            );
+        }
+    }
+    for (name, report) in &buckets.errored {
+        println!(
+            "  ✗ {} — {} error(s), will be skipped",
+            p.bold(name),
+            report.error_count
+        );
+        for finding in &report.findings {
+            println!(
+                "      {} [{}] {}",
+                finding.severity, finding.checker, finding.message
+            );
+        }
+    }
+    println!();
 }
