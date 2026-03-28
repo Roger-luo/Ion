@@ -54,7 +54,13 @@ impl Git {
 /// Clone a git repository to a target directory. If it already exists, fetch updates.
 pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> {
     if target.join(".git").exists() {
-        CLI.run_status(CLI.command().args(["fetch", "--all"]).current_dir(target))
+        CLI.run_status(
+            CLI.command()
+                .args(["fetch", "--all"])
+                .current_dir(target)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null()),
+        )
     } else {
         if let Some(parent) = target.parent() {
             std::fs::create_dir_all(parent).map_err(|e| CliError::Spawn {
@@ -65,14 +71,22 @@ pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> {
 
         CLI.run_status(
             CLI.command()
-                .args(["clone", url, &target.display().to_string()]),
+                .args(["clone", url, &target.display().to_string()])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null()),
         )
     }
 }
 
 /// Checkout a specific ref (branch, tag, or commit SHA).
 pub fn checkout(repo: &Path, rev: &str) -> Result<()> {
-    CLI.run_status(CLI.command().args(["checkout", rev]).current_dir(repo))
+    CLI.run_status(
+        CLI.command()
+            .args(["checkout", rev])
+            .current_dir(repo)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null()),
+    )
 }
 
 /// Get the current HEAD commit SHA.
@@ -122,7 +136,9 @@ pub fn reset_to_remote_head(repo: &Path) -> Result<()> {
     CLI.run_status(
         CLI.command()
             .args(["reset", "--hard", &remote_ref])
-            .current_dir(repo),
+            .current_dir(repo)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null()),
     )
 }
 
@@ -174,7 +190,12 @@ pub fn create_commit(repo: &Path, message: &str) -> Result<String> {
 
 /// Initialize a new git repository at the given path.
 pub fn init(path: &Path) -> Result<()> {
-    CLI.run_status(CLI.command().args(["init", &path.display().to_string()]))
+    CLI.run_status(
+        CLI.command()
+            .args(["init", &path.display().to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null()),
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +254,9 @@ impl<'a> Repo<'a> {
         CLI.run_status(
             CLI.command()
                 .args(["fetch", "--all"])
-                .current_dir(self.path),
+                .current_dir(self.path)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null()),
         )
     }
 }
