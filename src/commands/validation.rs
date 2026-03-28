@@ -212,7 +212,6 @@ fn run_select_loop(
 }
 
 /// Print the validation summary for a batch.
-#[allow(dead_code)]
 pub fn print_validation_summary(p: &Paint, buckets: &ValidationBuckets) {
     for entry in &buckets.clean {
         println!("  {} {} — passed", p.success("✓"), p.bold(&entry.name));

@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
+use crate::commands::install_shared::{FinalizeOptions, finalize_skill_install_and_write};
 use crate::context::ProjectContext;
 
 pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
@@ -63,15 +63,16 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
 
     // No gitignore entries for local skills — they should be tracked in git
 
-    manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
+    finalize_skill_install_and_write(
+        &ctx,
+        &merged_options,
+        &name,
+        &source,
+        locked,
+        &FinalizeOptions::ADD,
+    )?;
     if !json {
         println!("  Updated {}", p.dim("Ion.toml"));
-    }
-
-    let mut lockfile = ctx.lockfile()?;
-    lockfile.upsert(locked);
-    lockfile.write_to(&ctx.lockfile_path)?;
-    if !json {
         println!("  Updated {}", p.dim("Ion.lock"));
     }
 

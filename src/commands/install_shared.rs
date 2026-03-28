@@ -131,7 +131,6 @@ pub fn add_gitignore_entries(
 // ---------------------------------------------------------------------------
 
 /// Options controlling which post-install steps to perform.
-#[allow(dead_code)]
 pub struct FinalizeOptions {
     /// Write a new entry to Ion.toml (false for `ion install` since skills are already declared).
     pub write_manifest: bool,
@@ -139,7 +138,6 @@ pub struct FinalizeOptions {
     pub register_in_registry: bool,
 }
 
-#[allow(dead_code)]
 impl FinalizeOptions {
     /// For `ion add` (single skill): write manifest, register.
     pub const ADD: Self = Self {
@@ -159,7 +157,6 @@ impl FinalizeOptions {
 }
 
 /// Post-install bookkeeping: conditionally does gitignore, registry, manifest, lockfile.
-#[allow(dead_code)]
 pub fn finalize_skill_install(
     ctx: &ProjectContext,
     merged_options: &ManifestOptions,
@@ -181,7 +178,6 @@ pub fn finalize_skill_install(
 }
 
 /// Post-install bookkeeping + write lockfile (for single-skill commands like add/link).
-#[allow(dead_code)]
 pub fn finalize_skill_install_and_write(
     ctx: &ProjectContext,
     merged_options: &ManifestOptions,
@@ -209,14 +205,12 @@ pub fn finalize_skill_install_and_write(
 // ---------------------------------------------------------------------------
 
 /// Results of validating a batch of skills (excludes local skills — handle those separately).
-#[allow(dead_code)]
 pub struct ValidationBuckets {
     pub clean: Vec<SkillEntry>,
     pub warned: Vec<(SkillEntry, ValidationReport)>,
     pub errored: Vec<(String, ValidationReport)>,
 }
 
-#[allow(dead_code)]
 impl ValidationBuckets {
     /// Validate a set of (name, source) pairs, bucketing by result.
     /// Callers MUST filter out Local skills before calling this.
@@ -257,7 +251,6 @@ impl ValidationBuckets {
 
 /// Install approved skills from validation buckets.
 /// The `finalize` callback controls post-install bookkeeping.
-#[allow(dead_code)]
 pub fn install_approved_skills(
     installer: &SkillInstaller,
     buckets: &ValidationBuckets,

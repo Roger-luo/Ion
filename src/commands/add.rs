@@ -3,11 +3,15 @@ use std::path::PathBuf;
 
 use ion_skill::Error as SkillError;
 use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
-use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
-use crate::commands::install_shared::SkillEntry;
-use crate::commands::validation::{confirm_proceed_with_collection, select_warned_skills};
+use crate::commands::install_shared::{
+    FinalizeOptions, ValidationBuckets, finalize_skill_install, finalize_skill_install_and_write,
+    install_approved_skills, register_in_registry,
+};
+use crate::commands::validation::{
+    confirm_proceed_with_collection, print_validation_summary, select_warned_skills,
+};
 use crate::context::ProjectContext;
 use crate::style::Paint;
 
@@ -249,8 +253,6 @@ fn install_collection(
     allow_warnings: bool,
     skills_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    use ion_skill::validate::ValidationReport;
-
     let skills = SkillInstaller::discover_skills(base_source)?;
     if skills.is_empty() {
         anyhow::bail!("No skills found in repository '{source_str}'");
@@ -274,53 +276,32 @@ fn install_collection(
     // Phase 1: Validate all skills upfront
     let installer = ctx.installer(merged_options);
 
-    let mut clean: Vec<SkillEntry> = Vec::new();
-    let mut warned: Vec<(SkillEntry, ValidationReport)> = Vec::new();
-    let mut errored: Vec<(String, ValidationReport)> = Vec::new();
-
     println!("Validating skills...");
-    for (name, path) in &skills {
-        let mut skill_source = base_source.clone();
-        skill_source.path = Some(path.clone());
-
-        match installer.validate(name, &skill_source) {
-            Ok(report) if report.warning_count > 0 => {
-                warned.push((
-                    SkillEntry {
-                        name: name.clone(),
-                        source: skill_source,
-                    },
-                    report,
-                ));
-            }
-            Ok(_) => {
-                clean.push(SkillEntry {
-                    name: name.clone(),
-                    source: skill_source,
-                });
-            }
-            Err(SkillError::ValidationFailed { report, .. }) => {
-                errored.push((name.clone(), report));
-            }
-            Err(e) => return Err(e.into()),
-        }
-    }
+    let buckets = ValidationBuckets::collect(
+        &installer,
+        skills.iter().map(|(name, path)| {
+            let mut s = base_source.clone();
+            s.path = Some(path.clone());
+            (name.clone(), s)
+        }),
+    )?;
 
     // JSON mode: return skill list if no explicit selection provided
     if json && skills_filter.is_none() {
-        let skills_data: Vec<_> = clean
+        let skills_data: Vec<_> = buckets
+            .clean
             .iter()
             .map(|e| {
                 serde_json::json!({
                     "name": e.name, "status": "clean"
                 })
             })
-            .chain(warned.iter().map(|(e, r)| {
+            .chain(buckets.warned.iter().map(|(e, r)| {
                 serde_json::json!({
                     "name": e.name, "status": "warnings", "warning_count": r.warning_count
                 })
             }))
-            .chain(errored.iter().map(|(name, r)| {
+            .chain(buckets.errored.iter().map(|(name, r)| {
                 serde_json::json!({
                     "name": name, "status": "error", "error_count": r.error_count
                 })
@@ -339,45 +320,16 @@ fn install_collection(
         skills_filter.map(|f| f.split(',').map(|s| s.trim()).collect());
 
     // Phase 2: Display validation summary
-    for entry in &clean {
-        println!("  {} {} — passed", p.success("✓"), p.bold(&entry.name));
-    }
-    for (entry, report) in &warned {
-        println!(
-            "  {} {} — {} warning(s)",
-            p.warn("⚠"),
-            p.bold(&entry.name),
-            report.warning_count
-        );
-        for finding in &report.findings {
-            println!(
-                "      {} [{}] {}",
-                finding.severity, finding.checker, finding.message
-            );
-        }
-    }
-    for (name, report) in &errored {
-        println!(
-            "  ✗ {} — {} error(s), will be skipped",
-            p.bold(name),
-            report.error_count
-        );
-        for finding in &report.findings {
-            println!(
-                "      {} [{}] {}",
-                finding.severity, finding.checker, finding.message
-            );
-        }
-    }
-    println!();
+    print_validation_summary(p, &buckets);
 
     // Phase 2b: Interactive selection for warned skills
-    let warned_selections = if !warned.is_empty() {
+    let warned_selections = if !buckets.warned.is_empty() {
         if json {
             if !allow_warnings {
                 // In JSON mode without allow_warnings, check if any warned skills are selected
                 if let Some(ref names) = selected_names {
-                    let warned_in_selection: Vec<_> = warned
+                    let warned_in_selection: Vec<_> = buckets
+                        .warned
                         .iter()
                         .filter(|(e, _)| names.contains(&e.name.as_str()))
                         .collect();
@@ -395,9 +347,10 @@ fn install_collection(
                 }
             }
             // In JSON mode with allow_warnings: install all warned
-            vec![true; warned.len()]
+            vec![true; buckets.warned.len()]
         } else {
-            let items: Vec<(String, usize)> = warned
+            let items: Vec<(String, usize)> = buckets
+                .warned
                 .iter()
                 .map(|(entry, report)| (entry.name.clone(), report.warning_count))
                 .collect();
@@ -415,83 +368,47 @@ fn install_collection(
 
     // Phase 3: Install approved skills
     let mut lockfile = ctx.lockfile()?;
-    let mut installed_count = 0;
 
-    // Install clean skills (no prompt needed)
-    for entry in &clean {
-        if let Some(ref names) = selected_names
-            && !names.contains(&entry.name.as_str())
-        {
-            continue;
-        }
-        println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
-        let locked = installer.install_with_options(
-            &entry.name,
-            &entry.source,
-            InstallValidationOptions::default(),
-        )?;
-
-        finish_collection_skill_install(
-            ctx,
-            p,
-            merged_options,
-            &entry.name,
-            &entry.source,
-            &locked,
-        )?;
-        manifest_writer::add_skill(&ctx.manifest_path, &entry.name, &entry.source)?;
-        lockfile.upsert(locked);
-        installed_count += 1;
-    }
-
-    // Install user-approved warned skills
-    for (i, (entry, _report)) in warned.iter().enumerate() {
-        if !warned_selections[i] {
-            println!("  Skipping '{}' (deselected)", entry.name);
-            continue;
-        }
-        if let Some(ref names) = selected_names
-            && !names.contains(&entry.name.as_str())
-        {
-            continue;
-        }
-
-        println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
-        let locked = installer.install_with_options(
-            &entry.name,
-            &entry.source,
-            InstallValidationOptions {
-                skip_validation: false,
-                allow_warnings: true,
-            },
-        )?;
-
-        finish_collection_skill_install(
-            ctx,
-            p,
-            merged_options,
-            &entry.name,
-            &entry.source,
-            &locked,
-        )?;
-        manifest_writer::add_skill(&ctx.manifest_path, &entry.name, &entry.source)?;
-        lockfile.upsert(locked);
-        installed_count += 1;
-    }
+    let installed_count = install_approved_skills(
+        &installer,
+        &buckets,
+        &warned_selections,
+        p,
+        json,
+        |name, source, locked| {
+            println!(
+                "    Installed to {}",
+                p.info(&format!(".agents/skills/{name}/"))
+            );
+            for target_name in merged_options.targets.keys() {
+                println!("    Linked to {}", p.info(target_name));
+            }
+            finalize_skill_install(
+                ctx,
+                merged_options,
+                name,
+                source,
+                locked,
+                &mut lockfile,
+                &FinalizeOptions::ADD_COLLECTION,
+            )
+        },
+    )?;
 
     // Log skipped errored skills
-    for (name, _) in &errored {
+    for (name, _) in &buckets.errored {
         println!("  Skipping '{}' (validation errors)", name);
     }
 
     // Register in global registry (once for the base source)
-    crate::commands::install_shared::register_in_registry(base_source, &ctx.project_dir)?;
+    register_in_registry(base_source, &ctx.project_dir)?;
 
     lockfile.write_to(&ctx.lockfile_path)?;
 
     if json {
         // Collect names of installed skills
-        let mut installed_names: Vec<String> = clean
+        let mut installed_names: Vec<String> = buckets
+            .clean
             .iter()
             .filter(|e| {
                 selected_names
@@ -500,7 +417,7 @@ fn install_collection(
             })
             .map(|e| e.name.clone())
             .collect();
-        for (i, (entry, _)) in warned.iter().enumerate() {
+        for (i, (entry, _)) in buckets.warned.iter().enumerate() {
             if warned_selections[i]
                 && selected_names
                     .as_ref()
@@ -511,7 +428,7 @@ fn install_collection(
         }
         crate::json::print_success(serde_json::json!({
             "installed": installed_names,
-            "skipped": errored.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
+            "skipped": buckets.errored.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>(),
         }));
         return Ok(());
     }
@@ -532,33 +449,6 @@ fn install_collection(
     Ok(())
 }
 
-/// Shared helper for per-skill post-install steps within a collection.
-fn finish_collection_skill_install(
-    ctx: &ProjectContext,
-    p: &Paint,
-    merged_options: &ion_skill::manifest::ManifestOptions,
-    name: &str,
-    source: &SkillSource,
-    _locked: &ion_skill::lockfile::LockedSkill,
-) -> anyhow::Result<()> {
-    println!(
-        "    Installed to {}",
-        p.info(&format!(".agents/skills/{name}/"))
-    );
-    for target_name in merged_options.targets.keys() {
-        println!("    Linked to {}", p.info(target_name));
-    }
-
-    crate::commands::install_shared::add_gitignore_entries(
-        &ctx.project_dir,
-        name,
-        source,
-        merged_options,
-    )?;
-
-    Ok(())
-}
-
 fn finish_single_install(
     ctx: &ProjectContext,
     p: &Paint,
@@ -568,22 +458,14 @@ fn finish_single_install(
     locked: ion_skill::lockfile::LockedSkill,
     json: bool,
 ) -> anyhow::Result<()> {
-    // Add per-skill gitignore entries for remote skills only
-    crate::commands::install_shared::add_gitignore_entries(
-        &ctx.project_dir,
+    finalize_skill_install_and_write(
+        ctx,
+        merged_options,
         name,
         source,
-        merged_options,
+        locked,
+        &FinalizeOptions::ADD,
     )?;
-
-    // Register in global registry for git-based sources
-    crate::commands::install_shared::register_in_registry(source, &ctx.project_dir)?;
-
-    manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
-
-    let mut lockfile = ctx.lockfile()?;
-    lockfile.upsert(locked);
-    lockfile.write_to(&ctx.lockfile_path)?;
 
     if json {
         crate::json::print_success(serde_json::json!({
