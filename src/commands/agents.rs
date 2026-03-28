@@ -156,12 +156,12 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
     if let Err(e) =
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
-        eprintln!("Warning: failed to create agent symlinks: {e}");
+        log::warn!("Failed to create agent symlinks: {e}");
     }
 
     // Deploy agents-update built-in skill
     if let Err(e) = deploy_agents_update_skill(&ctx, &merged_options) {
-        eprintln!("Warning: failed to deploy agents-update skill: {e}");
+        log::warn!("Failed to deploy agents-update skill: {e}");
     }
 
     if !json {

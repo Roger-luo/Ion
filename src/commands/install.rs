@@ -20,7 +20,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     if let Err(e) =
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
-        eprintln!("Warning: failed to create agent symlinks: {e}");
+        log::warn!("Failed to create agent symlinks: {e}");
     }
 
     // Deploy agents-update skill if [agents] template is configured

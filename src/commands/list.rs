@@ -26,7 +26,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
                 let source = match entry.resolve() {
                     Ok(s) => s,
                     Err(e) => {
-                        eprintln!("Warning: skipping '{}': {}", name, e);
+                        eprintln!("warning: skipping '{}': {}", name, e);
                         return None;
                     }
                 };
@@ -64,7 +64,7 @@ pub fn run(json: bool) -> anyhow::Result<()> {
         let source = match entry.resolve() {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("Warning: skipping '{}': {}", name, e);
+                eprintln!("warning: skipping '{}': {}", name, e);
                 continue;
             }
         };

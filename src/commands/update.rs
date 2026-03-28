@@ -22,7 +22,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         .filter_map(|(skill_name, entry)| match entry.resolve() {
             Ok(source) => Some((skill_name.clone(), source)),
             Err(e) => {
-                eprintln!("Warning: skipping '{}': {}", skill_name, e);
+                eprintln!("warning: skipping '{}': {}", skill_name, e);
                 None
             }
         })

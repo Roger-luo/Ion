@@ -277,7 +277,7 @@ impl<'a> SkillInstaller<'a> {
 
         // Print any warnings from the binary installation
         for warning in &result.warnings {
-            eprintln!("Warning: {}", warning);
+            eprintln!("warning: {}", warning);
         }
 
         // Validate the generated/bundled SKILL.md
@@ -328,7 +328,7 @@ impl<'a> SkillInstaller<'a> {
         let result = binary::install_binary_from_local(project_path, binary_name, skill_dir)?;
 
         for warning in &result.warnings {
-            eprintln!("Warning: {}", warning);
+            eprintln!("warning: {}", warning);
         }
 
         let (meta, body) = self.validate_spec(skill_dir, source)?;
