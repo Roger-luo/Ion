@@ -85,6 +85,34 @@ pub fn add_skill_entries(
     Ok(())
 }
 
+/// Ensure a single file (e.g. `CLAUDE.md`) is listed in `.gitignore`.
+/// Idempotent — won't duplicate an existing entry.
+pub fn ensure_agent_file_ignored(project_dir: &Path, filename: &str) -> Result<()> {
+    let gitignore_path = project_dir.join(".gitignore");
+    let mut content = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
+
+    // Already present — nothing to do
+    if content.lines().any(|l| l.trim() == filename) {
+        return Ok(());
+    }
+
+    // Ensure trailing newline
+    if !content.is_empty() && !content.ends_with('\n') {
+        content.push('\n');
+    }
+
+    // Add managed section header if not present
+    if !content.contains("# Managed by ion") {
+        content.push_str("\n# Managed by ion\n");
+    }
+
+    content.push_str(filename);
+    content.push('\n');
+
+    std::fs::write(&gitignore_path, &content).map_err(Error::Io)?;
+    Ok(())
+}
+
 /// Remove all gitignore entries for a specific skill.
 /// Removes any line ending with `/<name>` under the managed section.
 /// Cleans up the "# Managed by ion" header if no managed entries remain.
@@ -295,5 +323,40 @@ mod tests {
         let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
         // Should not leave behind a dangling "# Managed by ion" with no entries
         assert!(!content.contains("# Managed by ion"));
+    }
+
+    #[test]
+    fn ensure_agent_file_ignored_adds_entry() {
+        let project = tempfile::tempdir().unwrap();
+
+        ensure_agent_file_ignored(project.path(), "CLAUDE.md").unwrap();
+
+        let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(content.contains("CLAUDE.md"));
+        assert!(content.contains("# Managed by ion"));
+    }
+
+    #[test]
+    fn ensure_agent_file_ignored_is_idempotent() {
+        let project = tempfile::tempdir().unwrap();
+
+        ensure_agent_file_ignored(project.path(), "CLAUDE.md").unwrap();
+        ensure_agent_file_ignored(project.path(), "CLAUDE.md").unwrap();
+
+        let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        let count = content.matches("CLAUDE.md").count();
+        assert_eq!(count, 1, "should not duplicate entries");
+    }
+
+    #[test]
+    fn ensure_agent_file_ignored_preserves_existing() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join(".gitignore"), "node_modules/\n").unwrap();
+
+        ensure_agent_file_ignored(project.path(), "CLAUDE.md").unwrap();
+
+        let content = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(content.contains("node_modules/"));
+        assert!(content.contains("CLAUDE.md"));
     }
 }
