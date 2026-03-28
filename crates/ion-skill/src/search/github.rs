@@ -103,12 +103,12 @@ pub struct GitHubSource;
 
 impl GitHubSource {
     fn gh_available() -> bool {
-        ion_cli::gh::available()
+        ionem_shell::gh::available()
     }
 
     fn run_gh(args: &[&str]) -> crate::Result<String> {
         log::debug!("github: running gh {}", args.join(" "));
-        ion_cli::gh::run(args).map_err(|e| crate::Error::Search(e.to_string()))
+        ionem_shell::gh::run(args).map_err(|e| crate::Error::Search(e.to_string()))
     }
 }
 
@@ -423,7 +423,7 @@ fn fetch_skill_description(source: &str) -> Option<String> {
         .unwrap_or_else(|| "SKILL.md".to_string());
 
     log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let stdout = ion_cli::gh::run(&[
+    let stdout = ionem_shell::gh::run(&[
         "api",
         &format!("repos/{repo}/contents/{skill_path}"),
         "--jq",
@@ -444,7 +444,8 @@ fn fetch_stars(source: &str) -> Option<u64> {
     }
 
     let stdout =
-        ion_cli::gh::run(&["api", &format!("repos/{repo}"), "--jq", ".stargazers_count"]).ok()?;
+        ionem_shell::gh::run(&["api", &format!("repos/{repo}"), "--jq", ".stargazers_count"])
+            .ok()?;
 
     stdout.trim().parse().ok()
 }

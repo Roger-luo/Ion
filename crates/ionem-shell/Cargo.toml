@@ -1,5 +1,5 @@
 [package]
-name = "ion-cli"
+name = "ionem-shell"
 version = "0.1.0"
 edition = "2024"
 

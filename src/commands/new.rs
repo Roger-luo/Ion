@@ -256,7 +256,7 @@ const BIN_BUILD_RS_TEMPLATE: &str = r#"fn main() {
 
 /// Scaffold a Rust binary project in `target_dir` with clap, ion-skill, and a self subcommand.
 fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
-    ion_cli::cargo::init(target_dir, name)?;
+    ionem_shell::cargo::init(target_dir, name)?;
 
     let cargo_toml_path = target_dir.join("Cargo.toml");
     let cargo_content = std::fs::read_to_string(&cargo_toml_path)?;
