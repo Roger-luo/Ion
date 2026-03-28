@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Use compact JSON by default, add --pretty flag (d95f287)
+- Add progress bar to `ion update` for human-friendly output (b6138f8)
+
+### Refactored
+
+- Consolidate ionem-shell into ionem crate under shell module ([#102](https://github.com/Roger-luo/Ion/pull/102)) (df35dd6)
+- Improve ionem-shell DX with Cli type, builders, and require() handles ([#101](https://github.com/Roger-luo/Ion/pull/101)) (0eee50a)
+- Rename ion-cli crate to ionem-shell (bac6540)
+- Tracks 2-6 — CLI wrappers, type redesign, pipeline extraction (ea5bed4)
+- Track 1 — constants, path fixes, and small cleanups (79d8c2f)
+
+### Added
+
 - Add AGENTS.md template management (e7bf9e1)
 - Add CI/CD setup for binary skill projects (f0b773c)
 
