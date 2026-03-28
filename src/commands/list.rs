@@ -1,9 +1,8 @@
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;

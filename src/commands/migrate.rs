@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::commands::install_shared::register_in_registry;
 use crate::context::ProjectContext;
 use crate::style::Paint;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
+use ion_skill::installer::InstallValidationOptions;
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::migrate::{
     DiscoveredSkill, DiscoveryOrigin, MigrateOptions, ResolvedSkill, discover_from_directories,
@@ -15,7 +15,7 @@ use ion_skill::search::{SearchCache, SearchSource};
 
 pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let project_dir = &ctx.project_dir;
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
@@ -280,7 +280,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                 if should_switch {
                     match ion_skill::source::SkillSource::infer(source_str) {
                         Ok(source) => {
-                            let installer = SkillInstaller::new(project_dir, &merged_options);
+                            let installer = ctx.installer(&merged_options);
                             let validation = InstallValidationOptions {
                                 skip_validation: false,
                                 allow_warnings: true,

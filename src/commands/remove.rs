@@ -1,12 +1,10 @@
-use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
 
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let manifest = ctx.manifest()?;
 
     // If the argument matches a skill name exactly, remove that single skill.
@@ -91,7 +89,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
                 println!("  {}: local skill directory preserved", p.dim("note"));
             }
         } else {
-            SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
+            ctx.installer(&merged_options).uninstall(skill_name)?;
             if !json {
                 println!(
                     "  Removed from {}",

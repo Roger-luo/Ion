@@ -23,7 +23,7 @@ pub fn run(
     skills_filter: Option<&str>,
 ) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     let mut bin = bin;
 
@@ -105,7 +105,7 @@ pub fn run(
             mode,
             p.info(source_str)
         );
-        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+        let installer = ctx.installer(&merged_options);
         let locked = installer.install(&name, &source)?;
         return finish_single_install(&ctx, &p, &merged_options, &name, &source, locked, json);
     }
@@ -123,7 +123,7 @@ pub fn run(
             p.info(source_str)
         );
 
-        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+        let installer = ctx.installer(&merged_options);
         match installer.install(&name, &source) {
             Ok(locked) => {
                 return finish_single_install(
@@ -186,7 +186,7 @@ pub fn run(
                             p.bold(&format!("'{bin_name}'")),
                             p.info(source_str)
                         );
-                        let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+                        let installer = ctx.installer(&merged_options);
                         let locked = installer.install(&bin_name, &bin_source)?;
                         return finish_single_install(
                             &ctx,
@@ -226,7 +226,7 @@ pub fn run(
         p.info(source_str)
     );
 
-    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+    let installer = ctx.installer(&merged_options);
     let locked = crate::commands::install_shared::install_with_warning_prompt(
         &installer,
         &name,
@@ -272,7 +272,7 @@ fn install_collection(
     }
 
     // Phase 1: Validate all skills upfront
-    let installer = SkillInstaller::new(&ctx.project_dir, merged_options);
+    let installer = ctx.installer(merged_options);
 
     let mut clean: Vec<SkillEntry> = Vec::new();
     let mut warned: Vec<(SkillEntry, ValidationReport)> = Vec::new();

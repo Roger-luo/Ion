@@ -1,4 +1,3 @@
-use ion_skill::installer::SkillInstaller;
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::source::SkillSourceKind;
 use ion_skill::update::Updater;
@@ -6,16 +5,15 @@ use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
 
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let manifest = ctx.manifest()?;
     let mut lockfile = ctx.lockfile()?;
 
     let options = ctx.merged_options(&manifest);
-    let installer = SkillInstaller::new(&ctx.project_dir, &options);
+    let installer = ctx.installer(&options);
 
     let skills_to_check: Vec<(String, _)> = manifest
         .skills

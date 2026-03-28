@@ -58,6 +58,32 @@ impl ProjectContext {
         Ok(())
     }
 
+    /// Create a `Paint` instance for styled output.
+    pub fn paint(&self) -> crate::style::Paint {
+        crate::style::Paint::new(&self.global_config)
+    }
+
+    /// Resolved skills directory path (absolute).
+    #[allow(dead_code)]
+    pub fn skills_dir(&self, manifest: &Manifest) -> std::path::PathBuf {
+        let options = self.merged_options(manifest);
+        self.project_dir.join(options.skills_dir_or_default())
+    }
+
+    /// Absolute path to a specific skill's directory.
+    #[allow(dead_code)]
+    pub fn skill_path(&self, manifest: &Manifest, name: &str) -> std::path::PathBuf {
+        self.skills_dir(manifest).join(name)
+    }
+
+    /// Create a `SkillInstaller` for this project.
+    pub fn installer<'a>(
+        &'a self,
+        options: &'a ManifestOptions,
+    ) -> ion_skill::installer::SkillInstaller<'a> {
+        ion_skill::installer::SkillInstaller::new(&self.project_dir, options)
+    }
+
     /// Ensure the built-in ion-cli skill is deployed, logging a warning on failure.
     pub fn ensure_builtin_skill(&self, merged_options: &ManifestOptions) {
         if let Err(e) = crate::builtin_skill::ensure_installed(

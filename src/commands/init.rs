@@ -108,7 +108,7 @@ pub fn print_no_targets_hint(
 
 pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = crate::style::Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     // Handle legacy lowercase files
     rename_legacy_files(&ctx.project_dir)?;

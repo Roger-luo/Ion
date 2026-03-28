@@ -4,11 +4,10 @@ use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let manifest = ctx.manifest()?;
 
     // Verify skill exists and is not already local/path

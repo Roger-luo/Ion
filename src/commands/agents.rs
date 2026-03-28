@@ -41,7 +41,7 @@ pub fn deploy_agents_update_skill(
     ctx: &ProjectContext,
     options: &ion_skill::manifest::ManifestOptions,
 ) -> anyhow::Result<()> {
-    use ion_skill::installer::{SkillInstaller, builtin_skills_dir};
+    use ion_skill::installer::builtin_skills_dir;
 
     let skill_name = "agents-update";
     let global_dir = builtin_skills_dir().join(skill_name);
@@ -61,7 +61,7 @@ pub fn deploy_agents_update_skill(
     }
 
     // Deploy symlinks
-    let installer = SkillInstaller::new(&ctx.project_dir, options);
+    let installer = ctx.installer(options);
     installer.deploy(skill_name, &global_dir)?;
 
     // Gitignore the symlinks
@@ -87,7 +87,7 @@ pub fn deploy_agents_update_skill(
 
 pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     // Check if [agents] already exists
     let manifest = ctx.manifest_or_empty()?;
@@ -180,7 +180,7 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
 
 pub fn update(json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;

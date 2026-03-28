@@ -1,16 +1,15 @@
 use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
+use ion_skill::installer::InstallValidationOptions;
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::validate::ValidationReport;
 
 use crate::commands::install_shared::{SkillEntry, add_gitignore_entries, register_in_registry};
 use crate::commands::validation::{print_validation_report, select_warned_skills};
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
@@ -57,7 +56,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         );
     }
 
-    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+    let installer = ctx.installer(&merged_options);
 
     // Phase 1: Validate all skills upfront
     let mut clean: Vec<SkillEntry> = Vec::new();
