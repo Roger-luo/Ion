@@ -14,6 +14,10 @@ struct Cli {
     #[arg(long, global = true)]
     json: bool,
 
+    /// Pretty-print JSON output (requires --json)
+    #[arg(long, global = true, requires = "json")]
+    pretty: bool,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -256,6 +260,7 @@ fn main() {
 
     let cli = Cli::parse();
     let json = cli.json;
+    crate::json::set_pretty(cli.pretty);
     let skip_update_check = matches!(
         cli.command,
         Commands::Self_ { .. } | Commands::Completion { .. }

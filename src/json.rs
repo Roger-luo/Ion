@@ -1,4 +1,23 @@
+use std::sync::OnceLock;
+
 use serde::Serialize;
+
+/// Whether to pretty-print JSON output. Set once from `main()`.
+static PRETTY: OnceLock<bool> = OnceLock::new();
+
+/// Configure pretty-printing. Call before any JSON output.
+pub fn set_pretty(pretty: bool) {
+    PRETTY.set(pretty).ok();
+}
+
+/// Serialize a value to JSON, respecting the pretty-print setting.
+fn to_json<T: Serialize>(value: &T) -> String {
+    if PRETTY.get().copied().unwrap_or(false) {
+        serde_json::to_string_pretty(value).unwrap()
+    } else {
+        serde_json::to_string(value).unwrap()
+    }
+}
 
 /// Standard JSON response envelope.
 #[derive(Serialize)]
@@ -25,7 +44,7 @@ pub fn print_success<T: Serialize>(data: T) {
         success: true,
         data,
     };
-    println!("{}", serde_json::to_string_pretty(&resp).unwrap());
+    println!("{}", to_json(&resp));
 }
 
 /// Print an action-required response and exit 2.
@@ -35,7 +54,7 @@ pub fn print_action_required<T: Serialize>(action: &'static str, data: T) -> ! {
         action_required: action,
         data,
     };
-    println!("{}", serde_json::to_string_pretty(&resp).unwrap());
+    println!("{}", to_json(&resp));
     std::process::exit(2);
 }
 
@@ -45,6 +64,6 @@ pub fn print_error(msg: &str) -> ! {
         success: false,
         error: msg.to_string(),
     };
-    println!("{}", serde_json::to_string_pretty(&resp).unwrap());
+    println!("{}", to_json(&resp));
     std::process::exit(1);
 }
