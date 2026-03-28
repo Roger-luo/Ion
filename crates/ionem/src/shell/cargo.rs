@@ -13,7 +13,7 @@
 
 use std::path::Path;
 
-use crate::{Cli, CliError, Result};
+use super::{Cli, CliError, Result};
 
 /// The `cargo` CLI descriptor.
 pub const CLI: Cli = Cli {

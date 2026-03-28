@@ -487,7 +487,7 @@ fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
         })
         .collect();
 
-    let repo = ionem_shell::git::repo(project_dir);
+    let repo = ionem::shell::git::repo(project_dir);
 
     if !files_to_stage.is_empty() {
         let _ = repo.stage_files(&files_to_stage);

@@ -1,5 +1,8 @@
+#[cfg(feature = "cargo")]
 pub mod cargo;
+#[cfg(feature = "gh")]
 pub mod gh;
+#[cfg(feature = "git")]
 pub mod git;
 
 use std::process::{Command, Stdio};
