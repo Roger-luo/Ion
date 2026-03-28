@@ -23,6 +23,7 @@ tempfile.workspace = true
 toml_edit.workspace = true
 
 [dev-dependencies]
+scenario = { path = "crates/scenario" }
 
 [build-dependencies]
 ionem = { workspace = true, default-features = false }
@@ -30,7 +31,7 @@ minijinja = "2"
 serde_json.workspace = true
 
 [workspace]
-members = [".", "crates/ion-skill", "crates/ionem"]
+members = [".", "crates/ion-skill", "crates/ionem", "crates/scenario"]
 
 [workspace.dependencies]
 ionem = { path = "crates/ionem", default-features = false }
