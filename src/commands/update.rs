@@ -1,3 +1,6 @@
+use std::io::IsTerminal;
+
+use indicatif::{ProgressBar, ProgressStyle};
 use ion_skill::lockfile::LockedSkill;
 use ion_skill::source::SkillSourceKind;
 use ion_skill::update::Updater;
@@ -5,6 +8,7 @@ use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
 
 use crate::context::ProjectContext;
+use crate::style::Paint;
 
 pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
@@ -45,6 +49,18 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Count updatable skills (skip path/http/local which are silently ignored)
+    let updatable_count = skills_to_check
+        .iter()
+        .filter(|(_, s)| !s.is_path() && !s.is_http() && !s.is_local())
+        .count() as u64;
+
+    let pb = if !json && updatable_count > 0 {
+        Some(make_progress_bar(&p, updatable_count))
+    } else {
+        None
+    };
+
     let mut updated_count = 0u32;
     let mut skipped_count = 0u32;
     let mut failed_count = 0u32;
@@ -61,22 +77,32 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
             continue;
         }
 
+        if let Some(ref pb) = pb {
+            pb.set_message(format!("checking {}", skill_name));
+        }
+
         // Skip non-binary skills with rev set (pinned)
         if !source.is_binary()
             && let Some(ref rev) = source.rev
         {
             if !json {
-                println!(
-                    "  {} {}  {}",
-                    p.dim("-"),
-                    p.bold(skill_name),
-                    p.dim(&format!("skipped (pinned to {})", rev))
+                pb_println(
+                    &pb,
+                    format!(
+                        "  {} {}  {}",
+                        p.dim("-"),
+                        p.bold(skill_name),
+                        p.dim(&format!("skipped (pinned to {})", rev))
+                    ),
                 );
             }
             json_skipped.push(
                 serde_json::json!({ "name": skill_name, "reason": format!("pinned to {}", rev) }),
             );
             skipped_count += 1;
+            if let Some(ref pb) = pb {
+                pb.inc(1);
+            }
             continue;
         }
 
@@ -84,7 +110,12 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         let updater: Box<dyn Updater> = match &source.kind {
             SkillSourceKind::Binary { .. } => Box::new(BinaryUpdater),
             SkillSourceKind::Github | SkillSourceKind::Git => Box::new(GitUpdater),
-            _ => continue,
+            _ => {
+                if let Some(ref pb) = pb {
+                    pb.inc(1);
+                }
+                continue;
+            }
         };
 
         // Get or create locked skill
@@ -122,44 +153,63 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
             Ok(Some(info)) => info,
             Ok(None) => {
                 if !json {
-                    println!(
-                        "  {} {}  {}",
-                        p.dim("·"),
-                        p.bold(skill_name),
-                        p.dim("already up to date")
+                    pb_println(
+                        &pb,
+                        format!(
+                            "  {} {}  {}",
+                            p.dim("·"),
+                            p.bold(skill_name),
+                            p.dim("already up to date")
+                        ),
                     );
                 }
                 json_up_to_date.push(serde_json::json!({ "name": skill_name }));
                 up_to_date_count += 1;
+                if let Some(ref pb) = pb {
+                    pb.inc(1);
+                }
                 continue;
             }
             Err(e) => {
                 if !json {
-                    println!(
-                        "  {} {}  {}",
-                        p.warn("✗"),
-                        p.bold(skill_name),
-                        p.warn(&format!("check failed: {}", e))
+                    pb_println(
+                        &pb,
+                        format!(
+                            "  {} {}  {}",
+                            p.warn("✗"),
+                            p.bold(skill_name),
+                            p.warn(&format!("check failed: {}", e))
+                        ),
                     );
                 }
                 json_failed.push(serde_json::json!({ "name": skill_name, "error": e.to_string() }));
                 failed_count += 1;
+                if let Some(ref pb) = pb {
+                    pb.inc(1);
+                }
                 continue;
             }
         };
 
         // Apply update
+        if let Some(ref pb) = pb {
+            pb.set_message(format!("updating {}", skill_name));
+        }
+
         match updater.apply(&locked, source, &installer) {
             Ok(new_locked) => {
                 if !json {
                     let binary_suffix = if source.is_binary() { " (binary)" } else { "" };
-                    println!(
-                        "  {} {}  {} → {}{}",
-                        p.success("✓"),
-                        p.bold(skill_name),
-                        info.old_version,
-                        p.info(&info.new_version),
-                        binary_suffix
+                    pb_println(
+                        &pb,
+                        format!(
+                            "  {} {}  {} → {}{}",
+                            p.success("✓"),
+                            p.bold(skill_name),
+                            info.old_version,
+                            p.info(&info.new_version),
+                            binary_suffix
+                        ),
                     );
                 }
                 json_updated.push(serde_json::json!({
@@ -173,17 +223,29 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
             }
             Err(e) => {
                 if !json {
-                    println!(
-                        "  {} {}  {}",
-                        p.warn("✗"),
-                        p.bold(skill_name),
-                        p.warn(&format!("{}", e))
+                    pb_println(
+                        &pb,
+                        format!(
+                            "  {} {}  {}",
+                            p.warn("✗"),
+                            p.bold(skill_name),
+                            p.warn(&format!("{}", e))
+                        ),
                     );
                 }
                 json_failed.push(serde_json::json!({ "name": skill_name, "error": e.to_string() }));
                 failed_count += 1;
             }
         }
+
+        if let Some(ref pb) = pb {
+            pb.inc(1);
+        }
+    }
+
+    // Finish the progress bar
+    if let Some(ref pb) = pb {
+        pb.finish_and_clear();
     }
 
     // Write lockfile only if something changed
@@ -237,4 +299,40 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Create a progress bar styled for the update command.
+fn make_progress_bar(p: &Paint, total: u64) -> ProgressBar {
+    let pb = if std::io::stderr().is_terminal() {
+        ProgressBar::new(total)
+    } else {
+        ProgressBar::hidden()
+    };
+
+    if p.color {
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("  {spinner:.cyan} [{bar:20.cyan/dim}] {pos}/{len}  {msg:.dim}")
+                .unwrap()
+                .progress_chars("━╸─"),
+        );
+    } else {
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("  [{bar:20}] {pos}/{len}  {msg}")
+                .unwrap()
+                .progress_chars("=> "),
+        );
+    }
+
+    pb.enable_steady_tick(std::time::Duration::from_millis(120));
+    pb
+}
+
+/// Print a line above the progress bar (if present), otherwise just println.
+fn pb_println(pb: &Option<ProgressBar>, msg: String) {
+    match pb {
+        Some(pb) => pb.println(msg),
+        None => println!("{}", msg),
+    }
 }

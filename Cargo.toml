@@ -16,6 +16,7 @@ log.workspace = true
 pathdiff.workspace = true
 ratatui = "0.30"
 similar = "2"
+indicatif = "0.17"
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 tempfile.workspace = true
