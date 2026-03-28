@@ -92,6 +92,30 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
     Ok(())
 }
 
+/// Check whether a file's content is just a pointer to AGENTS.md.
+///
+/// Returns `true` if every non-blank line's only purpose is to reference
+/// `@AGENTS.md` — e.g. the bare string `@AGENTS.md` or prose like
+/// "treat @AGENTS.md the same as this file".
+///
+/// Returns `false` if the file contains additional instructions beyond
+/// the reference, has no `@AGENTS.md` at all, or is empty.
+pub fn is_agents_pointer(content: &str) -> bool {
+    let non_blank: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+
+    if non_blank.is_empty() {
+        return false;
+    }
+
+    // Must contain @AGENTS.md somewhere
+    if !non_blank.iter().any(|l| l.contains("@AGENTS.md")) {
+        return false;
+    }
+
+    // Every non-blank line must mention @AGENTS.md
+    non_blank.iter().all(|l| l.contains("@AGENTS.md"))
+}
+
 /// SHA-256 checksum of raw content, formatted as "sha256:{hex}".
 fn checksum_content(content: &[u8]) -> String {
     use sha2::{Digest, Sha256};
@@ -382,5 +406,49 @@ mod tests {
             fetch_template(file_path.to_str().unwrap(), None, None, project.path()).unwrap();
 
         assert_eq!(result.content, "# Direct File Template\n");
+    }
+
+    #[test]
+    fn pointer_bare_reference() {
+        assert!(is_agents_pointer("@AGENTS.md"));
+    }
+
+    #[test]
+    fn pointer_with_prose() {
+        assert!(is_agents_pointer("treat @AGENTS.md the same as this file"));
+    }
+
+    #[test]
+    fn pointer_with_whitespace() {
+        assert!(is_agents_pointer("\n  @AGENTS.md  \n\n"));
+    }
+
+    #[test]
+    fn pointer_multiline_prose() {
+        assert!(is_agents_pointer(
+            "Contents of @AGENTS.md\n\ntreat @AGENTS.md the same as this file"
+        ));
+    }
+
+    #[test]
+    fn not_pointer_no_reference() {
+        assert!(!is_agents_pointer("# My Project\n\nSome instructions.\n"));
+    }
+
+    #[test]
+    fn not_pointer_has_extra_content() {
+        assert!(!is_agents_pointer(
+            "treat @AGENTS.md the same as this file\n\n# Extra Rules\n\nAlways use TypeScript.\n"
+        ));
+    }
+
+    #[test]
+    fn not_pointer_empty() {
+        assert!(!is_agents_pointer(""));
+    }
+
+    #[test]
+    fn not_pointer_only_whitespace() {
+        assert!(!is_agents_pointer("   \n\n  "));
     }
 }
