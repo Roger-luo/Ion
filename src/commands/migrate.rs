@@ -50,6 +50,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                     "matched": [],
                     "custom": [],
                     "skipped": [],
+                    "agents_md": agents_md_action.as_ref().map(|a| a.to_json()),
                 }));
                 return Ok(());
             }
@@ -69,6 +70,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                 "matched": [],
                 "custom": [],
                 "skipped": [],
+                "agents_md": agents_md_action.as_ref().map(|a| a.to_json()),
             }));
             return Ok(());
         }
