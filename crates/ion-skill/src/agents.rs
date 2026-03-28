@@ -64,7 +64,9 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
                 if let Ok(target) = std::fs::read_link(&symlink_path)
                     && target == std::path::Path::new("AGENTS.md")
                 {
-                    continue; // Already correct
+                    // Already correct — ensure gitignored
+                    crate::gitignore::ensure_agent_file_ignored(project_dir, symlink_filename)?;
+                    continue;
                 }
                 eprintln!(
                     "Warning: {} already exists as a symlink pointing elsewhere, skipping",
@@ -73,12 +75,19 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
                 continue;
             }
             Ok(_) => {
-                eprintln!(
-                    "Warning: {} already exists as a file, skipping symlink \
-                     (remove it manually if you want ion to manage it)",
-                    symlink_filename
-                );
-                continue;
+                // Regular file — check if it's a pointer
+                let content = std::fs::read_to_string(&symlink_path).unwrap_or_default();
+                if is_agents_pointer(&content) {
+                    std::fs::remove_file(&symlink_path).map_err(crate::Error::Io)?;
+                    // Fall through to create symlink below
+                } else {
+                    eprintln!(
+                        "Warning: {} already exists as a file, skipping symlink \
+                         (remove it manually or run `ion migrate` to convert)",
+                        symlink_filename
+                    );
+                    continue;
+                }
             }
             Err(_) => {
                 // Doesn't exist — create it
@@ -87,6 +96,8 @@ pub fn ensure_agent_symlinks(project_dir: &Path, targets: &BTreeMap<String, Stri
 
         #[cfg(unix)]
         std::os::unix::fs::symlink("AGENTS.md", &symlink_path).map_err(crate::Error::Io)?;
+
+        crate::gitignore::ensure_agent_file_ignored(project_dir, symlink_filename)?;
     }
 
     Ok(())
@@ -450,5 +461,76 @@ mod tests {
     #[test]
     fn not_pointer_only_whitespace() {
         assert!(!is_agents_pointer("   \n\n  "));
+    }
+
+    #[test]
+    fn replaces_pointer_file_with_symlink() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+        std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md").unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+        assert!(
+            meta.is_symlink(),
+            "pointer file should be replaced with symlink"
+        );
+    }
+
+    #[test]
+    fn skips_real_content_file() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+        std::fs::write(
+            project.path().join("CLAUDE.md"),
+            "# My Project Rules\n\nAlways use Rust.\n",
+        )
+        .unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+        assert!(
+            !meta.is_symlink(),
+            "real content file should NOT be replaced"
+        );
+    }
+
+    #[test]
+    fn symlink_creation_gitignores_claude_md() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(gitignore.contains("CLAUDE.md"));
+    }
+
+    #[test]
+    fn existing_correct_symlink_gitignores_claude_md() {
+        let project = tempfile::tempdir().unwrap();
+        std::fs::write(project.path().join("AGENTS.md"), "# Agents\n").unwrap();
+
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("AGENTS.md", project.path().join("CLAUDE.md")).unwrap();
+
+        let mut targets = BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+
+        ensure_agent_symlinks(project.path(), &targets).unwrap();
+
+        let gitignore = std::fs::read_to_string(project.path().join(".gitignore")).unwrap();
+        assert!(gitignore.contains("CLAUDE.md"));
     }
 }
