@@ -34,9 +34,11 @@
 
 pub mod build;
 pub mod error;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "self-update")]
 pub mod release;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "self-update")]
 pub mod self_update;
+#[cfg(any(feature = "git", feature = "gh", feature = "cargo"))]
+pub mod shell;
 
 pub use error::{Error, Result};

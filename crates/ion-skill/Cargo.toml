@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ionem-shell.workspace = true
-ionem = { workspace = true, features = ["runtime"] }
+ionem = { workspace = true, features = ["git", "gh", "cargo", "self-update"] }
 dirs.workspace = true
 flate2.workspace = true
 log.workspace = true

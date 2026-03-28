@@ -111,7 +111,7 @@ fn run_dev(
     }
 
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let proj = ionem_shell::cargo::project(&manifest_path);
+    let proj = ionem::shell::cargo::project(&manifest_path);
 
     if json {
         match proj.run(binary_name, &str_args) {
@@ -124,7 +124,7 @@ fn run_dev(
                     "stderr": "",
                 }));
             }
-            Err(ionem_shell::CliError::Failed { code, stderr, .. }) => {
+            Err(ionem::shell::CliError::Failed { code, stderr, .. }) => {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
@@ -146,7 +146,7 @@ fn run_dev(
     }
 
     if let Err(e) = proj.run_interactive(binary_name, &str_args) {
-        if let ionem_shell::CliError::Failed { code, .. } = e {
+        if let ionem::shell::CliError::Failed { code, .. } = e {
             std::process::exit(code);
         }
         return Err(e.into());

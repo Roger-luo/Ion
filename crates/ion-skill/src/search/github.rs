@@ -107,7 +107,7 @@ impl SearchSource for GitHubSource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
-        let gh = ionem_shell::gh::require().map_err(|e| crate::Error::Search(e.to_string()))?;
+        let gh = ionem::shell::gh::require().map_err(|e| crate::Error::Search(e.to_string()))?;
 
         let fetch_limit = (limit * 3).max(30);
         let mut results = Vec::new();
@@ -227,7 +227,7 @@ fn enumerate_repo_skills(
     seen: &std::collections::HashSet<String>,
 ) -> Vec<SearchResult> {
     log::debug!("github: enumerating skills in {repo}");
-    let body = match ionem_shell::gh::search_code("")
+    let body = match ionem::shell::gh::search_code("")
         .filename("SKILL.md")
         .repo(repo)
         .json(&["path", "repository"])
@@ -255,7 +255,7 @@ fn enumerate_repo_skills(
 /// Check whether a repo has a SKILL.md at its root.
 fn repo_has_skill_md(repo: &str) -> bool {
     log::debug!("github: checking if {repo} has SKILL.md");
-    let Ok(body) = ionem_shell::gh::search_code("")
+    let Ok(body) = ionem::shell::gh::search_code("")
         .filename("SKILL.md")
         .repo(repo)
         .json(&["path", "repository"])
@@ -388,7 +388,7 @@ fn fetch_skill_description(source: &str) -> Option<String> {
         .unwrap_or_else(|| "SKILL.md".to_string());
 
     log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let stdout = ionem_shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
+    let stdout = ionem::shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
         .jq(".content")
         .run()
         .ok()?;
@@ -405,7 +405,7 @@ fn fetch_stars(source: &str) -> Option<u64> {
         return None;
     }
 
-    let stdout = ionem_shell::gh::api(format!("repos/{repo}"))
+    let stdout = ionem::shell::gh::api(format!("repos/{repo}"))
         .jq(".stargazers_count")
         .run()
         .ok()?;

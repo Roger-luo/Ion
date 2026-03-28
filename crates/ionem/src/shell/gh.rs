@@ -17,7 +17,7 @@
 //!     .run()?;
 //! ```
 
-use crate::{Cli, Result};
+use super::{Cli, Result};
 
 /// The `gh` CLI descriptor.
 pub const CLI: Cli = Cli {
@@ -172,7 +172,7 @@ impl SearchCode {
             args.push(l.to_string());
         }
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        crate::gh::run(&refs)
+        crate::shell::gh::run(&refs)
     }
 }
 
@@ -221,7 +221,7 @@ impl SearchRepos {
             args.push(l.to_string());
         }
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        crate::gh::run(&refs)
+        crate::shell::gh::run(&refs)
     }
 }
 
@@ -258,6 +258,6 @@ impl Api {
             args.push(j.clone());
         }
         let refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        crate::gh::run(&refs)
+        crate::shell::gh::run(&refs)
     }
 }

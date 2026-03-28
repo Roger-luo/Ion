@@ -14,7 +14,7 @@
 
 use std::path::Path;
 
-use crate::{Cli, CliError, Result};
+use super::{Cli, CliError, Result};
 
 /// The `git` CLI descriptor.
 pub const CLI: Cli = Cli {

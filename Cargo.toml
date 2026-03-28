@@ -4,7 +4,7 @@ version = "0.4.3"
 edition = "2024"
 
 [dependencies]
-ionem-shell.workspace = true
+ionem = { workspace = true, features = ["git", "gh", "cargo", "self-update"] }
 anyhow = "1"
 clap = { version = "4.6.0", features = ["string", "derive"] }
 clap_complete = "4"
@@ -12,7 +12,6 @@ crossterm = "0.29"
 dirs.workspace = true
 env_logger = "0.11"
 ion-skill = { path = "crates/ion-skill" }
-ionem = { workspace = true, features = ["runtime"] }
 log.workspace = true
 pathdiff.workspace = true
 ratatui = "0.30"
@@ -30,10 +29,9 @@ minijinja = "2"
 serde_json.workspace = true
 
 [workspace]
-members = [".", "crates/ion-skill", "crates/ionem", "crates/ionem-shell"]
+members = [".", "crates/ion-skill", "crates/ionem"]
 
 [workspace.dependencies]
-ionem-shell = { path = "crates/ionem-shell" }
 ionem = { path = "crates/ionem", default-features = false }
 dirs = "6"
 flate2 = "1"

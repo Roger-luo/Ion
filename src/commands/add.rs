@@ -540,7 +540,7 @@ fn prompt_github_star(source: &SkillSource) {
     }
     let answer = answer.trim();
     if answer.is_empty() || answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes") {
-        let _ = ionem_shell::gh::star_repo(repo);
+        let _ = ionem::shell::gh::star_repo(repo);
     }
 
     // Record regardless of yes/no so we don't ask again

@@ -1103,7 +1103,6 @@ dependencies = [
  "env_logger",
  "ion-skill",
  "ionem",
- "ionem-shell",
  "log",
  "minijinja",
  "pathdiff",
@@ -1122,7 +1121,6 @@ dependencies = [
  "dirs",
  "flate2",
  "ionem",
- "ionem-shell",
  "log",
  "pathdiff",
  "pulldown-cmark",
@@ -1149,20 +1147,11 @@ name = "ionem"
 version = "0.1.3"
 dependencies = [
  "flate2",
+ "log",
  "reqwest",
  "serde",
  "serde_json",
  "tar",
- "tempfile",
- "thiserror 2.0.18",
-]
-
-[[package]]
-name = "ionem-shell"
-version = "0.1.0"
-dependencies = [
- "log",
- "serde_json",
  "tempfile",
  "thiserror 2.0.18",
 ]
