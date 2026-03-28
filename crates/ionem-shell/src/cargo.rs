@@ -1,9 +1,49 @@
 //! Cargo CLI wrappers.
+//!
+//! Use [`require()`] to verify `cargo` is installed, then call methods on the
+//! returned [`Cargo`] handle:
+//!
+//! ```ignore
+//! let cargo = cargo::require()?;
+//! let proj = cargo.project(&manifest_path);
+//! let meta = proj.metadata()?;
+//! proj.build_release()?;
+//! let output = proj.run("my-bin", &["arg1"])?;
+//! ```
 
 use std::path::Path;
-use std::process::Command;
 
-use crate::{Result, run_command, run_status};
+use crate::{Cli, CliError, Result};
+
+/// The `cargo` CLI descriptor.
+pub const CLI: Cli = Cli {
+    name: "cargo",
+    hint: "Install from https://rustup.rs",
+};
+
+/// Verify `cargo` is installed and return a handle to run commands.
+pub fn require() -> Result<Cargo> {
+    CLI.require()?;
+    Ok(Cargo)
+}
+
+/// A validated handle proving the `cargo` CLI is available.
+///
+/// Obtained via [`require()`]. Context constructors and standalone
+/// operations live here.
+pub struct Cargo;
+
+impl Cargo {
+    /// Create a [`Project`] context bound to the given `Cargo.toml` path.
+    pub fn project<'a>(&self, manifest_path: &'a Path) -> Project<'a> {
+        project(manifest_path)
+    }
+
+    /// Run `cargo init` to create a new project.
+    pub fn init(&self, path: &Path, name: &str) -> Result<()> {
+        init(path, name)
+    }
+}
 
 /// Parsed output of `cargo metadata`.
 #[derive(Debug)]
@@ -19,8 +59,8 @@ pub struct CargoMetadata {
 /// Run `cargo metadata --no-deps` and parse the result.
 /// `manifest_path` should point to the Cargo.toml file.
 pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> {
-    let json_str = run_command(
-        Command::new("cargo")
+    let json_str = CLI.run_command(
+        CLI.command()
             .args([
                 "metadata",
                 "--no-deps",
@@ -29,20 +69,19 @@ pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> {
                 "--manifest-path",
             ])
             .arg(manifest_path),
-        "cargo",
     )?;
 
     let json: serde_json::Value =
-        serde_json::from_str(&json_str).map_err(|e| crate::CliError::Failed {
-            cli: "cargo".to_string(),
+        serde_json::from_str(&json_str).map_err(|e| CliError::Failed {
+            cli: CLI.name.to_string(),
             code: -1,
             stderr: format!("Failed to parse cargo metadata JSON: {e}"),
         })?;
 
     let packages = json["packages"]
         .as_array()
-        .ok_or_else(|| crate::CliError::Failed {
-            cli: "cargo".to_string(),
+        .ok_or_else(|| CliError::Failed {
+            cli: CLI.name.to_string(),
             code: -1,
             stderr: "No packages in cargo metadata output".to_string(),
         })?;
@@ -57,8 +96,8 @@ pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> {
                 .is_some_and(|mp| mp == manifest_str.as_ref())
         })
         .or_else(|| packages.first())
-        .ok_or_else(|| crate::CliError::Failed {
-            cli: "cargo".to_string(),
+        .ok_or_else(|| CliError::Failed {
+            cli: CLI.name.to_string(),
             code: -1,
             stderr: "No packages found in cargo metadata".to_string(),
         })?;
@@ -89,22 +128,20 @@ pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> {
 
 /// Run `cargo build --release` for a project.
 pub fn build_release(manifest_path: &Path) -> Result<()> {
-    run_status(
-        Command::new("cargo")
+    CLI.run_status(
+        CLI.command()
             .args(["build", "--release", "--manifest-path"])
             .arg(manifest_path),
-        "cargo",
     )
 }
 
 /// Run `cargo build --release` for a specific binary target.
 pub fn build_release_bin(manifest_path: &Path, bin: &str) -> Result<()> {
-    run_status(
-        Command::new("cargo")
+    CLI.run_status(
+        CLI.command()
             .args(["build", "--release", "--manifest-path"])
             .arg(manifest_path)
             .args(["--bin", bin]),
-        "cargo",
     )
 }
 
@@ -113,37 +150,71 @@ pub fn build_release_bin(manifest_path: &Path, bin: &str) -> Result<()> {
 /// `bin` is the binary target name.
 /// `args` are passed after `--` to the binary.
 pub fn run(manifest_path: &Path, bin: &str, args: &[&str]) -> Result<String> {
-    run_command(
-        Command::new("cargo")
+    CLI.run_command(
+        CLI.command()
             .args(["run", "-q", "--manifest-path"])
             .arg(manifest_path)
             .args(["--bin", bin, "--"])
             .args(args),
-        "cargo",
     )
 }
 
 /// Run `cargo run` inheriting stdio (for interactive use).
 pub fn run_interactive(manifest_path: &Path, bin: &str, args: &[&str]) -> Result<()> {
-    run_status(
-        Command::new("cargo")
+    CLI.run_status(
+        CLI.command()
             .args(["run", "-q", "--manifest-path"])
             .arg(manifest_path)
             .args(["--bin", bin, "--"])
             .args(args),
-        "cargo",
     )
 }
 
 /// Run `cargo init` to create a new project.
 pub fn init(path: &Path, name: &str) -> Result<()> {
-    run_status(
-        Command::new("cargo")
-            .arg("init")
-            .arg(path)
-            .args(["--name", name]),
-        "cargo",
-    )
+    CLI.run_status(CLI.command().arg("init").arg(path).args(["--name", name]))
+}
+
+// ---------------------------------------------------------------------------
+// Project context
+// ---------------------------------------------------------------------------
+
+/// Create a [`Project`] context bound to the given `Cargo.toml` path.
+pub fn project(manifest_path: &Path) -> Project<'_> {
+    Project { manifest_path }
+}
+
+/// A Cargo project context that binds a manifest path, so you can call
+/// multiple operations without repeating the path.
+pub struct Project<'a> {
+    manifest_path: &'a Path,
+}
+
+impl<'a> Project<'a> {
+    /// Run `cargo metadata --no-deps` and parse the result.
+    pub fn metadata(&self) -> Result<CargoMetadata> {
+        metadata(self.manifest_path)
+    }
+
+    /// Run `cargo build --release`.
+    pub fn build_release(&self) -> Result<()> {
+        build_release(self.manifest_path)
+    }
+
+    /// Run `cargo build --release` for a specific binary target.
+    pub fn build_release_bin(&self, bin: &str) -> Result<()> {
+        build_release_bin(self.manifest_path, bin)
+    }
+
+    /// Run `cargo run -q` with the given arguments. Returns stdout.
+    pub fn run(&self, bin: &str, args: &[&str]) -> Result<String> {
+        self::run(self.manifest_path, bin, args)
+    }
+
+    /// Run `cargo run` inheriting stdio (for interactive use).
+    pub fn run_interactive(&self, bin: &str, args: &[&str]) -> Result<()> {
+        run_interactive(self.manifest_path, bin, args)
+    }
 }
 
 #[cfg(test)]

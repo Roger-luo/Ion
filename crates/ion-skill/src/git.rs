@@ -9,12 +9,12 @@ pub fn clone_or_fetch(url: &str, target: &Path) -> Result<()> {
 
 /// Checkout a specific ref (branch, tag, or commit SHA).
 pub fn checkout(repo_path: &Path, rev: &str) -> Result<()> {
-    Ok(ionem_shell::git::checkout(repo_path, rev)?)
+    Ok(ionem_shell::git::repo(repo_path).checkout(rev)?)
 }
 
 /// Get the current HEAD commit SHA.
 pub fn head_commit(repo_path: &Path) -> Result<String> {
-    Ok(ionem_shell::git::head_commit(repo_path)?)
+    Ok(ionem_shell::git::repo(repo_path).head_commit()?)
 }
 
 /// Compute a SHA-256 checksum of a directory's contents (all files, sorted).
@@ -57,13 +57,13 @@ fn collect_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
 /// Get the default branch name for a repo by checking `origin/HEAD` or falling back
 /// to `symbolic-ref HEAD`.
 pub fn default_branch(repo_path: &Path) -> Result<String> {
-    Ok(ionem_shell::git::default_branch(repo_path)?)
+    Ok(ionem_shell::git::repo(repo_path).default_branch()?)
 }
 
 /// Reset the working tree to the remote's default branch HEAD.
 /// Call this after `clone_or_fetch()` to advance to the latest commit.
 pub fn reset_to_remote_head(repo_path: &Path) -> Result<()> {
-    Ok(ionem_shell::git::reset_to_remote_head(repo_path)?)
+    Ok(ionem_shell::git::repo(repo_path).reset_to_remote_head()?)
 }
 
 #[cfg(test)]
