@@ -1,13 +1,10 @@
-use ion_skill::installer::SkillInstaller;
 use ion_skill::manifest_writer;
-use ion_skill::source::SourceType;
 
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let manifest = ctx.manifest()?;
 
     // If the argument matches a skill name exactly, remove that single skill.
@@ -71,7 +68,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // For local skills, only remove symlinks — preserve the actual skill directory
         if let Ok(ref source) = entry_source
-            && source.source_type == SourceType::Local
+            && source.is_local()
         {
             for target_path in merged_options.targets.values() {
                 let target_dir = ctx.project_dir.join(target_path).join(skill_name);
@@ -92,7 +89,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
                 println!("  {}: local skill directory preserved", p.dim("note"));
             }
         } else {
-            SkillInstaller::new(&ctx.project_dir, &merged_options).uninstall(skill_name)?;
+            ctx.installer(&merged_options).uninstall(skill_name)?;
             if !json {
                 println!(
                     "  Removed from {}",
@@ -105,10 +102,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
         }
 
         // Skip gitignore removal for local skills (they were never gitignored)
-        if !matches!(
-            entry_source.as_ref().map(|s| &s.source_type),
-            Ok(SourceType::Local)
-        ) {
+        if !matches!(entry_source.as_ref().map(|s| s.is_local()), Ok(true)) {
             ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
             if !json {
                 println!("  Updated {}", p.dim(".gitignore"));
@@ -122,8 +116,8 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // Clean up binary files if this is a binary skill
         if let Some(locked) = lockfile.find(skill_name)
-            && let Some(ref binary_name) = locked.binary
-            && let Some(ref version) = locked.binary_version
+            && let Some(binary_name) = locked.binary_name()
+            && let Some(version) = locked.binary_version()
         {
             ion_skill::binary::remove_binary_version(binary_name, version)?;
             if !json {

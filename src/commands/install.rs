@@ -1,17 +1,14 @@
-use ion_skill::Error as SkillError;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
 use ion_skill::lockfile::LockedSkill;
-use ion_skill::source::SourceType;
-use ion_skill::validate::ValidationReport;
 
-use crate::commands::install_shared::{SkillEntry, add_gitignore_entries, register_in_registry};
-use crate::commands::validation::{print_validation_report, select_warned_skills};
+use crate::commands::install_shared::{
+    FinalizeOptions, ValidationBuckets, finalize_skill_install, install_approved_skills,
+};
+use crate::commands::validation::{print_validation_summary, select_warned_skills};
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
@@ -23,7 +20,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     if let Err(e) =
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
-        eprintln!("Warning: failed to create agent symlinks: {e}");
+        log::warn!("Failed to create agent symlinks: {e}");
     }
 
     // Deploy agents-update skill if [agents] template is configured
@@ -58,18 +55,14 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         );
     }
 
-    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+    let installer = ctx.installer(&merged_options);
 
-    // Phase 1: Validate all skills upfront
-    let mut clean: Vec<SkillEntry> = Vec::new();
-    let mut warned: Vec<(SkillEntry, ValidationReport)> = Vec::new();
-    let mut errored: Vec<(String, ValidationReport)> = Vec::new();
-
+    // Handle local skills first (they bypass validation)
+    let mut non_local_skills = Vec::new();
     for (name, entry) in &manifest.skills {
         let source = entry.resolve()?;
 
-        // Local skills bypass validation — deploy directly from project tree
-        if source.source_type == SourceType::Local {
+        if source.is_local() {
             let skills_dir = merged_options.skills_dir_or_default();
             let local_skill_dir = ctx.project_dir.join(skills_dir).join(name);
 
@@ -85,76 +78,32 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             println!("  Installing {}...", p.bold(&format!("'{name}'")));
             installer.deploy(name, &local_skill_dir)?;
 
-            let checksum = ion_skill::git::checksum_dir(&local_skill_dir).ok();
-            lockfile.upsert(LockedSkill {
-                name: name.clone(),
-                source: source.source.clone(),
-                path: None,
-                version: None,
-                commit: None,
-                checksum,
-                binary: None,
-                binary_version: None,
-                binary_checksum: None,
-                dev: None,
-            });
+            let mut locked_local =
+                LockedSkill::local(name.clone()).with_source(source.source.clone());
+            if let Ok(checksum) = ion_skill::git::checksum_dir(&local_skill_dir) {
+                locked_local = locked_local.with_checksum(checksum);
+            }
+            lockfile.upsert(locked_local);
 
             continue;
         }
 
-        match installer.validate(name, &source) {
-            Ok(report) if report.warning_count > 0 => {
-                warned.push((
-                    SkillEntry {
-                        name: name.clone(),
-                        source,
-                    },
-                    report,
-                ));
-            }
-            Ok(_) => {
-                clean.push(SkillEntry {
-                    name: name.clone(),
-                    source,
-                });
-            }
-            Err(SkillError::ValidationFailed { report, .. }) => {
-                print_validation_report(name, &report);
-                errored.push((name.clone(), report));
-            }
-            Err(e) => return Err(e.into()),
-        }
+        non_local_skills.push((name.clone(), source));
     }
 
+    // Phase 1: Validate all non-local skills upfront
+    let buckets = ValidationBuckets::collect(&installer, non_local_skills)?;
+
     // Phase 2: Display validation summary
-    if !clean.is_empty() || !warned.is_empty() || !errored.is_empty() {
-        for entry in &clean {
-            println!("  {} {} — passed", p.success("✓"), p.bold(&entry.name));
-        }
-        for (entry, report) in &warned {
-            println!(
-                "  {} {} — {} warning(s)",
-                p.warn("⚠"),
-                p.bold(&entry.name),
-                report.warning_count
-            );
-            for finding in &report.findings {
-                println!(
-                    "      {} [{}] {}",
-                    finding.severity, finding.checker, finding.message
-                );
-            }
-        }
-        for (name, _) in &errored {
-            println!("  ✗ {} — validation errors, will be skipped", p.bold(name));
-        }
-        println!();
+    if !buckets.is_empty() {
+        print_validation_summary(&p, &buckets);
     }
 
     // Phase 2b: Interactive selection for warned skills
-    let warned_selections = if !warned.is_empty() {
+    let warned_selections = if !buckets.warned.is_empty() {
         if json && !allow_warnings {
-            let skills_data: Vec<serde_json::Value> = warned
+            let skills_data: Vec<serde_json::Value> = buckets
+                .warned
                 .iter()
                 .map(|(entry, report)| {
                     serde_json::json!({
@@ -173,9 +122,10 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
             );
         } else if json && allow_warnings {
             // In JSON mode with allow_warnings, install all warned skills
-            vec![true; warned.len()]
+            vec![true; buckets.warned.len()]
         } else {
-            let items: Vec<(String, usize)> = warned
+            let items: Vec<(String, usize)> = buckets
+                .warned
                 .iter()
                 .map(|(entry, report)| (entry.name.clone(), report.warning_count))
                 .collect();
@@ -192,66 +142,28 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     };
 
     // Phase 3: Install approved skills
-    let mut json_installed: Vec<serde_json::Value> = Vec::new();
-    let mut json_skipped: Vec<serde_json::Value> = Vec::new();
-
-    // Install clean skills
-    for entry in &clean {
-        if !json {
-            println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
-        }
-        let locked = installer.install_with_options(
-            &entry.name,
-            &entry.source,
-            InstallValidationOptions::default(),
-        )?;
-
-        add_gitignore_entries(
-            &ctx.project_dir,
-            &entry.name,
-            &entry.source,
-            &merged_options,
-        )?;
-        register_in_registry(&entry.source, &ctx.project_dir)?;
-        lockfile.upsert(locked);
-        json_installed.push(serde_json::json!({ "name": entry.name }));
-    }
-
-    // Install user-approved warned skills
-    for (i, (entry, _report)) in warned.iter().enumerate() {
-        if !warned_selections[i] {
-            if !json {
-                println!("  Skipping '{}' (deselected)", entry.name);
-            }
-            json_skipped.push(serde_json::json!({ "name": entry.name, "reason": "deselected" }));
-            continue;
-        }
-
-        if !json {
-            println!("  Installing {}...", p.bold(&format!("'{}'", entry.name)));
-        }
-        let locked = installer.install_with_options(
-            &entry.name,
-            &entry.source,
-            InstallValidationOptions {
-                skip_validation: false,
-                allow_warnings: true,
-            },
-        )?;
-
-        add_gitignore_entries(
-            &ctx.project_dir,
-            &entry.name,
-            &entry.source,
-            &merged_options,
-        )?;
-        register_in_registry(&entry.source, &ctx.project_dir)?;
-        lockfile.upsert(locked);
-        json_installed.push(serde_json::json!({ "name": entry.name }));
-    }
+    let _installed = install_approved_skills(
+        &installer,
+        &buckets,
+        &warned_selections,
+        &p,
+        json,
+        |name, source, locked| {
+            finalize_skill_install(
+                &ctx,
+                &merged_options,
+                name,
+                source,
+                locked,
+                &mut lockfile,
+                &FinalizeOptions::INSTALL,
+            )
+        },
+    )?;
 
     // Log skipped errored skills
-    for (name, _) in &errored {
+    let mut json_skipped: Vec<serde_json::Value> = Vec::new();
+    for (name, _) in &buckets.errored {
         if !json {
             println!("  Skipping '{}' (validation errors)", name);
         }
@@ -261,6 +173,19 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
     lockfile.write_to(&ctx.lockfile_path)?;
 
     if json {
+        let mut json_installed: Vec<serde_json::Value> = buckets
+            .clean
+            .iter()
+            .map(|e| serde_json::json!({ "name": e.name }))
+            .collect();
+        for (i, (entry, _)) in buckets.warned.iter().enumerate() {
+            if warned_selections.get(i).copied().unwrap_or(false) {
+                json_installed.push(serde_json::json!({ "name": entry.name }));
+            } else {
+                json_skipped
+                    .push(serde_json::json!({ "name": entry.name, "reason": "deselected" }));
+            }
+        }
         crate::json::print_success(serde_json::json!({
             "installed": json_installed,
             "skipped": json_skipped,

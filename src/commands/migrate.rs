@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use crate::commands::install_shared::register_in_registry;
 use crate::context::ProjectContext;
 use crate::style::Paint;
-use ion_skill::installer::{InstallValidationOptions, SkillInstaller};
+use ion_skill::installer::InstallValidationOptions;
 use ion_skill::manifest::ManifestOptions;
 use ion_skill::migrate::{
     DiscoveredSkill, DiscoveryOrigin, MigrateOptions, ResolvedSkill, discover_from_directories,
@@ -15,7 +15,7 @@ use ion_skill::search::{SearchCache, SearchSource};
 
 pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let project_dir = &ctx.project_dir;
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
@@ -188,9 +188,8 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
 
         if !json {
             let commit_display = entry
-                .commit
-                .as_deref()
-                .map(|c| if c.len() > 7 { &c[..7] } else { c })
+                .commit()
+                .map(|c: &str| if c.len() > 7 { &c[..7] } else { c })
                 .unwrap_or("(none)");
             println!(
                 "  {} ... installed, commit {}",
@@ -281,7 +280,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                 if should_switch {
                     match ion_skill::source::SkillSource::infer(source_str) {
                         Ok(source) => {
-                            let installer = SkillInstaller::new(project_dir, &merged_options);
+                            let installer = ctx.installer(&merged_options);
                             let validation = InstallValidationOptions {
                                 skip_validation: false,
                                 allow_warnings: true,
@@ -385,7 +384,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
             "migrated": locked.iter().map(|s| serde_json::json!({
                 "name": s.name,
                 "source": s.source,
-                "commit": s.commit,
+                "commit": s.commit(),
             })).collect::<Vec<_>>(),
             "matched": matched_skills,
             "custom": custom_skills,
@@ -477,64 +476,33 @@ fn search_for_skill(
 }
 
 fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
-    // Stage all ion-related files
-    let files_to_stage = ["Ion.toml", "Ion.lock", ".gitignore", ".agents/"];
+    // Stage all ion-related files that exist
+    let candidates = ["Ion.toml", "Ion.lock", ".gitignore", ".agents/"];
+    let files_to_stage: Vec<&str> = candidates
+        .iter()
+        .copied()
+        .filter(|f| {
+            let path = project_dir.join(f);
+            path.exists() || path.is_symlink()
+        })
+        .collect();
 
-    for file in &files_to_stage {
-        let path = project_dir.join(file);
-        if path.exists() || path.is_symlink() {
-            let _ = std::process::Command::new("git")
-                .args(["add", file])
-                .current_dir(project_dir)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status();
-        }
+    if !files_to_stage.is_empty() {
+        let _ = ion_cli::git::stage_files(project_dir, &files_to_stage);
     }
 
-    // Also stage target directories that might contain symlinks
     // Check if there are any staged changes
-    let status = std::process::Command::new("git")
-        .args(["diff", "--cached", "--quiet"])
-        .current_dir(project_dir)
-        .status();
-
-    match status {
-        Ok(s) if !s.success() => {
-            // There are staged changes — commit them
-            let commit = std::process::Command::new("git")
-                .args([
-                    "commit",
-                    "-m",
-                    "chore: migrate skills to ion management\n\nMigrated from skills-lock.json to Ion.toml/Ion.lock.\nSkill directories are now symlinks to ion-managed global storage.\nLeftover skills handled as local or matched to remote sources.",
-                ])
-                .current_dir(project_dir)
-                .stdout(std::process::Stdio::piped())
-                .stderr(std::process::Stdio::null())
-                .output();
-
-            if let Ok(output) = commit
-                && output.status.success()
-            {
-                // Get the commit hash
-                let hash = std::process::Command::new("git")
-                    .args(["rev-parse", "HEAD"])
-                    .current_dir(project_dir)
-                    .output()
-                    .ok()
-                    .and_then(|o| {
-                        if o.status.success() {
-                            Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
-                        } else {
-                            None
-                        }
-                    });
-                return hash;
-            }
-            None
-        }
-        _ => None, // No changes to commit or not a git repo
+    let has_changes = ion_cli::git::has_staged_changes(project_dir).ok()?;
+    if !has_changes {
+        return None; // No changes to commit or not a git repo
     }
+
+    // There are staged changes — commit them and return the SHA
+    ion_cli::git::create_commit(
+        project_dir,
+        "chore: migrate skills to ion management\n\nMigrated from skills-lock.json to Ion.toml/Ion.lock.\nSkill directories are now symlinks to ion-managed global storage.\nLeftover skills handled as local or matched to remote sources.",
+    )
+    .ok()
 }
 
 fn resolve_skill(skill: &DiscoveredSkill, stdin: &mut impl BufRead) -> Option<ResolvedSkill> {

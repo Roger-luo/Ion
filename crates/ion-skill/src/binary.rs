@@ -463,74 +463,21 @@ pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
         )));
     }
 
-    let output = std::process::Command::new("cargo")
-        .args([
-            "metadata",
-            "--no-deps",
-            "--format-version",
-            "1",
-            "--manifest-path",
-        ])
-        .arg(&manifest_path)
-        .output()
-        .map_err(|e| crate::Error::Other(format!("Failed to run cargo metadata: {}", e)))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(crate::Error::Other(format!(
-            "cargo metadata failed: {}",
-            stderr.trim()
-        )));
-    }
-
-    let json: serde_json::Value = serde_json::from_slice(&output.stdout)
-        .map_err(|e| crate::Error::Other(format!("Failed to parse cargo metadata: {}", e)))?;
-
-    let packages = json["packages"]
-        .as_array()
-        .ok_or_else(|| crate::Error::Other("No packages in cargo metadata".to_string()))?;
-
-    // Find the package whose manifest_path matches our project
-    let manifest_str = manifest_path.to_string_lossy();
-    let package = packages
-        .iter()
-        .find(|p| {
-            p["manifest_path"]
-                .as_str()
-                .is_some_and(|mp| mp == manifest_str.as_ref())
-        })
-        .or_else(|| packages.first())
-        .ok_or_else(|| crate::Error::Other("No packages found in cargo metadata".to_string()))?;
-
-    let version = package["version"].as_str().unwrap_or("0.0.0").to_string();
-
-    // Find the first binary target
-    let targets = package["targets"].as_array().ok_or_else(|| {
-        crate::Error::Other("No targets found in cargo metadata package".to_string())
-    })?;
-
-    let bin_target = targets
-        .iter()
-        .find(|t| {
-            t["kind"]
-                .as_array()
-                .is_some_and(|kinds| kinds.iter().any(|k| k.as_str() == Some("bin")))
-        })
+    let meta = ion_cli::cargo::metadata(&manifest_path)?;
+    let binary_name = meta
+        .binary_targets
+        .first()
         .ok_or_else(|| {
             crate::Error::Other(format!(
                 "No binary target found in {}. Is this a binary crate?",
                 project_path.display()
             ))
-        })?;
-
-    let binary_name = bin_target["name"]
-        .as_str()
-        .ok_or_else(|| crate::Error::Other("Binary target has no name".to_string()))?
-        .to_string();
+        })?
+        .clone();
 
     Ok(CargoProject {
         binary_name,
-        version,
+        version: meta.version,
     })
 }
 
@@ -547,17 +494,7 @@ pub fn install_binary_from_local(
     }
 
     let manifest_path = project_path.join("Cargo.toml");
-    let status = std::process::Command::new("cargo")
-        .args(["build", "--release", "--manifest-path"])
-        .arg(&manifest_path)
-        .status()
-        .map_err(|e| crate::Error::Other(format!("Failed to run cargo build: {}", e)))?;
-
-    if !status.success() {
-        return Err(crate::Error::Other(
-            "cargo build --release failed".to_string(),
-        ));
-    }
+    ion_cli::cargo::build_release(&manifest_path)?;
 
     // Find the built binary in target/release/
     let target_dir = project_path.join("target").join("release");
@@ -630,26 +567,7 @@ pub fn setup_dev_binary(
             .map_err(|e| crate::Error::Other(format!("Failed to read SKILL.md: {}", e)))?
     } else {
         let manifest_path = project_path.join("Cargo.toml");
-        let output = std::process::Command::new("cargo")
-            .args(["run", "-q", "--manifest-path"])
-            .arg(&manifest_path)
-            .args(["--bin", binary_name, "--", "self", "skill"])
-            .output()
-            .map_err(|e| {
-                crate::Error::Other(format!("Failed to run 'cargo run -- self skill': {}", e))
-            })?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(crate::Error::Other(format!(
-                "'cargo run -- self skill' failed (exit {}): {}",
-                output.status,
-                stderr.trim()
-            )));
-        }
-
-        let stdout = String::from_utf8(output.stdout)
-            .map_err(|e| crate::Error::Other(format!("Invalid UTF-8 in skill output: {}", e)))?;
+        let stdout = ion_cli::cargo::run(&manifest_path, binary_name, &["self", "skill"])?;
 
         if stdout.trim().is_empty() {
             return Err(crate::Error::Other(

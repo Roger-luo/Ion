@@ -1101,6 +1101,7 @@ dependencies = [
  "crossterm",
  "dirs",
  "env_logger",
+ "ion-cli",
  "ion-skill",
  "ionem",
  "log",
@@ -1109,8 +1110,19 @@ dependencies = [
  "ratatui",
  "serde",
  "serde_json",
+ "similar",
  "tempfile",
  "toml_edit",
+]
+
+[[package]]
+name = "ion-cli"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1119,6 +1131,7 @@ version = "0.1.0"
 dependencies = [
  "dirs",
  "flate2",
+ "ion-cli",
  "ionem",
  "log",
  "pathdiff",
@@ -2369,6 +2382,12 @@ name = "simd-adler32"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
+
+[[package]]
+name = "similar"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
 
 [[package]]
 name = "siphasher"

@@ -19,7 +19,7 @@ pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
         )
     })?;
 
-    let binary_name = locked.binary.as_deref().ok_or_else(|| {
+    let binary_name = locked.binary_name().ok_or_else(|| {
         anyhow::anyhow!(
             "Skill '{}' is not a binary skill (no binary field in lockfile).",
             name
@@ -27,11 +27,11 @@ pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
     })?;
 
     // Dev mode: forward to `cargo run` in the local project
-    if locked.dev == Some(true) {
+    if locked.is_dev() {
         return run_dev(&locked.source, binary_name, args, json);
     }
 
-    let version = locked.binary_version.as_deref().ok_or_else(|| {
+    let version = locked.binary_version().ok_or_else(|| {
         anyhow::anyhow!(
             "Skill '{}' has no binary_version in lockfile. Try `ion install`.",
             name
@@ -110,53 +110,45 @@ fn run_dev(
         );
     }
 
+    let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
     if json {
-        let output = std::process::Command::new("cargo")
-            .args(["run", "-q", "--manifest-path"])
-            .arg(&manifest_path)
-            .args(["--bin", binary_name, "--"])
-            .args(args)
-            .output()
-            .map_err(|e| anyhow::anyhow!("Failed to run cargo run: {}", e))?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let code = output.status.code().unwrap_or(1);
-
-        if output.status.success() {
-            crate::json::print_success(serde_json::json!({
-                "binary": binary_name,
-                "dev": true,
-                "exit_code": code,
-                "stdout": stdout,
-                "stderr": stderr,
-            }));
-        } else {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&serde_json::json!({
-                    "success": false,
-                    "error": format!("cargo run exited with code {}", code),
+        match ion_cli::cargo::run(&manifest_path, binary_name, &str_args) {
+            Ok(stdout) => {
+                crate::json::print_success(serde_json::json!({
                     "binary": binary_name,
                     "dev": true,
-                    "exit_code": code,
+                    "exit_code": 0,
                     "stdout": stdout,
-                    "stderr": stderr,
-                }))
-                .unwrap()
-            );
-            std::process::exit(code);
+                    "stderr": "",
+                }));
+            }
+            Err(ion_cli::CliError::Failed { code, stderr, .. }) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "success": false,
+                        "error": format!("cargo run exited with code {}", code),
+                        "binary": binary_name,
+                        "dev": true,
+                        "exit_code": code,
+                        "stdout": "",
+                        "stderr": stderr,
+                    }))
+                    .unwrap()
+                );
+                std::process::exit(code);
+            }
+            Err(e) => return Err(e.into()),
         }
         return Ok(());
     }
 
-    let status = std::process::Command::new("cargo")
-        .args(["run", "-q", "--manifest-path"])
-        .arg(&manifest_path)
-        .args(["--bin", binary_name, "--"])
-        .args(args)
-        .status()
-        .map_err(|e| anyhow::anyhow!("Failed to run cargo run: {}", e))?;
-
-    std::process::exit(status.code().unwrap_or(1));
+    if let Err(e) = ion_cli::cargo::run_interactive(&manifest_path, binary_name, &str_args) {
+        if let ion_cli::CliError::Failed { code, .. } = e {
+            std::process::exit(code);
+        }
+        return Err(e.into());
+    }
+    std::process::exit(0);
 }

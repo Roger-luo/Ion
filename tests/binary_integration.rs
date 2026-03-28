@@ -15,26 +15,27 @@ brainstorming = "obra/superpowers/brainstorming"
     let entry = manifest.skills.get("mytool").unwrap();
     let source = entry.resolve().unwrap();
 
-    assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
+    assert!(source.is_binary());
     assert_eq!(source.source, "owner/mytool");
-    assert_eq!(source.binary.as_deref(), Some("mytool"));
+    match &source.kind {
+        ion_skill::source::SkillSourceKind::Binary { binary_name, .. } => {
+            assert_eq!(binary_name, "mytool");
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 }
 
 /// Test that LockedSkill with binary fields roundtrips through TOML.
 #[test]
 fn test_binary_locked_skill_roundtrip() {
-    let locked = ion_skill::lockfile::LockedSkill {
-        name: "mytool".to_string(),
-        source: "https://github.com/owner/mytool.git".to_string(),
-        path: None,
-        version: Some("1.2.0".to_string()),
-        commit: None,
-        checksum: None,
-        binary: Some("mytool".to_string()),
-        binary_version: Some("1.2.0".to_string()),
-        binary_checksum: Some("sha256:abc123".to_string()),
-        dev: None,
-    };
+    let locked = ion_skill::lockfile::LockedSkill::binary(
+        "mytool",
+        "https://github.com/owner/mytool.git",
+        "mytool",
+        Some("1.2.0".to_string()),
+        Some("sha256:abc123".to_string()),
+    )
+    .with_version("1.2.0");
 
     let lockfile = ion_skill::lockfile::Lockfile {
         skills: vec![locked],
@@ -47,12 +48,9 @@ fn test_binary_locked_skill_roundtrip() {
 
     let loaded = ion_skill::lockfile::Lockfile::from_file(&path).unwrap();
     assert_eq!(loaded.skills.len(), 1);
-    assert_eq!(loaded.skills[0].binary.as_deref(), Some("mytool"));
-    assert_eq!(loaded.skills[0].binary_version.as_deref(), Some("1.2.0"));
-    assert_eq!(
-        loaded.skills[0].binary_checksum.as_deref(),
-        Some("sha256:abc123")
-    );
+    assert_eq!(loaded.skills[0].binary_name(), Some("mytool"));
+    assert_eq!(loaded.skills[0].binary_version(), Some("1.2.0"));
+    assert_eq!(loaded.skills[0].checksum(), Some("sha256:abc123"));
 }
 
 /// Test platform detection produces valid values.
@@ -80,19 +78,18 @@ local = { type = "path", source = "./my-local-skill" }
     assert_eq!(manifest.skills.len(), 3);
 
     let binary_source = manifest.skills["mytool"].resolve().unwrap();
-    assert_eq!(
-        binary_source.source_type,
-        ion_skill::source::SourceType::Binary
-    );
+    assert!(binary_source.is_binary());
     assert_eq!(binary_source.rev.as_deref(), Some("v1.0"));
-    assert_eq!(binary_source.binary.as_deref(), Some("mytool"));
+    match &binary_source.kind {
+        ion_skill::source::SkillSourceKind::Binary { binary_name, .. } => {
+            assert_eq!(binary_name, "mytool");
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 
     let regular_source = manifest.skills["brainstorming"].resolve().unwrap();
-    assert_eq!(
-        regular_source.source_type,
-        ion_skill::source::SourceType::Github
-    );
-    assert!(regular_source.binary.is_none());
+    assert!(regular_source.is_github());
+    assert!(!regular_source.is_binary());
 }
 
 /// Test manifest_writer handles binary skills in Ion.toml.
@@ -172,37 +169,37 @@ fn test_lockfile_binary_version_update() {
 
     // Initial install at v1.0.0
     let mut lockfile = ion_skill::lockfile::Lockfile::default();
-    lockfile.upsert(ion_skill::lockfile::LockedSkill {
-        name: "mytool".to_string(),
-        source: "https://github.com/owner/mytool.git".to_string(),
-        path: None,
-        version: Some("1.0.0".to_string()),
-        commit: None,
-        checksum: None,
-        binary: Some("mytool".to_string()),
-        binary_version: Some("1.0.0".to_string()),
-        binary_checksum: Some("sha256:old".to_string()),
-        dev: None,
-    });
+    lockfile.upsert(
+        ion_skill::lockfile::LockedSkill::binary(
+            "mytool",
+            "https://github.com/owner/mytool.git",
+            "mytool",
+            Some("1.0.0".to_string()),
+            Some("sha256:old".to_string()),
+        )
+        .with_version("1.0.0"),
+    );
 
     lockfile.write_to(&path).unwrap();
 
-    // Simulate update to v2.0.0
+    // Simulate update to v2.0.0 by replacing with a new entry
     let mut lockfile = ion_skill::lockfile::Lockfile::from_file(&path).unwrap();
-    let mut entry = lockfile.find("mytool").unwrap().clone();
-    entry.binary_version = Some("2.0.0".to_string());
-    entry.binary_checksum = Some("sha256:new".to_string());
-    entry.version = Some("2.0.0".to_string());
-    lockfile.upsert(entry);
+    lockfile.upsert(
+        ion_skill::lockfile::LockedSkill::binary(
+            "mytool",
+            "https://github.com/owner/mytool.git",
+            "mytool",
+            Some("2.0.0".to_string()),
+            Some("sha256:new".to_string()),
+        )
+        .with_version("2.0.0"),
+    );
     lockfile.write_to(&path).unwrap();
 
     // Verify update persisted
     let loaded = ion_skill::lockfile::Lockfile::from_file(&path).unwrap();
-    assert_eq!(loaded.skills[0].binary_version.as_deref(), Some("2.0.0"));
-    assert_eq!(
-        loaded.skills[0].binary_checksum.as_deref(),
-        Some("sha256:new")
-    );
+    assert_eq!(loaded.skills[0].binary_version(), Some("2.0.0"));
+    assert_eq!(loaded.skills[0].checksum(), Some("sha256:new"));
 }
 
 /// Test list_installed_binaries returns correct names.
@@ -307,10 +304,19 @@ mytool = { type = "binary", source = "owner/mytool", binary = "mytool", asset-pa
 "#;
     let manifest = Manifest::parse(toml_str).unwrap();
     let source = manifest.skills["mytool"].resolve().unwrap();
-    assert_eq!(source.source_type, ion_skill::source::SourceType::Binary);
-    assert_eq!(source.binary.as_deref(), Some("mytool"));
-    assert_eq!(
-        source.asset_pattern.as_deref(),
-        Some("mytool-{version}-{os}-{arch}.tar.gz")
-    );
+    assert!(source.is_binary());
+    match &source.kind {
+        ion_skill::source::SkillSourceKind::Binary {
+            binary_name,
+            asset_pattern,
+            ..
+        } => {
+            assert_eq!(binary_name, "mytool");
+            assert_eq!(
+                asset_pattern.as_deref(),
+                Some("mytool-{version}-{os}-{arch}.tar.gz")
+            );
+        }
+        _ => panic!("Expected Binary kind"),
+    }
 }

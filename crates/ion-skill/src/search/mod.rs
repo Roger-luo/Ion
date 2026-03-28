@@ -259,7 +259,7 @@ pub fn parallel_search(
                     }
                     Err(e) => {
                         log::debug!("parallel: '{}' failed: {e}", source.name());
-                        eprintln!("Warning: {} search failed: {e}", source.name());
+                        eprintln!("warning: {} search failed: {e}", source.name());
                         (source.name().to_string(), vec![], false)
                     }
                 }
@@ -280,7 +280,7 @@ pub fn parallel_search(
                 }
                 all_results.extend(results);
             }
-            Err(_) => eprintln!("Warning: a search thread panicked"),
+            Err(_) => log::warn!("A search thread panicked"),
         }
     }
     log::debug!("parallel: merged {} total results", all_results.len());
@@ -337,7 +337,7 @@ pub fn cascade_search(
             }
             Err(e) => {
                 log::debug!("cascade: source '{}' failed: {e}", source.name());
-                eprintln!("Warning: {} search failed: {e}", source.name());
+                eprintln!("warning: {} search failed: {e}", source.name());
             }
         }
     }

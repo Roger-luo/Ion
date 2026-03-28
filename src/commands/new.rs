@@ -256,17 +256,7 @@ const BIN_BUILD_RS_TEMPLATE: &str = r#"fn main() {
 
 /// Scaffold a Rust binary project in `target_dir` with clap, ion-skill, and a self subcommand.
 fn scaffold_bin_project(target_dir: &Path, name: &str) -> anyhow::Result<()> {
-    let status = std::process::Command::new("cargo")
-        .args(["init", "--bin"])
-        .current_dir(target_dir)
-        .status()
-        .map_err(|e| {
-            anyhow::anyhow!("Failed to run cargo: {e}. Is the Rust toolchain installed?")
-        })?;
-
-    if !status.success() {
-        anyhow::bail!("cargo init --bin failed");
-    }
+    ion_cli::cargo::init(target_dir, name)?;
 
     let cargo_toml_path = target_dir.join("Cargo.toml");
     let cargo_content = std::fs::read_to_string(&cargo_toml_path)?;

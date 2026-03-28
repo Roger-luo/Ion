@@ -103,27 +103,12 @@ pub struct GitHubSource;
 
 impl GitHubSource {
     fn gh_available() -> bool {
-        std::process::Command::new("gh")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok_and(|s| s.success())
+        ion_cli::gh::available()
     }
 
     fn run_gh(args: &[&str]) -> crate::Result<String> {
         log::debug!("github: running gh {}", args.join(" "));
-        let output = std::process::Command::new("gh")
-            .args(args)
-            .output()
-            .map_err(|e| crate::Error::Search(format!("Failed to run gh: {e}")))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(crate::Error::Search(format!("gh failed: {stderr}")));
-        }
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        log::debug!("github: gh returned {} bytes", stdout.len());
-        Ok(stdout)
+        ion_cli::gh::run(args).map_err(|e| crate::Error::Search(e.to_string()))
     }
 }
 
@@ -438,23 +423,15 @@ fn fetch_skill_description(source: &str) -> Option<String> {
         .unwrap_or_else(|| "SKILL.md".to_string());
 
     log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let output = std::process::Command::new("gh")
-        .args([
-            "api",
-            &format!("repos/{repo}/contents/{skill_path}"),
-            "--jq",
-            ".content",
-        ])
-        .output()
-        .ok()?;
+    let stdout = ion_cli::gh::run(&[
+        "api",
+        &format!("repos/{repo}/contents/{skill_path}"),
+        "--jq",
+        ".content",
+    ])
+    .ok()?;
 
-    if !output.status.success() {
-        log::debug!("enrich: failed to fetch SKILL.md from {repo}");
-        return None;
-    }
-
-    let b64 = String::from_utf8_lossy(&output.stdout);
-    let b64_clean: String = b64.chars().filter(|c| !c.is_whitespace()).collect();
+    let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
     let decoded = base64_decode(&b64_clean)?;
     parse_skill_description(&decoded)
 }
@@ -466,16 +443,10 @@ fn fetch_stars(source: &str) -> Option<u64> {
         return None;
     }
 
-    let output = std::process::Command::new("gh")
-        .args(["api", &format!("repos/{repo}"), "--jq", ".stargazers_count"])
-        .output()
-        .ok()?;
+    let stdout =
+        ion_cli::gh::run(&["api", &format!("repos/{repo}"), "--jq", ".stargazers_count"]).ok()?;
 
-    if !output.status.success() {
-        return None;
-    }
-
-    String::from_utf8_lossy(&output.stdout).trim().parse().ok()
+    stdout.trim().parse().ok()
 }
 
 #[cfg(test)]

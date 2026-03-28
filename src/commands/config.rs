@@ -1,6 +1,7 @@
 use clap::Subcommand;
 use ion_skill::config::GlobalConfig;
 use ion_skill::manifest::Manifest;
+use ion_skill::manifest_writer;
 
 #[derive(Subcommand)]
 pub enum ConfigAction {
@@ -75,7 +76,7 @@ fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
 fn run_set(key: &str, value: &str, project: bool, json: bool) -> anyhow::Result<()> {
     if project {
         let ctx = crate::context::ProjectContext::load()?;
-        set_project_value(&ctx.manifest_path, key, value)?;
+        manifest_writer::set_option(&ctx.manifest_path, key, value)?;
     } else {
         let config_path = GlobalConfig::config_path()
             .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
@@ -143,49 +144,6 @@ fn run_list(project: bool, json: bool) -> anyhow::Result<()> {
     } else {
         print_config_sections(&values);
     }
-    Ok(())
-}
-
-/// Set a value in the project manifest's [options] section using toml_edit.
-fn set_project_value(
-    manifest_path: &std::path::Path,
-    key: &str,
-    value: &str,
-) -> anyhow::Result<()> {
-    use toml_edit::{DocumentMut, Item, Table};
-
-    let (section, field) = key
-        .split_once('.')
-        .ok_or_else(|| anyhow::anyhow!("Invalid key format '{key}': expected 'section.key'"))?;
-
-    let content = std::fs::read_to_string(manifest_path)?;
-    let mut doc: DocumentMut = content.parse()?;
-
-    if !doc.contains_key("options") {
-        doc["options"] = Item::Table(Table::new());
-    }
-    let options = doc["options"]
-        .as_table_mut()
-        .ok_or_else(|| anyhow::anyhow!("[options] is not a table"))?;
-
-    match section {
-        "targets" => {
-            if !options.contains_key(section) {
-                options[section] = Item::Table(Table::new());
-            }
-            options[section][field] = toml_edit::value(value);
-        }
-        "options" => {
-            options[field] = toml_edit::value(value);
-        }
-        _ => {
-            anyhow::bail!(
-                "Project config only supports 'targets' and 'options' sections, got '{section}'"
-            );
-        }
-    }
-
-    std::fs::write(manifest_path, doc.to_string())?;
     Ok(())
 }
 

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use toml_edit::{DocumentMut, Item, Table, value};
 
-use crate::source::{SkillSource, SourceType};
+use crate::source::{SkillSource, SkillSourceKind};
 use crate::{Error, Result};
 
 /// Add a skill entry to an Ion.toml string. Returns the updated TOML string.
@@ -139,51 +139,160 @@ pub fn write_agents_config(
     Ok(result)
 }
 
+/// Set a value in the [options] section of Ion.toml.
+///
+/// Handles nested sub-sections like `targets.claude` by writing to
+/// `[options.targets]`, and direct option keys like `options.skills-dir`
+/// by writing to `[options]`.
+pub fn set_option(manifest_path: &Path, key: &str, val: &str) -> Result<String> {
+    let (section, field) = key.split_once('.').ok_or_else(|| {
+        Error::Manifest(format!(
+            "Invalid key format '{key}': expected 'section.key'"
+        ))
+    })?;
+
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("skills") {
+        doc["skills"] = Item::Table(Table::new());
+    }
+
+    if !doc.contains_key("options") {
+        doc["options"] = Item::Table(Table::new());
+    }
+    let options = doc["options"]
+        .as_table_mut()
+        .ok_or_else(|| Error::Manifest("[options] is not a table".to_string()))?;
+
+    match section {
+        "targets" => {
+            if !options.contains_key(section) {
+                options[section] = Item::Table(Table::new());
+            }
+            options[section][field] = value(val);
+        }
+        "options" => {
+            options[field] = value(val);
+        }
+        _ => {
+            return Err(Error::Manifest(format!(
+                "Project config only supports 'targets' and 'options' sections, got '{section}'"
+            )));
+        }
+    }
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
+/// Delete a value from the [options] section of Ion.toml.
+///
+/// For `targets.<key>`, removes the key from `[options.targets]`.
+/// For `options.<key>`, removes the key from `[options]`.
+pub fn delete_option(manifest_path: &Path, key: &str) -> Result<String> {
+    let (section, field) = key.split_once('.').ok_or_else(|| {
+        Error::Manifest(format!(
+            "Invalid key format '{key}': expected 'section.key'"
+        ))
+    })?;
+
+    let content = std::fs::read_to_string(manifest_path).map_err(Error::Io)?;
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if let Some(options) = doc.get_mut("options").and_then(|item| item.as_table_mut()) {
+        match section {
+            "targets" => {
+                if let Some(targets) = options.get_mut(section).and_then(|t| t.as_table_mut()) {
+                    targets.remove(field);
+                }
+            }
+            "options" => {
+                options.remove(field);
+            }
+            _ => {
+                return Err(Error::Manifest(format!(
+                    "Project config only supports 'targets' and 'options' sections, got '{section}'"
+                )));
+            }
+        }
+    }
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
+    // Extract kind-specific optional fields
+    let (binary_name, asset_pattern, dev) = match &source.kind {
+        SkillSourceKind::Binary {
+            binary_name,
+            asset_pattern,
+            dev,
+            ..
+        } => (Some(binary_name.as_str()), asset_pattern.as_deref(), *dev),
+        _ => (None, None, false),
+    };
+    let forked_from = match &source.kind {
+        SkillSourceKind::Local { forked_from } => forked_from.as_deref(),
+        _ => None,
+    };
+
     let needs_table = source.rev.is_some()
         || source.version.is_some()
         || source.path.is_some()
-        || source.binary.is_some()
-        || source.asset_pattern.is_some()
-        || source.forked_from.is_some()
-        || source.dev
-        || source.source_type == SourceType::Local;
+        || binary_name.is_some()
+        || asset_pattern.is_some()
+        || forked_from.is_some()
+        || dev
+        || source.is_local();
 
     if !needs_table {
-        let display = match (&source.source_type, &source.path) {
-            (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
-            _ => source.source.clone(),
+        let display = if source.is_github() {
+            match &source.path {
+                Some(path) => format!("{}/{}", source.source, path),
+                None => source.source.clone(),
+            }
+        } else {
+            source.source.clone()
         };
         return value(display);
     }
 
     let mut table = toml_edit::InlineTable::new();
 
-    match source.source_type {
-        SourceType::Github => {}
-        SourceType::Git => {
+    match &source.kind {
+        SkillSourceKind::Github => {}
+        SkillSourceKind::Git => {
             table.insert("type", "git".into());
         }
-        SourceType::Http => {
+        SkillSourceKind::Http => {
             table.insert("type", "http".into());
         }
-        SourceType::Path => {
+        SkillSourceKind::Path => {
             table.insert("type", "path".into());
         }
-        SourceType::Binary => {
+        SkillSourceKind::Binary { .. } => {
             table.insert("type", "binary".into());
         }
-        SourceType::Local => {
+        SkillSourceKind::Local { .. } => {
             table.insert("type", "local".into());
         }
     }
 
     // Local skills have no source field
-    if source.source_type != SourceType::Local {
-        let source_str = match (&source.source_type, &source.path) {
-            (SourceType::Github, Some(path)) => format!("{}/{}", source.source, path),
-            _ => source.source.clone(),
+    if !source.is_local() {
+        let source_str = if source.is_github() {
+            match &source.path {
+                Some(path) => format!("{}/{}", source.source, path),
+                None => source.source.clone(),
+            }
+        } else {
+            source.source.clone()
         };
         table.insert("source", source_str.into());
     }
@@ -195,20 +304,20 @@ fn skill_to_toml(source: &SkillSource) -> Item {
         table.insert("rev", r.as_str().into());
     }
     if let Some(ref p) = source.path
-        && source.source_type != SourceType::Github
+        && !source.is_github()
     {
         table.insert("path", p.as_str().into());
     }
-    if let Some(ref b) = source.binary {
-        table.insert("binary", b.as_str().into());
+    if let Some(b) = binary_name {
+        table.insert("binary", b.into());
     }
-    if let Some(ref ap) = source.asset_pattern {
-        table.insert("asset-pattern", ap.as_str().into());
+    if let Some(ap) = asset_pattern {
+        table.insert("asset-pattern", ap.into());
     }
-    if let Some(ref ff) = source.forked_from {
-        table.insert("forked-from", ff.as_str().into());
+    if let Some(ff) = forked_from {
+        table.insert("forked-from", ff.into());
     }
-    if source.dev {
+    if dev {
         table.insert("dev", true.into());
     }
 
@@ -421,5 +530,109 @@ mod tests {
             result.contains("brainstorming"),
             "existing skills should be preserved"
         );
+    }
+
+    #[test]
+    fn set_option_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        let result = set_option(&path, "targets.claude", ".claude/skills").unwrap();
+        assert!(result.contains("[options]"));
+        assert!(result.contains("claude"));
+        assert!(result.contains(".claude/skills"));
+    }
+
+    #[test]
+    fn set_option_skills_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        let result = set_option(&path, "options.skills-dir", "my-skills").unwrap();
+        assert!(result.contains("[options]"));
+        assert!(result.contains("skills-dir = \"my-skills\""));
+    }
+
+    #[test]
+    fn set_option_preserves_existing_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(
+            &path,
+            "[skills]\nbrainstorming = \"obra/superpowers/brainstorming\"\n",
+        )
+        .unwrap();
+
+        let result = set_option(&path, "targets.cursor", ".cursor/skills").unwrap();
+        assert!(
+            result.contains("brainstorming"),
+            "existing skills preserved"
+        );
+        assert!(result.contains("cursor"));
+    }
+
+    #[test]
+    fn set_option_invalid_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        assert!(set_option(&path, "unknown.key", "value").is_err());
+    }
+
+    #[test]
+    fn set_option_invalid_key_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        assert!(set_option(&path, "noperiod", "value").is_err());
+    }
+
+    #[test]
+    fn delete_option_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(
+            &path,
+            "[skills]\n\n[options.targets]\nclaude = \".claude/skills\"\ncursor = \".cursor/skills\"\n",
+        )
+        .unwrap();
+
+        let result = delete_option(&path, "targets.cursor").unwrap();
+        assert!(!result.contains("cursor"));
+        assert!(result.contains("claude"));
+    }
+
+    #[test]
+    fn delete_option_skills_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n\n[options]\nskills-dir = \"my-skills\"\n").unwrap();
+
+        let result = delete_option(&path, "options.skills-dir").unwrap();
+        assert!(!result.contains("skills-dir"));
+    }
+
+    #[test]
+    fn delete_option_nonexistent_is_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        // Should not error when the key doesn't exist
+        let result = delete_option(&path, "targets.nonexistent").unwrap();
+        assert!(result.contains("[skills]"));
+    }
+
+    #[test]
+    fn delete_option_invalid_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        assert!(delete_option(&path, "unknown.key").is_err());
     }
 }

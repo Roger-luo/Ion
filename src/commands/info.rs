@@ -19,7 +19,7 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
     if json {
         let mut data = serde_json::json!({
             "name": skill_str,
-            "source_type": format!("{:?}", source.source_type),
+            "source_type": format!("{:?}", source.kind),
             "source": source.source,
         });
         if let Some(ref path) = source.path {
@@ -33,7 +33,7 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
     }
 
     println!("Fetching info for '{skill_str}'...");
-    println!("  Source type: {:?}", source.source_type);
+    println!("  Source type: {:?}", source.kind);
     println!("  Source: {}", source.source);
     if let Some(ref path) = source.path {
         println!("  Path: {path}");
@@ -70,14 +70,12 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
             "version": meta.version(),
         });
         if let Some(locked) = locked
-            && let Some(ref binary_name) = locked.binary
+            && let Some(binary_name) = locked.binary_name()
         {
             data["binary"] = serde_json::json!(binary_name);
-            data["binary_version"] = serde_json::json!(locked.binary_version);
-            let bin_path = binary::binary_path(
-                binary_name,
-                locked.binary_version.as_deref().unwrap_or("unknown"),
-            );
+            data["binary_version"] = serde_json::json!(locked.binary_version());
+            let bin_path =
+                binary::binary_path(binary_name, locked.binary_version().unwrap_or("unknown"));
             data["binary_path"] = serde_json::json!(bin_path.display().to_string());
         }
         if let Some(ref metadata) = meta.metadata {
@@ -109,10 +107,10 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
     // Binary-specific info
     let lockfile = ctx.lockfile()?;
     if let Some(locked) = lockfile.find(name)
-        && let Some(ref binary_name) = locked.binary
+        && let Some(binary_name) = locked.binary_name()
     {
         println!("Binary: {binary_name}");
-        if let Some(ref binary_version) = locked.binary_version {
+        if let Some(binary_version) = locked.binary_version() {
             println!("Binary version: {binary_version}");
             let bin_path = binary::binary_path(binary_name, binary_version);
             println!("Binary path: {}", bin_path.display());

@@ -108,7 +108,7 @@ pub fn print_no_targets_hint(
 
 pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = crate::style::Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     // Handle legacy lowercase files
     rename_legacy_files(&ctx.project_dir)?;
@@ -163,7 +163,7 @@ pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     if let Err(e) =
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
-        eprintln!("Warning: failed to create agent symlinks: {e}");
+        log::warn!("Failed to create agent symlinks: {e}");
     }
 
     // Deploy agents-update skill if [agents] template is configured

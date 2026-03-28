@@ -1,15 +1,13 @@
 use std::path::PathBuf;
 
-use ion_skill::installer::SkillInstaller;
-use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
+use crate::commands::install_shared::{FinalizeOptions, finalize_skill_install_and_write};
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     let skill_path = if PathBuf::from(path).is_absolute() {
         PathBuf::from(path)
@@ -47,7 +45,7 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
     let manifest = ctx.manifest_or_empty()?;
     let merged_options = ctx.merged_options(&manifest);
 
-    let installer = SkillInstaller::new(&ctx.project_dir, &merged_options);
+    let installer = ctx.installer(&merged_options);
     let locked = installer.install(&name, &source)?;
 
     if !json {
@@ -65,15 +63,16 @@ pub fn run(path: &str, json: bool) -> anyhow::Result<()> {
 
     // No gitignore entries for local skills — they should be tracked in git
 
-    manifest_writer::add_skill(&ctx.manifest_path, &name, &source)?;
+    finalize_skill_install_and_write(
+        &ctx,
+        &merged_options,
+        &name,
+        &source,
+        locked,
+        &FinalizeOptions::ADD,
+    )?;
     if !json {
         println!("  Updated {}", p.dim("Ion.toml"));
-    }
-
-    let mut lockfile = ctx.lockfile()?;
-    lockfile.upsert(locked);
-    lockfile.write_to(&ctx.lockfile_path)?;
-    if !json {
         println!("  Updated {}", p.dim("Ion.lock"));
     }
 

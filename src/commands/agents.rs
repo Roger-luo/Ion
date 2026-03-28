@@ -41,7 +41,7 @@ pub fn deploy_agents_update_skill(
     ctx: &ProjectContext,
     options: &ion_skill::manifest::ManifestOptions,
 ) -> anyhow::Result<()> {
-    use ion_skill::installer::{SkillInstaller, builtin_skills_dir};
+    use ion_skill::installer::builtin_skills_dir;
 
     let skill_name = "agents-update";
     let global_dir = builtin_skills_dir().join(skill_name);
@@ -61,7 +61,7 @@ pub fn deploy_agents_update_skill(
     }
 
     // Deploy symlinks
-    let installer = SkillInstaller::new(&ctx.project_dir, options);
+    let installer = ctx.installer(options);
     installer.deploy(skill_name, &global_dir)?;
 
     // Gitignore the symlinks
@@ -87,7 +87,7 @@ pub fn deploy_agents_update_skill(
 
 pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
 
     // Check if [agents] already exists
     let manifest = ctx.manifest_or_empty()?;
@@ -156,12 +156,12 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
     if let Err(e) =
         ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
     {
-        eprintln!("Warning: failed to create agent symlinks: {e}");
+        log::warn!("Failed to create agent symlinks: {e}");
     }
 
     // Deploy agents-update built-in skill
     if let Err(e) = deploy_agents_update_skill(&ctx, &merged_options) {
-        eprintln!("Warning: failed to deploy agents-update skill: {e}");
+        log::warn!("Failed to deploy agents-update skill: {e}");
     }
 
     if !json {
@@ -180,7 +180,7 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
 
 pub fn update(json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     ctx.require_manifest()?;
 
     let manifest = ctx.manifest()?;
@@ -350,37 +350,13 @@ pub fn diff() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Use diff command for colorized output
-    let status = std::process::Command::new("diff")
-        .args([
-            "-u",
-            "--label",
-            "local/AGENTS.md",
-            "--label",
-            "upstream/AGENTS.md",
-        ])
-        .arg(&agents_md)
-        .arg(&upstream_path)
-        .status();
+    use similar::TextDiff;
 
-    match status {
-        Ok(s) if s.code() == Some(1) => {
-            // diff returns 1 when files differ — that's expected
-            Ok(())
-        }
-        Ok(s) if s.success() => {
-            println!("AGENTS.md is up to date with upstream.");
-            Ok(())
-        }
-        Ok(s) => {
-            anyhow::bail!("diff command failed with exit code: {:?}", s.code())
-        }
-        Err(_) => {
-            // diff not available — fall back to simple comparison
-            println!("--- local/AGENTS.md");
-            println!("+++ upstream/AGENTS.md");
-            println!("(files differ — install `diff` for detailed output)");
-            Ok(())
-        }
-    }
+    let diff = TextDiff::from_lines(&local_content, &upstream_content);
+    print!(
+        "{}",
+        diff.unified_diff()
+            .header("local/AGENTS.md", "upstream/AGENTS.md")
+    );
+    Ok(())
 }

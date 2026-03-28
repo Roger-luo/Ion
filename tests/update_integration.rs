@@ -119,7 +119,10 @@ fn update_git_skill_pulls_latest_commit() {
     // 4. Read lockfile to get the original commit
     let lock_before = read_lockfile(&project);
     let skill_before = lock_before.find("test-skill").expect("skill in lockfile");
-    let commit_before = skill_before.commit.clone().expect("commit in lockfile");
+    let commit_before = skill_before
+        .commit()
+        .expect("commit in lockfile")
+        .to_string();
 
     // 5. Make a new commit upstream
     push_upstream_commit(&upstream, "test-skill", "Updated body text.");
@@ -149,7 +152,10 @@ fn update_git_skill_pulls_latest_commit() {
     let skill_after = lock_after
         .find("test-skill")
         .expect("skill in lockfile after update");
-    let commit_after = skill_after.commit.clone().expect("commit after update");
+    let commit_after = skill_after
+        .commit()
+        .expect("commit after update")
+        .to_string();
 
     assert_ne!(
         commit_before, commit_after,
@@ -198,7 +204,10 @@ fn update_skips_pinned_git_skill() {
     // Read lockfile to confirm initial state
     let lock_before = read_lockfile(&project);
     let skill_before = lock_before.find("pinned-skill").expect("skill in lockfile");
-    let commit_before = skill_before.commit.clone().expect("commit in lockfile");
+    let commit_before = skill_before
+        .commit()
+        .expect("commit in lockfile")
+        .to_string();
 
     // 4. Make new commit upstream
     push_upstream_commit(
@@ -231,7 +240,10 @@ fn update_skips_pinned_git_skill() {
     let skill_after = lock_after
         .find("pinned-skill")
         .expect("skill in lockfile after update");
-    let commit_after = skill_after.commit.clone().expect("commit after update");
+    let commit_after = skill_after
+        .commit()
+        .expect("commit after update")
+        .to_string();
 
     assert_eq!(
         commit_before, commit_after,
@@ -275,7 +287,10 @@ fn update_preserves_old_version_on_validation_failure() {
     // 2. Read Ion.lock (before)
     let lock_before = read_lockfile(&project);
     let skill_before = lock_before.find("fail-skill").expect("skill in lockfile");
-    let commit_before = skill_before.commit.clone().expect("commit in lockfile");
+    let commit_before = skill_before
+        .commit()
+        .expect("commit in lockfile")
+        .to_string();
 
     // 3. Push invalid update upstream (zero-width space triggers security validator)
     std::fs::write(
@@ -317,7 +332,10 @@ fn update_preserves_old_version_on_validation_failure() {
     let skill_after = lock_after
         .find("fail-skill")
         .expect("skill in lockfile after update");
-    let commit_after = skill_after.commit.clone().expect("commit after update");
+    let commit_after = skill_after
+        .commit()
+        .expect("commit after update")
+        .to_string();
 
     assert_eq!(
         commit_before, commit_after,

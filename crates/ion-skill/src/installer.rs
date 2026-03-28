@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::lockfile::LockedSkill;
 use crate::manifest::ManifestOptions;
 use crate::skill::SkillMetadata;
-use crate::source::{SkillSource, SourceType};
+use crate::source::{SkillSource, SkillSourceKind};
 use crate::validate;
 use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
@@ -103,7 +103,7 @@ impl<'a> SkillInstaller<'a> {
         validation: InstallValidationOptions,
     ) -> Result<LockedSkill> {
         // Binary sources use a different pipeline
-        if source.source_type == SourceType::Binary {
+        if source.is_binary() {
             return self.install_binary(name, source);
         }
 
@@ -225,14 +225,27 @@ impl<'a> SkillInstaller<'a> {
     fn install_binary(&self, name: &str, source: &SkillSource) -> Result<LockedSkill> {
         use crate::binary;
 
-        let binary_name = source.binary.as_deref().unwrap_or(name);
+        let (binary_name_owned, asset_pattern, dev) = match &source.kind {
+            SkillSourceKind::Binary {
+                binary_name,
+                asset_pattern,
+                dev,
+                ..
+            } => (binary_name.clone(), asset_pattern.clone(), *dev),
+            _ => (String::new(), None, false),
+        };
+        let binary_name = if binary_name_owned.is_empty() {
+            name
+        } else {
+            &binary_name_owned
+        };
         let skill_dir = self.skill_dir(name);
 
         let is_local_path = source.is_local_path();
 
         if is_local_path {
             let project_path = std::path::PathBuf::from(&source.source);
-            return if source.dev {
+            return if dev {
                 self.install_binary_dev(name, &project_path, binary_name, &skill_dir, source)
             } else {
                 self.install_binary_local(name, &project_path, binary_name, &skill_dir, source)
@@ -258,13 +271,13 @@ impl<'a> SkillInstaller<'a> {
                 binary_name,
                 source.rev.as_deref(),
                 &skill_dir,
-                source.asset_pattern.as_deref(),
+                asset_pattern.as_deref(),
             )?
         };
 
         // Print any warnings from the binary installation
         for warning in &result.warnings {
-            eprintln!("Warning: {}", warning);
+            eprintln!("warning: {}", warning);
         }
 
         // Validate the generated/bundled SKILL.md
@@ -285,18 +298,20 @@ impl<'a> SkillInstaller<'a> {
             format!("https://github.com/{}.git", source.source)
         };
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: locked_source,
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(result.version),
-            binary_checksum: Some(result.binary_checksum),
-            dev: None,
-        })
+        let mut locked = LockedSkill::binary(
+            name,
+            locked_source,
+            binary_name,
+            Some(result.version),
+            Some(result.binary_checksum),
+        );
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     /// Install a local binary skill by building in release mode.
@@ -313,7 +328,7 @@ impl<'a> SkillInstaller<'a> {
         let result = binary::install_binary_from_local(project_path, binary_name, skill_dir)?;
 
         for warning in &result.warnings {
-            eprintln!("Warning: {}", warning);
+            eprintln!("warning: {}", warning);
         }
 
         let (meta, body) = self.validate_spec(skill_dir, source)?;
@@ -324,18 +339,20 @@ impl<'a> SkillInstaller<'a> {
 
         self.deploy(name, skill_dir)?;
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: source.source.clone(),
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(result.version),
-            binary_checksum: Some(result.binary_checksum),
-            dev: None,
-        })
+        let mut locked = LockedSkill::binary(
+            name,
+            source.source.clone(),
+            binary_name,
+            Some(result.version),
+            Some(result.binary_checksum),
+        );
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     /// Set up a dev-mode local binary skill (no release build).
@@ -359,18 +376,22 @@ impl<'a> SkillInstaller<'a> {
 
         self.deploy(name, skill_dir)?;
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: source.source.clone(),
-            path: source.path.clone(),
-            version: meta.version().map(|v| v.to_string()),
-            commit: None,
-            checksum: None,
-            binary: Some(binary_name.to_string()),
-            binary_version: Some(info.version).filter(|v| v != "0.0.0"),
-            binary_checksum: None,
-            dev: Some(true),
-        })
+        let binary_version = Some(info.version).filter(|v| v != "0.0.0");
+        let mut locked = LockedSkill::binary(
+            name,
+            source.source.clone(),
+            binary_name,
+            binary_version,
+            None,
+        )
+        .with_dev();
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+        Ok(locked)
     }
 
     fn build_locked_entry(
@@ -380,37 +401,61 @@ impl<'a> SkillInstaller<'a> {
         meta: &SkillMetadata,
         skill_dir: &Path,
     ) -> Result<LockedSkill> {
-        let (commit, checksum) = match source.source_type {
-            SourceType::Github | SourceType::Git => {
-                let repo_dir = find_repo_root(skill_dir);
-                let commit = git::head_commit(&repo_dir).ok();
-                let checksum = git::checksum_dir(skill_dir).ok();
-                (commit, checksum)
-            }
-            SourceType::Path | SourceType::Http | SourceType::Binary | SourceType::Local => {
-                let checksum = git::checksum_dir(skill_dir).ok();
-                (None, checksum)
-            }
-        };
-
         let git_url = source
             .git_url()
             .ok()
             .unwrap_or_else(|| source.source.clone());
 
-        Ok(LockedSkill {
-            name: name.to_string(),
-            source: git_url,
-            path: source.path.clone(),
-            version: meta.version().map(|s| s.to_string()),
-            commit,
-            checksum,
-            binary: None,
-            binary_version: None,
-            binary_checksum: None,
-            dev: None,
-        })
+        let mut locked = match &source.kind {
+            SkillSourceKind::Github | SkillSourceKind::Git => {
+                let repo_dir = find_repo_root(skill_dir);
+                let commit = git::head_commit(&repo_dir).ok().unwrap_or_default();
+                let checksum = git::checksum_dir(skill_dir).ok().unwrap_or_default();
+                LockedSkill::git(name, &git_url, commit, checksum)
+            }
+            SkillSourceKind::Path => {
+                let mut l = LockedSkill::path(name, &git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SkillSourceKind::Http => {
+                let mut l = LockedSkill::http(name, &git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SkillSourceKind::Local { .. } => {
+                let mut l = LockedSkill::local(name).with_source(&git_url);
+                if let Ok(checksum) = git::checksum_dir(skill_dir) {
+                    l = l.with_checksum(checksum);
+                }
+                l
+            }
+            SkillSourceKind::Binary { .. } => {
+                // Binary sources should not reach this path
+                LockedSkill::local(name).with_source(&git_url)
+            }
+        };
+
+        if let Some(path) = source.path.clone() {
+            locked = locked.with_path(path);
+        }
+        if let Some(version) = meta.version() {
+            locked = locked.with_version(version);
+        }
+
+        Ok(locked)
     }
+}
+
+/// Compute the cache directory for a git-based source (does not clone or check existence).
+pub fn repo_dir_for_source(source: &SkillSource) -> Result<PathBuf> {
+    let url = source.git_url()?;
+    let repo_hash = format!("{:x}", hash_simple(&url));
+    Ok(data_dir().join(&repo_hash))
 }
 
 /// Return the cached clone directory for a git-based source, if it exists.
@@ -419,17 +464,15 @@ impl<'a> SkillInstaller<'a> {
 /// left a cached directory on disk. Returns `None` for non-git sources or
 /// if the cache directory doesn't exist.
 pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
-    let url = source.git_url().ok()?;
-    let repo_hash = format!("{:x}", hash_simple(&url));
-    let path = data_dir().join(&repo_hash);
+    let path = repo_dir_for_source(source).ok()?;
     if path.exists() { Some(path) } else { None }
 }
 
 /// Fetch a source to its cached repo directory (for git sources) or local path.
 /// Does NOT resolve the skill path within the repo.
 fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
-    match source.source_type {
-        SourceType::Github | SourceType::Git => {
+    match &source.kind {
+        SkillSourceKind::Github | SkillSourceKind::Git => {
             let url = source.git_url()?;
             let repo_hash = format!("{:x}", hash_simple(&url));
             let repo_dir = data_dir().join(&repo_hash);
@@ -442,7 +485,7 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
 
             Ok(repo_dir)
         }
-        SourceType::Path => {
+        SkillSourceKind::Path => {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(
@@ -452,11 +495,11 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
             }
             Ok(path)
         }
-        SourceType::Http => fetch_http_skill(source),
-        SourceType::Binary => Err(Error::Source(
+        SkillSourceKind::Http => fetch_http_skill(source),
+        SkillSourceKind::Binary { .. } => Err(Error::Source(
             "Binary source uses dedicated installer".to_string(),
         )),
-        SourceType::Local => {
+        SkillSourceKind::Local { .. } => {
             let path = PathBuf::from(&source.source);
             if !path.exists() {
                 return Err(Error::Source(format!(

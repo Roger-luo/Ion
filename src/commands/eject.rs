@@ -1,14 +1,13 @@
 use std::path::Path;
 
 use ion_skill::manifest_writer;
-use ion_skill::source::{SkillSource, SourceType};
+use ion_skill::source::SkillSource;
 
 use crate::context::ProjectContext;
-use crate::style::Paint;
 
 pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
-    let p = Paint::new(&ctx.global_config);
+    let p = ctx.paint();
     let manifest = ctx.manifest()?;
 
     // Verify skill exists and is not already local/path
@@ -18,7 +17,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Skill '{}' not found in Ion.toml", name))?;
     let source = entry.resolve()?;
 
-    if matches!(source.source_type, SourceType::Local | SourceType::Path) {
+    if source.is_local() || source.is_path() {
         anyhow::bail!("Skill '{}' is already local", name);
     }
 
@@ -106,13 +105,20 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         println!("  Updated {} — removed skill entries", p.dim(".gitignore"));
     }
 
-    // Update lockfile: drop commit hash, keep checksum
+    // Update lockfile: convert to local kind, preserve checksum
     let mut lockfile = ctx.lockfile()?;
     if let Some(locked) = lockfile.find(name).cloned() {
-        let updated = ion_skill::lockfile::LockedSkill {
-            commit: None,
-            ..locked
-        };
+        let mut updated =
+            ion_skill::lockfile::LockedSkill::local(name).with_source(locked.source.clone());
+        if let Some(checksum) = locked.checksum() {
+            updated = updated.with_checksum(checksum);
+        }
+        if let Some(path) = locked.path.clone() {
+            updated = updated.with_path(path);
+        }
+        if let Some(version) = locked.version.clone() {
+            updated = updated.with_version(version);
+        }
         lockfile.upsert(updated);
         lockfile.write_to(&ctx.lockfile_path)?;
         if !json {
@@ -144,7 +150,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
 /// For GitHub skills with a path, format as "owner/repo/path".
 /// For other types, use the source string directly.
 fn build_forked_from(source: &SkillSource) -> String {
-    if source.source_type == SourceType::Github
+    if source.is_github()
         && let Some(ref path) = source.path
     {
         return format!("{}/{}", source.source, path);
