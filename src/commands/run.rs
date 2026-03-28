@@ -113,7 +113,7 @@ fn run_dev(
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
     if json {
-        match ion_cli::cargo::run(&manifest_path, binary_name, &str_args) {
+        match ionem_shell::cargo::run(&manifest_path, binary_name, &str_args) {
             Ok(stdout) => {
                 crate::json::print_success(serde_json::json!({
                     "binary": binary_name,
@@ -123,7 +123,7 @@ fn run_dev(
                     "stderr": "",
                 }));
             }
-            Err(ion_cli::CliError::Failed { code, stderr, .. }) => {
+            Err(ionem_shell::CliError::Failed { code, stderr, .. }) => {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&serde_json::json!({
@@ -144,8 +144,8 @@ fn run_dev(
         return Ok(());
     }
 
-    if let Err(e) = ion_cli::cargo::run_interactive(&manifest_path, binary_name, &str_args) {
-        if let ion_cli::CliError::Failed { code, .. } = e {
+    if let Err(e) = ionem_shell::cargo::run_interactive(&manifest_path, binary_name, &str_args) {
+        if let ionem_shell::CliError::Failed { code, .. } = e {
             std::process::exit(code);
         }
         return Err(e.into());

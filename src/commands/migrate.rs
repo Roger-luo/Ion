@@ -488,17 +488,17 @@ fn create_migration_commit(project_dir: &std::path::Path) -> Option<String> {
         .collect();
 
     if !files_to_stage.is_empty() {
-        let _ = ion_cli::git::stage_files(project_dir, &files_to_stage);
+        let _ = ionem_shell::git::stage_files(project_dir, &files_to_stage);
     }
 
     // Check if there are any staged changes
-    let has_changes = ion_cli::git::has_staged_changes(project_dir).ok()?;
+    let has_changes = ionem_shell::git::has_staged_changes(project_dir).ok()?;
     if !has_changes {
         return None; // No changes to commit or not a git repo
     }
 
     // There are staged changes — commit them and return the SHA
-    ion_cli::git::create_commit(
+    ionem_shell::git::create_commit(
         project_dir,
         "chore: migrate skills to ion management\n\nMigrated from skills-lock.json to Ion.toml/Ion.lock.\nSkill directories are now symlinks to ion-managed global storage.\nLeftover skills handled as local or matched to remote sources.",
     )

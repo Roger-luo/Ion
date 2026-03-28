@@ -55,10 +55,11 @@ pub enum Error {
     },
 }
 
-impl From<ion_cli::CliError> for Error {
-    fn from(e: ion_cli::CliError) -> Self {
+impl From<ionem_shell::CliError> for Error {
+    fn from(e: ionem_shell::CliError) -> Self {
         match &e {
-            ion_cli::CliError::NotFound { cli, .. } | ion_cli::CliError::Failed { cli, .. }
+            ionem_shell::CliError::NotFound { cli, .. }
+            | ionem_shell::CliError::Failed { cli, .. }
                 if cli == "git" =>
             {
                 Error::Git(e.to_string())
