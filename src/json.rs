@@ -58,6 +58,16 @@ pub fn print_action_required<T: Serialize>(action: &'static str, data: T) -> ! {
     std::process::exit(2);
 }
 
+/// Print a failure response with structured data and exit 1.
+pub fn print_failure<T: Serialize>(data: T) -> ! {
+    let resp = JsonResponse::Success::<T> {
+        success: false,
+        data,
+    };
+    println!("{}", to_json(&resp));
+    std::process::exit(1);
+}
+
 /// Print a JSON error and exit 1.
 pub fn print_error(msg: &str) -> ! {
     let resp = JsonResponse::Error::<()> {

@@ -312,12 +312,20 @@ fn init_preserves_existing_skills() {
     )
     .unwrap();
 
+    // Without --force, init should fail when Ion.toml already exists
     let output = ion_cmd()
         .args(["init", "--target", "claude"])
         .current_dir(project.path())
         .output()
         .unwrap();
+    assert!(!output.status.success());
 
+    // With --force, init should succeed and preserve existing skills
+    let output = ion_cmd()
+        .args(["init", "--target", "claude", "--force"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let manifest = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
     assert!(

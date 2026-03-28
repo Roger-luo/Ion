@@ -110,15 +110,16 @@ pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
     let ctx = ProjectContext::load()?;
     let p = ctx.paint();
 
+    // Check for existing manifest before any migration (case-exact check for
+    // case-insensitive filesystems like macOS HFS+/APFS)
+    let manifest_existed = dir_has_exact_name(&ctx.project_dir, "Ion.toml");
+
     // Handle legacy lowercase files
     rename_legacy_files(&ctx.project_dir)?;
 
-    // Check for existing targets (conflict detection)
-    let manifest = ctx.manifest_or_empty()?;
-    if !manifest.options.targets.is_empty() && !force {
-        anyhow::bail!(
-            "Ion.toml already has [options.targets] configured. Use --force to overwrite."
-        );
+    // If manifest already existed (not from legacy rename), require --force
+    if manifest_existed && !force {
+        anyhow::bail!("Ion.toml already exists. Use --force to overwrite.");
     }
 
     // Resolve targets: flags take priority, otherwise interactive

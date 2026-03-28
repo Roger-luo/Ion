@@ -333,12 +333,7 @@ fn json_validate_structure() {
     assert!(data["total_infos"].is_number());
 }
 
-/// BUG: `ion --json skill validate` on a skill with errors outputs `"success": true`
-/// in the JSON body but exits with code 1. The JSON envelope and exit code contradict
-/// each other. The code calls `json::print_success()` then `process::exit(1)`.
-/// It should use a response with `"success": false` when `total_errors > 0`.
 #[test]
-#[ignore = "broken: validate JSON says success:true but exits with code 1 on errors"]
 fn json_validate_bad_skill_should_report_failure() {
     let (dir, _tmp) = project_with_bad_skill();
     let skill_path = dir.join("bad-skill");
@@ -375,10 +370,9 @@ fn json_validate_bad_skill() {
         .current_dir(&dir)
         .run()
         .unwrap();
-    // BUG: JSON says success:true but exit code is 1. See: json_validate_bad_skill_should_report_failure
     assert_eq!(output.exit_code(), 1);
     let json: serde_json::Value = serde_json::from_str(output.stdout()).unwrap();
-    assert_eq!(json["success"], true); // contradicts exit code 1
+    assert_eq!(json["success"], false);
     let data = &json["data"];
     assert!(data["skills"].is_array());
     assert!(data["total_errors"].as_u64().unwrap() > 0);
@@ -467,11 +461,7 @@ fn init_json_without_target_action_required() {
     assert_eq!(json["action_required"], "target_selection");
 }
 
-/// BUG: `ion init` silently overwrites an existing Ion.toml without requiring `--force`.
-/// This is inconsistent with `ion skill new` which errors when SKILL.md already exists
-/// unless `--force` is passed. Init should either require `--force` or at minimum warn.
 #[test]
-#[ignore = "broken: init silently overwrites existing Ion.toml without --force"]
 fn init_should_error_without_force_when_manifest_exists() {
     let (dir, _tmp) = project();
     let output = ion()
@@ -486,15 +476,21 @@ fn init_should_error_without_force_when_manifest_exists() {
 }
 
 #[test]
-fn init_already_initialized_overwrites() {
+fn init_already_initialized_requires_force() {
     let (dir, _tmp) = project();
+    // Without --force, init should fail when Ion.toml already exists
     let output = ion()
         .args(["init", "-t", "claude"])
         .current_dir(&dir)
         .run()
         .unwrap();
-    // BUG: Re-init silently succeeds and overwrites existing Ion.toml.
-    // See: init_should_error_without_force_when_manifest_exists
+    assert!(!output.success());
+    // With --force, it should succeed
+    let output = ion()
+        .args(["init", "-t", "claude", "--force"])
+        .current_dir(&dir)
+        .run()
+        .unwrap();
     assert!(output.success());
     let toml = std::fs::read_to_string(dir.join("Ion.toml")).unwrap();
     assert!(toml.contains("claude"));
@@ -687,13 +683,7 @@ fn completion_zsh() {
 // self info
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-/// BUG: `ion self info` does not use `Paint` for colored output in PTY mode.
-/// Other commands like `skill list` and `validate` use `Paint` to color their output,
-/// but `self info` delegates to `ionem::SelfManager::print_info()` which uses plain `println!`.
-/// The output should be styled consistently: labels like "target:" and "exe:" should be dim,
-/// and the version should be bold.
 #[test]
-#[ignore = "broken: self info has no color output in PTY mode unlike other commands"]
 fn self_info_pty_should_have_color() {
     let output = ion()
         .args(["self", "info"])
@@ -733,7 +723,6 @@ fn self_info_pty() {
         .run()
         .unwrap();
     assert!(output.success());
-    // BUG: no color in PTY mode. See: self_info_pty_should_have_color
     assert!(output.stdout().contains("ion "));
     assert!(output.stdout().contains("target:"));
     assert!(output.stdout().contains("exe:"));

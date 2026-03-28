@@ -66,7 +66,11 @@ pub fn info(json: bool) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    mgr.print_info();
+    let config = ion_skill::config::GlobalConfig::load()?;
+    let p = crate::style::Paint::new(&config);
+    println!("{} {}", p.bold("ion"), p.bold(&info.version));
+    println!("{} {}", p.dim("target:"), info.target);
+    println!("{} {}", p.dim("exe:"), info.exe.display());
     Ok(())
 }
 

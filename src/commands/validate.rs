@@ -93,15 +93,16 @@ pub fn run(path: Option<&str>, json: bool) -> anyhow::Result<()> {
     }
 
     if json {
-        crate::json::print_success(serde_json::json!({
+        let data = serde_json::json!({
             "skills": json_skills,
             "total_errors": total_errors,
             "total_warnings": total_warnings,
             "total_infos": total_infos,
-        }));
+        });
         if total_errors > 0 {
-            std::process::exit(1);
+            crate::json::print_failure(data);
         }
+        crate::json::print_success(data);
         return Ok(());
     }
 
