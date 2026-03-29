@@ -171,3 +171,51 @@ fn template_excludes_manifest_from_output() {
         .unwrap();
     assert!(!project.path().join("template.toml").exists());
 }
+
+// ── File filtering ─────────────────────────────────────────────────
+
+#[test]
+fn optional_files_excluded_by_default() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-optional");
+    let project = Project::from_template(&fixtures).build().unwrap();
+
+    assert!(project.path().join("config.txt").exists());
+    assert!(!project.path().join("lockfile.txt").exists());
+    assert!(!project.path().join("extra/data.txt").exists());
+}
+
+#[test]
+fn include_brings_back_optional() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-optional");
+    let project = Project::from_template(&fixtures)
+        .include("lockfile.txt")
+        .build()
+        .unwrap();
+
+    assert!(project.path().join("config.txt").exists());
+    assert!(project.path().join("lockfile.txt").exists());
+    assert!(!project.path().join("extra/data.txt").exists());
+}
+
+#[test]
+fn include_dir_prefix_brings_back_all() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-optional");
+    let project = Project::from_template(&fixtures)
+        .include("extra")
+        .build()
+        .unwrap();
+
+    assert!(project.path().join("extra/data.txt").exists());
+}
+
+#[test]
+fn exclude_removes_non_optional() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-optional");
+    let project = Project::from_template(&fixtures)
+        .exclude("config.txt")
+        .build()
+        .unwrap();
+
+    assert!(!project.path().join("config.txt").exists());
+    assert!(!project.path().join("lockfile.txt").exists());
+}
