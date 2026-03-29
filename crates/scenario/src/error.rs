@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 /// Errors that can occur when running scenarios.
@@ -32,6 +33,36 @@ pub enum Error {
         "spawn() requires Terminal::Pty; use Terminal::pty(cols, rows) instead of Terminal::Piped"
     )]
     SpawnRequiresPty,
+
+    /// Template directory does not exist.
+    #[error("template not found: {}", path.display())]
+    TemplateNotFound { path: PathBuf },
+
+    /// Failed to parse template.toml manifest.
+    #[error("failed to parse {}: {source}", path.display())]
+    ManifestParse {
+        path: PathBuf,
+        source: toml::de::Error,
+    },
+
+    /// Required template variables were not provided.
+    #[error("missing required template variable(s): {}", names.join(", "))]
+    MissingVariable { names: Vec<String> },
+
+    /// An unknown variable was set via `.var()`.
+    #[error("unknown template variable: {name}")]
+    UnknownVariable { name: String },
+
+    /// Minijinja failed to render a template file.
+    #[error("template render error in {file}: {source}")]
+    TemplateRender {
+        file: String,
+        source: minijinja::Error,
+    },
+
+    /// A symlink target does not exist after rendering.
+    #[error("symlink target does not exist: {}", path.display())]
+    SymlinkTarget { path: PathBuf },
 }
 
 fn format_duration(d: &Duration) -> String {

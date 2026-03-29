@@ -37,7 +37,9 @@
 //! ```
 
 mod error;
+pub mod manifest;
 mod output;
+mod project;
 mod scenario;
 mod session;
 
