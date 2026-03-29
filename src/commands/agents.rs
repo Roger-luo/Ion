@@ -188,87 +188,117 @@ pub fn init(
 
 pub fn update(json: bool, project_flags: &[String]) -> anyhow::Result<()> {
     let ws = WorkspaceContext::load(project_flags)?;
-    let project = ws.single_project()?;
+    let projects = ws.scoped_projects();
     let p = ws.paint();
-    if !project.has_manifest() {
-        anyhow::bail!("No Ion.toml found in current directory");
-    }
+    let multi = projects.len() > 1;
 
-    let manifest = project.manifest()?;
-    let agents_config = manifest
-        .agents
-        .as_ref()
-        .and_then(|a| a.template.as_ref())
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "No [agents] template configured in Ion.toml. Run `ion agents init <source>` first."
-            )
-        })?;
+    let mut any_updated = false;
+    let mut json_results: Vec<serde_json::Value> = Vec::new();
 
-    let resolved_source = ws.global_config.resolve_source(agents_config);
-    let agents = manifest.agents.as_ref().unwrap();
-
-    let fetched = ion_skill::agents::fetch_template(
-        &resolved_source,
-        agents.rev.as_deref(),
-        agents.path.as_deref(),
-        &project.dir,
-    )?;
-
-    // Compare with locked checksum
-    let lockfile = project.lockfile()?;
-    let old_checksum = lockfile.agents.as_ref().map(|a| a.checksum.clone());
-    let old_rev = lockfile
-        .agents
-        .as_ref()
-        .and_then(|a| a.rev.as_deref())
-        .unwrap_or("unknown")
-        .to_string();
-
-    if old_checksum.as_deref() == Some(fetched.checksum.as_str()) {
-        if !json {
-            println!("agents: {} up to date with upstream", p.dim("AGENTS.md"));
+    for project in &projects {
+        if !project.has_manifest() {
+            continue;
         }
-        return Ok(());
+
+        let manifest = project.manifest()?;
+        let agents_config = match manifest.agents.as_ref().and_then(|a| a.template.as_ref()) {
+            Some(config) => config.clone(),
+            None => {
+                // In multi-project mode, silently skip projects without [agents]
+                if !multi {
+                    anyhow::bail!(
+                        "No [agents] template configured in Ion.toml. Run `ion agents init <source>` first."
+                    );
+                }
+                continue;
+            }
+        };
+
+        if multi && !json {
+            let label = project_label(project, &ws);
+            println!("\n{}:", p.bold(&label));
+        }
+
+        let resolved_source = ws.global_config.resolve_source(&agents_config);
+        let agents = manifest.agents.as_ref().unwrap();
+
+        let fetched = ion_skill::agents::fetch_template(
+            &resolved_source,
+            agents.rev.as_deref(),
+            agents.path.as_deref(),
+            &project.dir,
+        )?;
+
+        // Compare with locked checksum
+        let lockfile = project.lockfile()?;
+        let old_checksum = lockfile.agents.as_ref().map(|a| a.checksum.clone());
+        let old_rev = lockfile
+            .agents
+            .as_ref()
+            .and_then(|a| a.rev.as_deref())
+            .unwrap_or("unknown")
+            .to_string();
+
+        if old_checksum.as_deref() == Some(fetched.checksum.as_str()) {
+            if !json {
+                println!("agents: {} up to date with upstream", p.dim("AGENTS.md"));
+            }
+            continue;
+        }
+
+        any_updated = true;
+
+        // Stage the new upstream
+        let upstream_dir = project.dir.join(".agents/templates");
+        std::fs::create_dir_all(&upstream_dir)?;
+        let upstream_path = upstream_dir.join("AGENTS.md.upstream");
+        std::fs::write(&upstream_path, &fetched.content)?;
+
+        let new_rev = fetched.rev.as_deref().unwrap_or("unknown").to_string();
+
+        // Update lockfile
+        let mut lockfile = lockfile;
+        lockfile.agents = Some(ion_skill::agents::AgentsLockEntry {
+            template: agents_config.clone(),
+            rev: fetched.rev,
+            checksum: fetched.checksum,
+            updated_at: ion_skill::agents::now_iso8601(),
+        });
+        lockfile.write_to(&project.lockfile_path)?;
+
+        if json {
+            json_results.push(serde_json::json!({
+                "project": project_label(project, &ws),
+                "updated": true,
+                "old_rev": old_rev,
+                "new_rev": new_rev,
+                "upstream_path": upstream_path.display().to_string(),
+            }));
+        } else {
+            println!(
+                "agents: upstream template updated ({} → {})",
+                p.dim(&old_rev[..7.min(old_rev.len())]),
+                p.info(&new_rev[..7.min(new_rev.len())])
+            );
+            println!(
+                "  upstream saved to {}",
+                p.dim(".agents/templates/AGENTS.md.upstream")
+            );
+            println!("  run your agent to merge, or manually diff:");
+            println!("    {}", p.bold("ion agents diff"));
+        }
     }
-
-    // Stage the new upstream
-    let upstream_dir = project.dir.join(".agents/templates");
-    std::fs::create_dir_all(&upstream_dir)?;
-    let upstream_path = upstream_dir.join("AGENTS.md.upstream");
-    std::fs::write(&upstream_path, &fetched.content)?;
-
-    let new_rev = fetched.rev.as_deref().unwrap_or("unknown").to_string();
-
-    // Update lockfile
-    let mut lockfile = lockfile;
-    lockfile.agents = Some(ion_skill::agents::AgentsLockEntry {
-        template: agents_config.clone(),
-        rev: fetched.rev,
-        checksum: fetched.checksum,
-        updated_at: ion_skill::agents::now_iso8601(),
-    });
-    lockfile.write_to(&project.lockfile_path)?;
 
     if json {
-        crate::json::print_success(serde_json::json!({
-            "updated": true,
-            "old_rev": old_rev,
-            "new_rev": new_rev,
-            "upstream_path": upstream_path.display().to_string(),
-        }));
-    } else {
-        println!(
-            "agents: upstream template updated ({} → {})",
-            p.dim(&old_rev[..7.min(old_rev.len())]),
-            p.info(&new_rev[..7.min(new_rev.len())])
-        );
-        println!(
-            "  upstream saved to {}",
-            p.dim(".agents/templates/AGENTS.md.upstream")
-        );
-        println!("  run your agent to merge, or manually diff:");
-        println!("    {}", p.bold("ion agents diff"));
+        if json_results.is_empty() && !any_updated {
+            crate::json::print_success(serde_json::json!({
+                "updated": false,
+            }));
+        } else {
+            crate::json::print_success(serde_json::json!({
+                "results": json_results,
+            }));
+        }
     }
 
     Ok(())
@@ -342,34 +372,71 @@ pub fn update_template_non_fatal(
 
 pub fn diff(project_flags: &[String]) -> anyhow::Result<()> {
     let ws = WorkspaceContext::load(project_flags)?;
-    let project = ws.single_project()?;
+    let projects = ws.scoped_projects();
+    let p = ws.paint();
+    let multi = projects.len() > 1;
 
-    let agents_md = project.dir.join("AGENTS.md");
-    let upstream_path = project.dir.join(".agents/templates/AGENTS.md.upstream");
+    let mut any_diff = false;
 
-    if !upstream_path.exists() {
-        anyhow::bail!("No upstream template staged. Run `ion agents update` first.");
+    for project in &projects {
+        let agents_md = project.dir.join("AGENTS.md");
+        let upstream_path = project.dir.join(".agents/templates/AGENTS.md.upstream");
+
+        if !upstream_path.exists() {
+            if !multi {
+                anyhow::bail!("No upstream template staged. Run `ion agents update` first.");
+            }
+            continue;
+        }
+
+        if !agents_md.exists() {
+            if !multi {
+                anyhow::bail!("No AGENTS.md found in project root.");
+            }
+            continue;
+        }
+
+        if multi {
+            let label = project_label(project, &ws);
+            println!("\n{}:", p.bold(&label));
+        }
+
+        let local_content = std::fs::read_to_string(&agents_md)?;
+        let upstream_content = std::fs::read_to_string(&upstream_path)?;
+
+        if local_content == upstream_content {
+            println!("AGENTS.md is up to date with upstream.");
+            continue;
+        }
+
+        any_diff = true;
+        use similar::TextDiff;
+
+        let diff = TextDiff::from_lines(&local_content, &upstream_content);
+        print!(
+            "{}",
+            diff.unified_diff()
+                .header("local/AGENTS.md", "upstream/AGENTS.md")
+        );
     }
 
-    if !agents_md.exists() {
-        anyhow::bail!("No AGENTS.md found in project root.");
+    if multi && !any_diff {
+        println!("All AGENTS.md files are up to date with upstream.");
     }
 
-    let local_content = std::fs::read_to_string(&agents_md)?;
-    let upstream_content = std::fs::read_to_string(&upstream_path)?;
-
-    if local_content == upstream_content {
-        println!("AGENTS.md is up to date with upstream.");
-        return Ok(());
-    }
-
-    use similar::TextDiff;
-
-    let diff = TextDiff::from_lines(&local_content, &upstream_content);
-    print!(
-        "{}",
-        diff.unified_diff()
-            .header("local/AGENTS.md", "upstream/AGENTS.md")
-    );
     Ok(())
+}
+
+/// Human-readable label for a project within a workspace.
+fn project_label(project: &Project, ws: &WorkspaceContext) -> String {
+    let root_dir = ws.root_dir();
+    if project.dir == root_dir {
+        ". (root)".to_string()
+    } else {
+        project
+            .dir
+            .strip_prefix(root_dir)
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|_| project.dir.display().to_string())
+    }
 }

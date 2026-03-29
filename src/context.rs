@@ -22,6 +22,8 @@ pub struct WorkspaceContext {
     pub projects: Vec<Project>,
     pub scope: Scope,
     pub global_config: GlobalConfig,
+    /// Whether the root Ion.toml has a `[workspace]` section.
+    has_workspace_section: bool,
 }
 
 impl WorkspaceContext {
@@ -82,6 +84,7 @@ impl WorkspaceContext {
             projects,
             scope,
             global_config,
+            has_workspace_section: has_workspace,
         })
     }
 
@@ -110,21 +113,22 @@ impl WorkspaceContext {
     }
 
     /// The root project (always index 0).
-    #[allow(dead_code)]
     pub fn root_project(&self) -> &Project {
         &self.projects[0]
     }
 
     /// The root directory of the workspace.
-    #[allow(dead_code)]
     pub fn root_dir(&self) -> &Path {
         &self.projects[0].dir
     }
 
-    /// Whether this is a true workspace with multiple projects.
-    #[allow(dead_code)]
+    /// Whether the root project declares a `[workspace]` section.
+    ///
+    /// Returns `true` even for a workspace with zero members (e.g. before
+    /// any members have been registered). This differs from checking
+    /// `projects.len() > 1`, which only tells you if members have been loaded.
     pub fn is_workspace(&self) -> bool {
-        self.projects.len() > 1
+        self.has_workspace_section
     }
 
     /// Merge global config + root options + local options for a project.

@@ -113,8 +113,12 @@ pub fn run(
     project_flags: &[String],
 ) -> anyhow::Result<()> {
     let ws = WorkspaceContext::load(project_flags)?;
-    let project = ws.single_project()?;
     let p = ws.paint();
+
+    // Init always operates on CWD — even if we're inside a workspace,
+    // the intent is to create/update Ion.toml at the current directory.
+    let cwd = std::env::current_dir()?;
+    let project = ion_skill::workspace::Project::new(cwd);
 
     // Check for existing manifest before any migration (case-exact check for
     // case-insensitive filesystems like macOS HFS+/APFS)
@@ -163,8 +167,8 @@ pub fn run(
 
     // Install the built-in ion-cli skill so agents can discover Ion's JSON interface
     let manifest = project.manifest_or_empty()?;
-    let merged_options = ws.merged_options_for(project)?;
-    ws.ensure_builtin_skill(project, &merged_options);
+    let merged_options = ws.merged_options_for(&project)?;
+    ws.ensure_builtin_skill(&project, &merged_options);
 
     // Create agent file symlinks (e.g. CLAUDE.md -> AGENTS.md)
     if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
@@ -179,9 +183,35 @@ pub fn run(
         .and_then(|a| a.template.as_ref())
         .is_some()
         && let Err(e) =
-            crate::commands::agents::deploy_agents_update_skill(project, &merged_options)
+            crate::commands::agents::deploy_agents_update_skill(&project, &merged_options)
     {
         log::warn!("Failed to deploy agents-update skill: {e}");
+    }
+
+    // Auto-register in workspace if we're inside one
+    if ws.is_workspace() {
+        let root = ws.root_project();
+        if let Ok(relative) = project.dir.strip_prefix(&root.dir) {
+            let member_path = relative.display().to_string();
+            if !member_path.is_empty() {
+                // Check if already registered
+                let root_manifest = root.manifest_or_empty()?;
+                let already_member = root_manifest
+                    .workspace
+                    .as_ref()
+                    .map(|w| w.members.contains(&member_path))
+                    .unwrap_or(false);
+                if !already_member {
+                    ion_skill::manifest_writer::add_workspace_member(
+                        &root.manifest_path,
+                        &member_path,
+                    )?;
+                    if !json {
+                        println!("  {} as workspace member", p.success("Registered"));
+                    }
+                }
+            }
+        }
     }
 
     if json {
