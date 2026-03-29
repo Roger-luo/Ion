@@ -107,6 +107,12 @@ const { title, description, currentSlug, headings, prev, next, editUrl } =
     color: var(--accent);
   }
 
+  @media (min-width: 1440px) {
+    .docs-main {
+      max-width: calc(var(--content-max-width) + var(--code-extra) + 4rem);
+    }
+  }
+
   @media (max-width: 1279px) {
     .docs-layout {
       margin-right: 0;

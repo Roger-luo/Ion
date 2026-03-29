@@ -17,6 +17,7 @@
   --sidebar-width: 240px;
   --toc-width: 200px;
   --content-max-width: 680px;
+  --code-extra: 0px;
 
   /* Transitions */
   --transition-fast: 120ms ease;
@@ -276,6 +277,21 @@ button {
   background: none;
   border: none;
   padding: 0;
+}
+
+/* Wide-screen: let code blocks use available horizontal space */
+@media (min-width: 1440px) {
+  :root {
+    --code-extra: min(
+      220px,
+      calc(100vw - var(--sidebar-width) - var(--toc-width) - var(--content-max-width) - 8rem)
+    );
+  }
+
+  .prose pre {
+    width: calc(100% + var(--code-extra));
+    max-width: none;
+  }
 }
 
 /* Shiki dual theme */
