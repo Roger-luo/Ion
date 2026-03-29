@@ -242,3 +242,32 @@ fn mapping_routes_source_to_rendered_dest() {
     // Unmapped files keep their natural path
     assert!(project.path().join("config.txt").exists());
 }
+
+// ── Overrides ──────────────────────────────────────────────────────
+
+#[test]
+fn override_replaces_template_content() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Yo")
+        .override_file("greeting.txt", "Custom: {{ name }} says {{ greeting }}\n")
+        .build()
+        .unwrap();
+
+    let content = fs::read_to_string(project.path().join("greeting.txt")).unwrap();
+    assert_eq!(content, "Custom: world says Yo\n");
+}
+
+#[test]
+fn extra_file_added_verbatim() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Hi")
+        .file("extra.txt", "{{ not rendered }}")
+        .build()
+        .unwrap();
+
+    // Extra files are written verbatim — no template rendering
+    let content = fs::read_to_string(project.path().join("extra.txt")).unwrap();
+    assert_eq!(content, "{{ not rendered }}");
+}
