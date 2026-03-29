@@ -1,16 +1,17 @@
 use anyhow::bail;
 use ion_skill::binary;
 
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 
 pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
 
-    if !ctx.lockfile_path.exists() {
+    if !project.lockfile_path.exists() {
         bail!("No Ion.lock found. Run `ion install` first.");
     }
 
-    let lockfile = ctx.lockfile()?;
+    let lockfile = project.lockfile()?;
     let locked = lockfile.find(name).ok_or_else(|| {
         anyhow::anyhow!(
             "Skill '{}' not found in lockfile. Run `ion add {} --bin` first.",

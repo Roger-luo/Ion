@@ -4,21 +4,23 @@ use crate::commands::install_shared::{
     FinalizeOptions, ValidationBuckets, finalize_skill_install, install_approved_skills,
 };
 use crate::commands::validation::{print_validation_summary, select_warned_skills};
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 
 pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    ctx.require_manifest()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    if !project.has_manifest() {
+        anyhow::bail!("No Ion.toml found in current directory");
+    }
 
-    let manifest = ctx.manifest()?;
-    let merged_options = ctx.merged_options(&manifest);
+    let manifest = project.manifest()?;
+    let merged_options = ws.merged_options_for(project)?;
 
-    ctx.ensure_builtin_skill(&merged_options);
+    ws.ensure_builtin_skill(project, &merged_options);
 
     // Create agent file symlinks (e.g. CLAUDE.md -> AGENTS.md)
-    if let Err(e) =
-        ion_skill::agents::ensure_agent_symlinks(&ctx.project_dir, &merged_options.targets)
+    if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
     {
         log::warn!("Failed to create agent symlinks: {e}");
     }
@@ -29,12 +31,13 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         .as_ref()
         .and_then(|a| a.template.as_ref())
         .is_some()
-        && let Err(e) = crate::commands::agents::deploy_agents_update_skill(&ctx, &merged_options)
+        && let Err(e) =
+            crate::commands::agents::deploy_agents_update_skill(project, &merged_options)
     {
         log::warn!("Failed to deploy agents-update skill: {e}");
     }
 
-    let mut lockfile = ctx.lockfile()?;
+    let mut lockfile = project.lockfile()?;
 
     if manifest.skills.is_empty() {
         if json {
@@ -55,7 +58,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         );
     }
 
-    let installer = ctx.installer(&merged_options);
+    let installer = ws.installer_for(project, &merged_options);
 
     // Handle local skills first (they bypass validation)
     let mut non_local_skills = Vec::new();
@@ -64,7 +67,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
 
         if source.is_local() {
             let skills_dir = merged_options.skills_dir_or_default();
-            let local_skill_dir = ctx.project_dir.join(skills_dir).join(name);
+            let local_skill_dir = project.dir.join(skills_dir).join(name);
 
             if !local_skill_dir.exists() {
                 println!(
@@ -150,7 +153,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         json,
         |name, source, locked| {
             finalize_skill_install(
-                &ctx,
+                project,
                 &merged_options,
                 name,
                 source,
@@ -170,7 +173,7 @@ pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
         json_skipped.push(serde_json::json!({ "name": name, "reason": "validation_errors" }));
     }
 
-    lockfile.write_to(&ctx.lockfile_path)?;
+    lockfile.write_to(&project.lockfile_path)?;
 
     if json {
         let mut json_installed: Vec<serde_json::Value> = buckets

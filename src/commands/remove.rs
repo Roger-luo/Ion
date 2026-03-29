@@ -1,11 +1,12 @@
 use ion_skill::manifest_writer;
 
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 
 pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    let manifest = ctx.manifest()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    let manifest = project.manifest()?;
 
     // If the argument matches a skill name exactly, remove that single skill.
     // Otherwise, fuzzy-match against skill names and source strings.
@@ -55,8 +56,8 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
         }
     }
 
-    let merged_options = ctx.merged_options(&manifest);
-    let mut lockfile = ctx.lockfile()?;
+    let merged_options = ws.merged_options_for(project)?;
+    let mut lockfile = project.lockfile()?;
 
     for skill_name in &skills_to_remove {
         let entry = &manifest.skills[skill_name];
@@ -71,14 +72,14 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             && source.is_local()
         {
             for target_path in merged_options.targets.values() {
-                let target_dir = ctx.project_dir.join(target_path).join(skill_name);
+                let target_dir = project.dir.join(target_path).join(skill_name);
                 if target_dir.is_symlink() {
                     std::fs::remove_file(&target_dir)?;
                 }
             }
             // Remove .agents symlink only if it IS a symlink (custom skills-dir)
-            let agents_dir = ctx
-                .project_dir
+            let agents_dir = project
+                .dir
                 .join(merged_options.skills_dir_or_default())
                 .join(skill_name);
             if agents_dir.is_symlink() {
@@ -89,7 +90,8 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
                 println!("  {}: local skill directory preserved", p.dim("note"));
             }
         } else {
-            ctx.installer(&merged_options).uninstall(skill_name)?;
+            ws.installer_for(project, &merged_options)
+                .uninstall(skill_name)?;
             if !json {
                 println!(
                     "  Removed from {}",
@@ -103,7 +105,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // Skip gitignore removal for local skills (they were never gitignored)
         if !matches!(entry_source.as_ref().map(|s| s.is_local()), Ok(true)) {
-            ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, skill_name)?;
+            ion_skill::gitignore::remove_skill_entries(&project.dir, skill_name)?;
             if !json {
                 println!("  Updated {}", p.dim(".gitignore"));
             }
@@ -111,7 +113,7 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
 
         // Unregister from global registry for git-based sources
         if let Ok(ref source) = entry_source {
-            crate::commands::install_shared::unregister_from_registry(source, &ctx.project_dir)?;
+            crate::commands::install_shared::unregister_from_registry(source, &project.dir)?;
         }
 
         // Clean up binary files if this is a binary skill
@@ -129,11 +131,11 @@ pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
             }
         }
 
-        manifest_writer::remove_skill(&ctx.manifest_path, skill_name)?;
+        manifest_writer::remove_skill(&project.manifest_path, skill_name)?;
         lockfile.remove(skill_name);
     }
 
-    lockfile.write_to(&ctx.lockfile_path)?;
+    lockfile.write_to(&project.lockfile_path)?;
 
     if json {
         crate::json::print_success(serde_json::json!({

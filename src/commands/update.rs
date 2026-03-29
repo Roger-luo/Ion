@@ -7,17 +7,18 @@ use ion_skill::update::Updater;
 use ion_skill::update::binary::BinaryUpdater;
 use ion_skill::update::git::GitUpdater;
 
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 use crate::style::Paint;
 
 pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    let manifest = ctx.manifest()?;
-    let mut lockfile = ctx.lockfile()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    let manifest = project.manifest()?;
+    let mut lockfile = project.lockfile()?;
 
-    let options = ctx.merged_options(&manifest);
-    let installer = ctx.installer(&options);
+    let options = ws.merged_options_for(project)?;
+    let installer = ws.installer_for(project, &options);
 
     let skills_to_check: Vec<(String, _)> = manifest
         .skills
@@ -250,7 +251,7 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
 
     // Write lockfile only if something changed
     if updated_count > 0 {
-        lockfile.write_to(&ctx.lockfile_path)?;
+        lockfile.write_to(&project.lockfile_path)?;
     }
 
     // Check for agents template update (non-fatal)
@@ -259,8 +260,13 @@ pub fn run(name: Option<&str>, json: bool) -> anyhow::Result<()> {
         .as_ref()
         .and_then(|a| a.template.as_ref())
         .is_some()
-        && let Err(e) =
-            crate::commands::agents::update_template_non_fatal(&ctx, &mut lockfile, &p, json)
+        && let Err(e) = crate::commands::agents::update_template_non_fatal(
+            project,
+            &ws.global_config,
+            &mut lockfile,
+            &p,
+            json,
+        )
         && !json
     {
         println!(

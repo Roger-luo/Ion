@@ -1,13 +1,16 @@
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 
 pub fn run(json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    ctx.require_manifest()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    if !project.has_manifest() {
+        anyhow::bail!("No Ion.toml found in current directory");
+    }
 
-    let manifest = ctx.manifest()?;
-    let merged_options = ctx.merged_options(&manifest);
-    let lockfile = ctx.lockfile()?;
+    let manifest = project.manifest()?;
+    let merged_options = ws.merged_options_for(project)?;
+    let lockfile = project.lockfile()?;
 
     if manifest.skills.is_empty() {
         if json {
@@ -40,8 +43,8 @@ pub fn run(json: bool) -> anyhow::Result<()> {
                         .unwrap_or("unknown")
                 };
                 let commit = locked.and_then(|l| l.commit());
-                let installed = ctx
-                    .project_dir
+                let installed = project
+                    .dir
                     .join(merged_options.skills_dir_or_default())
                     .join(name)
                     .exists();
@@ -90,8 +93,8 @@ pub fn run(json: bool) -> anyhow::Result<()> {
             format!(" {}", p.dim(&format!("({commit_str})")))
         };
 
-        let installed = ctx
-            .project_dir
+        let installed = project
+            .dir
             .join(merged_options.skills_dir_or_default())
             .join(name)
             .exists();

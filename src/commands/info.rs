@@ -2,15 +2,17 @@ use ion_skill::binary;
 use ion_skill::skill::SkillMetadata;
 use ion_skill::source::SkillSource;
 
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
+use ion_skill::workspace::Project;
 
 pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
 
-    if ctx.manifest_path.exists() {
-        let manifest = ctx.manifest()?;
+    if project.manifest_path.exists() {
+        let manifest = project.manifest()?;
         if manifest.skills.contains_key(skill_str) {
-            return show_info_from_installed(&ctx, skill_str, json);
+            return show_info_from_installed(&ws, project, skill_str, json);
         }
     }
 
@@ -44,11 +46,15 @@ pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> anyhow::Result<()> {
-    let manifest = ctx.manifest_or_empty()?;
-    let merged_options = ctx.merged_options(&manifest);
-    let skill_md = ctx
-        .project_dir
+fn show_info_from_installed(
+    ws: &WorkspaceContext,
+    project: &Project,
+    name: &str,
+    json: bool,
+) -> anyhow::Result<()> {
+    let merged_options = ws.merged_options_for(project)?;
+    let skill_md = project
+        .dir
         .join(merged_options.skills_dir_or_default())
         .join(name)
         .join("SKILL.md");
@@ -60,7 +66,7 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
     let (meta, _body) = SkillMetadata::from_file(&skill_md)?;
 
     if json {
-        let lockfile = ctx.lockfile()?;
+        let lockfile = project.lockfile()?;
         let locked = lockfile.find(name);
         let mut data = serde_json::json!({
             "name": meta.name,
@@ -105,7 +111,7 @@ fn show_info_from_installed(ctx: &ProjectContext, name: &str, json: bool) -> any
     }
 
     // Binary-specific info
-    let lockfile = ctx.lockfile()?;
+    let lockfile = project.lockfile()?;
     if let Some(locked) = lockfile.find(name)
         && let Some(binary_name) = locked.binary_name()
     {

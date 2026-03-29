@@ -47,8 +47,9 @@ pub fn run(action: Option<ConfigAction>, json: bool) -> anyhow::Result<()> {
 
 fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
     let (value, scope) = if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        let manifest = Manifest::from_file(&ctx.manifest_path)?;
+        let ws = crate::context::WorkspaceContext::load(&[])?;
+        let proj = ws.single_project()?;
+        let manifest = Manifest::from_file(&proj.manifest_path)?;
         (manifest.options.get_value(key), "project")
     } else {
         let config = GlobalConfig::load()?;
@@ -75,8 +76,9 @@ fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
 
 fn run_set(key: &str, value: &str, project: bool, json: bool) -> anyhow::Result<()> {
     if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        manifest_writer::set_option(&ctx.manifest_path, key, value)?;
+        let ws = crate::context::WorkspaceContext::load(&[])?;
+        let proj = ws.single_project()?;
+        manifest_writer::set_option(&proj.manifest_path, key, value)?;
     } else {
         let config_path = GlobalConfig::config_path()
             .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
@@ -122,8 +124,9 @@ fn print_config_sections(values: &[(String, String)]) {
 
 fn run_list(project: bool, json: bool) -> anyhow::Result<()> {
     let (values, scope) = if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        let manifest = Manifest::from_file(&ctx.manifest_path)?;
+        let ws = crate::context::WorkspaceContext::load(&[])?;
+        let proj = ws.single_project()?;
+        let manifest = Manifest::from_file(&proj.manifest_path)?;
         (manifest.options.list_values(), "project")
     } else {
         let config = GlobalConfig::load()?;
@@ -162,9 +165,10 @@ fn run_interactive() -> anyhow::Result<()> {
     let global_config_path = GlobalConfig::config_path()
         .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
 
-    let ctx = crate::context::ProjectContext::load()?;
-    let manifest_opt = if ctx.manifest_path.exists() {
-        Some(ctx.manifest_path)
+    let ws = crate::context::WorkspaceContext::load(&[])?;
+    let proj = ws.single_project()?;
+    let manifest_opt = if proj.manifest_path.exists() {
+        Some(proj.manifest_path.clone())
     } else {
         None
     };

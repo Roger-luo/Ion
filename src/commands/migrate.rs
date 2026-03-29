@@ -3,7 +3,7 @@ use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 
 use crate::commands::install_shared::register_in_registry;
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 use crate::style::Paint;
 use ion_skill::installer::InstallValidationOptions;
 use ion_skill::manifest::ManifestOptions;
@@ -14,11 +14,11 @@ use ion_skill::migrate::{
 use ion_skill::search::{SearchCache, SearchSource};
 
 pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    let project_dir = &ctx.project_dir;
-    let manifest = ctx.manifest_or_empty()?;
-    let merged_options = ctx.merged_options(&manifest);
+    let ws = WorkspaceContext::load(&[])?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    let project_dir = &project.dir;
+    let merged_options = ws.merged_options_for(project)?;
 
     // ── Phase 0: AGENTS.md / CLAUDE.md conversion ────────────────────────
     let agents_md_action = if !dry_run {
@@ -29,7 +29,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
 
     let lockfile_path = from
         .map(PathBuf::from)
-        .unwrap_or_else(|| ctx.project_dir.join("skills-lock.json"));
+        .unwrap_or_else(|| project.dir.join("skills-lock.json"));
 
     // ── Phase 1: Discover skills ──────────────────────────────────────────
     let discovered = if lockfile_path.exists() {
@@ -235,16 +235,16 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
         }
 
         // ── Phase 7: Search for leftover matches ──────────────────────────
-        let search_sources = crate::commands::search::build_sources(&ctx.global_config);
+        let search_sources = crate::commands::search::build_sources(&ws.global_config);
         let cache = ion_skill::search::SearchCache::new();
-        let max_age_secs = ctx
+        let max_age_secs = ws
             .global_config
             .cache
             .max_age_days
             .map(|d| u64::from(d) * 86400)
             .unwrap_or(86400);
 
-        let mut lockfile = ctx.lockfile()?;
+        let mut lockfile = project.lockfile()?;
 
         for leftover in &leftovers {
             // Search for this skill by name
@@ -289,7 +289,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                 if should_switch {
                     match ion_skill::source::SkillSource::infer(source_str) {
                         Ok(source) => {
-                            let installer = ctx.installer(&merged_options);
+                            let installer = ws.installer_for(project, &merged_options);
                             let validation = InstallValidationOptions {
                                 skip_validation: false,
                                 allow_warnings: true,
@@ -301,7 +301,7 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
                             ) {
                                 Ok(entry) => {
                                     ion_skill::manifest_writer::add_skill(
-                                        &ctx.manifest_path,
+                                        &project.manifest_path,
                                         &leftover.name,
                                         &source,
                                     )?;
@@ -378,11 +378,11 @@ pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::
             }
         }
 
-        lockfile.write_to(&ctx.lockfile_path)?;
+        lockfile.write_to(&project.lockfile_path)?;
     }
 
     // ── Phase 8: Ensure built-in ion-cli skill ────────────────────────────
-    ctx.ensure_builtin_skill(&merged_options);
+    ws.ensure_builtin_skill(project, &merged_options);
 
     // ── Phase 9: Git commit ───────────────────────────────────────────────
     let commit_hash = create_migration_commit(project_dir);
