@@ -1,0 +1,67 @@
+---
+interface Props {
+  prev?: { title: string; slug: string } | null;
+  next?: { title: string; slug: string } | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+{(prev || next) && (
+  <nav class="prev-next" aria-label="Previous and next pages">
+    {prev && (
+      <a href={`/docs/${prev.slug}`} class="prev-next__link prev-next__link--prev">
+        <span class="prev-next__label">Previous</span>
+        <span class="prev-next__title">&larr; {prev.title}</span>
+      </a>
+    )}
+    {next && (
+      <a href={`/docs/${next.slug}`} class="prev-next__link prev-next__link--next">
+        <span class="prev-next__label">Next</span>
+        <span class="prev-next__title">{next.title} &rarr;</span>
+      </a>
+    )}
+  </nav>
+)}
+
+<style>
+  .prev-next {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .prev-next__link {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-decoration: none;
+  }
+
+  .prev-next__link--next {
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .prev-next__label {
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+    font-family: var(--font-display);
+  }
+
+  .prev-next__title {
+    color: var(--accent);
+    font-size: 0.95rem;
+    font-family: var(--font-display);
+    transition: color var(--transition-fast, 120ms ease);
+  }
+
+  .prev-next__link:hover .prev-next__title {
+    color: var(--accent-hover);
+  }
+</style>

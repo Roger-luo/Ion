@@ -1,0 +1,72 @@
+---
+---
+
+<script>
+  function initCopyButtons() {
+    document.querySelectorAll('.prose pre').forEach((pre) => {
+      if (pre.querySelector('.copy-code-btn')) return;
+
+      const btn = document.createElement('button');
+      btn.className = 'copy-code-btn';
+      btn.setAttribute('aria-label', 'Copy code');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/>
+        <path d="M10.5 5.5V3a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/>
+      </svg>`;
+
+      btn.addEventListener('click', async () => {
+        const text = pre.textContent || '';
+        await navigator.clipboard.writeText(text);
+
+        btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 8.5l3.5 3.5L13 4"/>
+        </svg>`;
+
+        setTimeout(() => {
+          btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/>
+            <path d="M10.5 5.5V3a1.5 1.5 0 0 0-1.5-1.5H3A1.5 1.5 0 0 0 1.5 3v6A1.5 1.5 0 0 0 3 10.5h2.5"/>
+          </svg>`;
+        }, 2000);
+      });
+
+      pre.appendChild(btn);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', initCopyButtons);
+  document.addEventListener('astro:after-swap', initCopyButtons);
+</script>
+
+<style is:global>
+  .prose pre {
+    position: relative;
+  }
+
+  .copy-code-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease, color 120ms ease;
+  }
+
+  .prose pre:hover .copy-code-btn {
+    opacity: 1;
+  }
+
+  .copy-code-btn:hover {
+    color: var(--text);
+    border-color: var(--text-tertiary);
+  }
+</style>

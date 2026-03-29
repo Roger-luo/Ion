@@ -1,0 +1,80 @@
+@media print {
+  /* Hide non-content elements */
+  .header,
+  .sidebar,
+  .toc,
+  .menu-btn,
+  .theme-toggle,
+  .copy-code-btn,
+  .footer,
+  .prev-next,
+  .edit-link-wrapper,
+  #search-modal,
+  .search-btn {
+    display: none !important;
+  }
+
+  /* Layout */
+  .docs-layout {
+    margin: 0;
+    padding: 0;
+  }
+
+  .docs-main {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .prose {
+    max-width: 100%;
+    font-size: 12pt;
+    color: #000;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  /* Typography */
+  .prose pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    border: 1px solid #ccc;
+    background: #f8f8f8 !important;
+  }
+
+  .prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #666;
+  }
+
+  /* Remove decorative effects */
+  * {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    transition: none !important;
+  }
+
+  /* Page breaks */
+  h2,
+  h3 {
+    page-break-after: avoid;
+  }
+
+  pre,
+  blockquote,
+  table {
+    page-break-inside: avoid;
+  }
+
+  /* Sidenotes (future feature) */
+  .sidenote {
+    float: none;
+    display: block;
+    margin: 0.5em 0 0.5em 1.5em;
+    width: auto;
+    font-size: 10pt;
+  }
+}

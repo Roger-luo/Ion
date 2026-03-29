@@ -1,0 +1,151 @@
+---
+import { navigation } from '../data/navigation';
+
+interface Props {
+  currentSlug?: string;
+}
+
+const { currentSlug } = Astro.props;
+---
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <nav class="sidebar-nav" id="sidebar-nav">
+    {navigation.map((section) => (
+      <div class="sidebar-section">
+        <h3 class="sidebar-heading">{section.title}</h3>
+        <ul class="sidebar-list">
+          {section.items.map((item) => (
+            <li>
+              <a
+                href={`/docs/${item.slug}`}
+                class:list={['sidebar-link', { active: currentSlug === item.slug }]}
+              >
+                {item.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </nav>
+</aside>
+
+<script>
+  function initSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar || !overlay) return;
+
+    function close() {
+      sidebar.classList.remove('open');
+    }
+
+    overlay.addEventListener('click', close);
+
+    document.addEventListener('toggle-sidebar', () => {
+      sidebar.classList.toggle('open');
+    });
+
+    // Close on navigation
+    const links = sidebar.querySelectorAll('.sidebar-link');
+    links.forEach(link => link.addEventListener('click', close));
+  }
+
+  initSidebar();
+  document.addEventListener('astro:after-swap', initSidebar);
+</script>
+
+<style>
+  .sidebar {
+    position: fixed;
+    top: var(--header-height);
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    z-index: 50;
+  }
+
+  .sidebar-overlay {
+    display: none;
+  }
+
+  .sidebar-nav {
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.5rem 1rem 3rem 1.5rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+    transition: background var(--transition-base);
+  }
+
+  .sidebar-section + .sidebar-section {
+    margin-top: 1.75rem;
+  }
+
+  .sidebar-heading {
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    padding: 0 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .sidebar-list {
+    list-style: none;
+  }
+
+  .sidebar-link {
+    display: block;
+    padding: 0.35rem 0.5rem;
+    margin: 1px 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    border-left: 2px solid transparent;
+    transition:
+      color var(--transition-fast),
+      background var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+
+  .sidebar-link:hover {
+    color: var(--text);
+    background: var(--bg-secondary);
+  }
+
+  .sidebar-link.active {
+    color: var(--accent);
+    background: var(--accent-subtle);
+    border-left-color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Mobile */
+  @media (max-width: 1023px) {
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform var(--transition-base);
+      z-index: 90;
+      width: 280px;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    .sidebar.open .sidebar-overlay {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: -1;
+    }
+
+    .sidebar-nav {
+      box-shadow: var(--shadow-lg);
+    }
+  }
+</style>

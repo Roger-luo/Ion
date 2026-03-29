@@ -1,0 +1,49 @@
+---
+import SearchModal from '../components/SearchModal.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'A skill manager for AI agents' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,opsz,wght@0,12..48,400..800;1,12..48,400..800&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Prevent theme flash -->
+    <script is:inline>
+      (function () {
+        const stored = localStorage.getItem('ion-theme');
+        const setting = stored || 'auto';
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const resolved = setting === 'auto' ? (prefersDark ? 'dark' : 'light') : setting;
+        document.documentElement.setAttribute('data-theme', resolved);
+        document.documentElement.setAttribute('data-theme-setting', setting);
+      })();
+    </script>
+  </head>
+  <body>
+    <slot />
+    <SearchModal />
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>

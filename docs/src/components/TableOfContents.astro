@@ -1,0 +1,132 @@
+---
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: Heading[];
+}
+
+const { headings } = Astro.props;
+const filtered = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+---
+
+{filtered.length > 0 && (
+  <aside class="toc">
+    <div class="toc-inner">
+      <h4 class="toc-title">On this page</h4>
+      <ul class="toc-list">
+        {filtered.map((heading) => (
+          <li class:list={['toc-item', { 'toc-item-nested': heading.depth === 3 }]}>
+            <a href={`#${heading.slug}`} class="toc-link" data-heading-slug={heading.slug}>
+              {heading.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </aside>
+)}
+
+<script>
+  function initToc() {
+    const links = document.querySelectorAll<HTMLAnchorElement>('.toc-link');
+    if (links.length === 0) return;
+
+    const slugs = Array.from(links).map(l => l.dataset.headingSlug!);
+    const headingEls = slugs
+      .map(slug => document.getElementById(slug))
+      .filter(Boolean) as HTMLElement[];
+
+    if (headingEls.length === 0) return;
+
+    function setActive(slug: string) {
+      links.forEach(link => {
+        link.classList.toggle('active', link.dataset.headingSlug === slug);
+      });
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setActive(entry.target.id);
+            break;
+          }
+        }
+      },
+      { rootMargin: '-80px 0px -75% 0px' }
+    );
+
+    headingEls.forEach(el => observer.observe(el));
+
+    // Set initial active
+    if (headingEls[0]) setActive(headingEls[0].id);
+  }
+
+  initToc();
+  document.addEventListener('astro:after-swap', initToc);
+</script>
+
+<style>
+  .toc {
+    position: fixed;
+    top: var(--header-height);
+    right: 0;
+    bottom: 0;
+    width: var(--toc-width);
+    overflow-y: auto;
+    padding: 1.5rem 1.5rem 3rem 0;
+  }
+
+  .toc-inner {
+    padding-left: 1rem;
+    border-left: 1px solid var(--border-subtle);
+  }
+
+  .toc-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    margin-bottom: 0.75rem;
+  }
+
+  .toc-list {
+    list-style: none;
+  }
+
+  .toc-item + .toc-item {
+    margin-top: 0.15rem;
+  }
+
+  .toc-item-nested {
+    padding-left: 0.75rem;
+  }
+
+  .toc-link {
+    display: block;
+    padding: 0.2rem 0;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+    transition: color var(--transition-fast);
+  }
+
+  .toc-link:hover {
+    color: var(--text-secondary);
+  }
+
+  .toc-link.active {
+    color: var(--accent);
+  }
+
+  @media (max-width: 1279px) {
+    .toc {
+      display: none;
+    }
+  }
+</style>

@@ -1,0 +1,96 @@
+---
+---
+
+<button class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+  <!-- Sun icon (light mode) -->
+  <svg class="icon icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5" />
+    <line x1="12" y1="1" x2="12" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="23" />
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+    <line x1="1" y1="12" x2="3" y2="12" />
+    <line x1="21" y1="12" x2="23" y2="12" />
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+  </svg>
+  <!-- Moon icon (dark mode) -->
+  <svg class="icon icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+  </svg>
+  <!-- Auto icon (system) -->
+  <svg class="icon icon-auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </svg>
+</button>
+
+<script>
+  function initThemeToggle() {
+    const btn = document.querySelector('.theme-toggle');
+    if (!btn) return;
+
+    const cycle = ['auto', 'light', 'dark'] as const;
+
+    function apply(setting: string) {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const resolved = setting === 'auto' ? (prefersDark ? 'dark' : 'light') : setting;
+      document.documentElement.setAttribute('data-theme', resolved);
+      document.documentElement.setAttribute('data-theme-setting', setting);
+      localStorage.setItem('ion-theme', setting);
+    }
+
+    btn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme-setting') || 'auto';
+      const idx = cycle.indexOf(current as typeof cycle[number]);
+      const next = cycle[(idx + 1) % cycle.length];
+      apply(next);
+    });
+
+    // Listen for system changes when on auto
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      const setting = document.documentElement.getAttribute('data-theme-setting');
+      if (setting === 'auto') apply('auto');
+    });
+  }
+
+  initThemeToggle();
+  document.addEventListener('astro:after-swap', initThemeToggle);
+</script>
+
+<style>
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    transition:
+      background var(--transition-fast),
+      color var(--transition-fast);
+    color: var(--text-secondary);
+  }
+
+  .theme-toggle:hover {
+    background: var(--bg-secondary);
+    color: var(--text);
+  }
+
+  .icon {
+    display: none;
+  }
+
+  :global([data-theme-setting='light']) .icon-sun {
+    display: block;
+  }
+
+  :global([data-theme-setting='dark']) .icon-moon {
+    display: block;
+  }
+
+  :global([data-theme-setting='auto']) .icon-auto {
+    display: block;
+  }
+</style>

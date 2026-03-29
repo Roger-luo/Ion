@@ -1,0 +1,308 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+
+<BaseLayout title="Ion — A skill manager for AI agents">
+  <Header />
+
+  <main class="landing">
+    <section class="hero">
+      <div class="hero-content">
+        <h1 class="hero-title">Ion</h1>
+        <p class="hero-tagline">A skill manager for AI agents</p>
+
+        <div class="hero-rule">
+          <span class="hero-ornament">&#x25c6;</span>
+        </div>
+
+        <p class="hero-description">
+          A command-line tool for installing, validating, and organizing
+          reusable skills across AI coding agents &mdash; Claude, Cursor,
+          Windsurf, and others.
+        </p>
+
+        <div class="hero-install">
+          <div class="hero-install-box">
+            <span class="hero-prompt">$</span>
+            <code>curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh</code>
+            <button class="hero-copy" aria-label="Copy install command" id="copy-btn">
+              <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <nav class="hero-nav">
+          <a href="/docs/getting-started/introduction" class="hero-link">
+            Read the documentation <span class="arrow">&rarr;</span>
+          </a>
+          <a href="https://github.com/Roger-luo/Ion" class="hero-link" target="_blank" rel="noopener">
+            View source on GitHub <span class="arrow">&#x2197;</span>
+          </a>
+        </nav>
+      </div>
+    </section>
+
+    <section class="features">
+      <hr class="section-rule" />
+      <div class="features-grid">
+        <div class="feature">
+          <h3>Installation</h3>
+          <p>
+            Add skills from GitHub repositories, Git URLs, or HTTP endpoints
+            with a single command. Declarative manifests and lockfiles ensure
+            reproducibility across environments.
+          </p>
+        </div>
+        <div class="feature">
+          <h3>Validation</h3>
+          <p>
+            Automated quality checks for security issues, structural problems,
+            and adherence to the skill format specification before skills reach
+            your agents.
+          </p>
+        </div>
+        <div class="feature">
+          <h3>Discovery</h3>
+          <p>
+            Search for skills across GitHub, the skills.sh registry, and custom
+            sources. Browse interactively in the terminal or query from the
+            command line.
+          </p>
+        </div>
+        <div class="feature">
+          <h3>Multi-agent</h3>
+          <p>
+            Target Claude, Cursor, Windsurf, and other AI tools simultaneously
+            from a single project configuration file.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <Footer />
+  </main>
+</BaseLayout>
+
+<script>
+  function initCopy() {
+    const btn = document.getElementById('copy-btn');
+    if (!btn) return;
+
+    const cmd =
+      'curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh';
+    const copyIcon = btn.querySelector('.copy-icon') as SVGElement;
+    const checkIcon = btn.querySelector('.check-icon') as SVGElement;
+
+    btn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(cmd);
+      copyIcon.style.display = 'none';
+      checkIcon.style.display = 'block';
+      setTimeout(() => {
+        copyIcon.style.display = 'block';
+        checkIcon.style.display = 'none';
+      }, 2000);
+    });
+  }
+
+  initCopy();
+  document.addEventListener('astro:after-swap', initCopy);
+</script>
+
+<style>
+  .landing {
+    margin-top: var(--header-height);
+  }
+
+  /* ===== Hero ===== */
+  .hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--header-height) - 100px);
+    padding: 6rem 1.5rem 4rem;
+  }
+
+  .hero-content {
+    text-align: center;
+    max-width: 540px;
+    animation: fadeIn 0.5s ease both;
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 8vw, 4.5rem);
+    font-weight: 400;
+    font-variation-settings: 'opsz' 48;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .hero-tagline {
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-style: italic;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-rule {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-rule::before,
+  .hero-rule::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .hero-ornament {
+    font-size: 0.45rem;
+    color: var(--text-tertiary);
+    line-height: 1;
+  }
+
+  .hero-description {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 2rem;
+  }
+
+  /* Install */
+  .hero-install {
+    margin-bottom: 2rem;
+  }
+
+  .hero-install-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.85rem;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    max-width: 100%;
+  }
+
+  .hero-prompt {
+    color: var(--text-tertiary);
+    font-weight: 500;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .hero-install-box code {
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .hero-copy {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    color: var(--text-tertiary);
+    transition: color var(--transition-fast);
+  }
+
+  .hero-copy:hover {
+    color: var(--text);
+  }
+
+  /* Nav links */
+  .hero-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .hero-link {
+    font-size: 0.95rem;
+    color: var(--accent);
+    transition: color var(--transition-fast);
+  }
+
+  .hero-link:hover {
+    color: var(--accent-hover);
+  }
+
+  .hero-link .arrow {
+    display: inline-block;
+    transition: transform var(--transition-fast);
+  }
+
+  .hero-link:hover .arrow {
+    transform: translateX(2px);
+  }
+
+  /* ===== Features ===== */
+  .features {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  .section-rule {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    margin-bottom: 2.5rem;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem 2.5rem;
+  }
+
+  .feature h3 {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+  }
+
+  .feature p {
+    font-size: 0.88rem;
+    color: var(--text-tertiary);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 540px) {
+    .features-grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .hero-install-box {
+      font-size: 0.7rem;
+    }
+  }
+</style>

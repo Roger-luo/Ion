@@ -1,0 +1,57 @@
+---
+---
+
+<footer class="footer">
+  <div class="footer-inner">
+    <p class="footer-text">
+      <span class="footer-logo">Ion</span>
+      <span class="footer-sep">&middot;</span>
+      <span>MIT License</span>
+      <span class="footer-sep">&middot;</span>
+      <a href="https://github.com/Roger-luo/Ion" target="_blank" rel="noopener">GitHub</a>
+    </p>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem 1.5rem;
+    margin-top: 4rem;
+  }
+
+  .footer-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .footer-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+  }
+
+  .footer-logo {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-variation-settings: 'opsz' 24;
+    color: var(--text-secondary);
+  }
+
+  .footer-sep {
+    opacity: 0.4;
+  }
+
+  .footer a {
+    color: var(--text-secondary);
+    transition: color var(--transition-fast);
+  }
+
+  .footer a:hover {
+    color: var(--accent);
+  }
+</style>

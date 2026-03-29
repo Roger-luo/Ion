@@ -1,0 +1,201 @@
+---
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Props {
+  showMenuButton?: boolean;
+}
+
+const { showMenuButton = false } = Astro.props;
+---
+
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      {showMenuButton && (
+        <button class="menu-btn" aria-label="Toggle navigation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      )}
+      <a href="/" class="logo">
+        <span class="logo-text">Ion</span>
+      </a>
+    </div>
+
+    <nav class="header-nav">
+      <a href="/docs/getting-started/introduction" class="nav-link">Docs</a>
+      <button class="nav-link search-btn" aria-label="Search documentation" id="search-trigger">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <span class="search-hint">
+          <kbd>⌘</kbd><kbd>K</kbd>
+        </span>
+      </button>
+      <a href="https://github.com/Roger-luo/Ion" class="nav-link nav-link-external" target="_blank" rel="noopener">
+        GitHub
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 17L17 7" />
+          <path d="M7 7h10v10" />
+        </svg>
+      </a>
+      <ThemeToggle />
+    </nav>
+  </div>
+</header>
+
+<script>
+  function initHeader() {
+    const menuBtn = document.querySelector('.menu-btn');
+    if (menuBtn) {
+      menuBtn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('toggle-sidebar'));
+      });
+    }
+
+    const searchBtn = document.getElementById('search-trigger');
+    if (searchBtn) {
+      searchBtn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('open-search'));
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.dispatchEvent(new CustomEvent('open-search'));
+      }
+    });
+  }
+
+  initHeader();
+  document.addEventListener('astro:after-swap', initHeader);
+</script>
+
+<style>
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    height: var(--header-height);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border-bottom: 1px solid var(--border);
+    transition: background var(--transition-base);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .menu-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+
+  .menu-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text);
+  }
+
+  @media (max-width: 1023px) {
+    .menu-btn {
+      display: flex;
+    }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 400;
+    font-variation-settings: 'opsz' 48;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+
+  .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    transition: color var(--transition-fast), background var(--transition-fast);
+  }
+
+  .nav-link:hover {
+    color: var(--text);
+    background: var(--bg-secondary);
+  }
+
+  .nav-link-external svg {
+    opacity: 0.5;
+  }
+
+  .search-btn {
+    gap: 0.4rem;
+    cursor: pointer;
+  }
+
+  .search-hint {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .search-hint kbd {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 0.1rem 0.3rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-tertiary);
+    line-height: 1;
+  }
+
+  @media (max-width: 640px) {
+    .search-hint {
+      display: none;
+    }
+  }
+</style>
