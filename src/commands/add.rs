@@ -26,8 +26,9 @@ pub fn run(
     json: bool,
     allow_warnings: bool,
     skills_filter: Option<&str>,
+    project_flags: &[String],
 ) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
 

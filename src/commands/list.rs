@@ -1,7 +1,7 @@
 use crate::context::WorkspaceContext;
 
-pub fn run(json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     if !project.has_manifest() {

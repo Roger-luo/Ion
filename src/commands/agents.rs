@@ -87,8 +87,14 @@ pub fn deploy_agents_update_skill(
     Ok(())
 }
 
-pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn init(
+    source: &str,
+    rev: Option<&str>,
+    path: Option<&str>,
+    json: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
 
@@ -180,8 +186,8 @@ pub fn init(source: &str, rev: Option<&str>, path: Option<&str>, json: bool) -> 
     Ok(())
 }
 
-pub fn update(json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn update(json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     if !project.has_manifest() {
@@ -334,8 +340,8 @@ pub fn update_template_non_fatal(
     Ok(())
 }
 
-pub fn diff() -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn diff(project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
 
     let agents_md = project.dir.join("AGENTS.md");

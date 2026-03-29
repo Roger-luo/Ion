@@ -106,8 +106,13 @@ pub fn print_no_targets_hint(
     }
 }
 
-pub fn run(targets: &[String], force: bool, json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(
+    targets: &[String],
+    force: bool,
+    json: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
 

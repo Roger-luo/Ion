@@ -5,8 +5,8 @@ use ion_skill::source::SkillSource;
 
 use crate::context::WorkspaceContext;
 
-pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(name: &str, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     let manifest = project.manifest()?;

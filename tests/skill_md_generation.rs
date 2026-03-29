@@ -164,7 +164,7 @@ fn json_config_list_structure() {
     .unwrap();
 
     let out = parse(&capture_json(
-        &["--json", "config", "list", "--project"],
+        &["--json", "config", "list", "--local"],
         dir.path(),
     ));
 
@@ -182,7 +182,7 @@ fn json_config_get_structure() {
     .unwrap();
 
     let out = parse(&capture_json(
-        &["--json", "config", "get", "targets.claude", "--project"],
+        &["--json", "config", "get", "targets.claude", "--local"],
         dir.path(),
     ));
 
@@ -207,7 +207,7 @@ fn json_config_set_structure() {
             "set",
             "targets.claude",
             ".claude/commands",
-            "--project",
+            "--local",
         ],
         dir.path(),
     ));

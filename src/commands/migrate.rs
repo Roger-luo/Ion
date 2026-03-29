@@ -13,8 +13,14 @@ use ion_skill::migrate::{
 };
 use ion_skill::search::{SearchCache, SearchSource};
 
-pub fn run(from: Option<&str>, dry_run: bool, json: bool, yes: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(
+    from: Option<&str>,
+    dry_run: bool,
+    json: bool,
+    yes: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     let project_dir = &project.dir;

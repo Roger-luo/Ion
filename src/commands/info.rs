@@ -5,8 +5,8 @@ use ion_skill::source::SkillSource;
 use crate::context::WorkspaceContext;
 use ion_skill::workspace::Project;
 
-pub fn run(skill_str: &str, json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(skill_str: &str, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
 
     if project.manifest_path.exists() {

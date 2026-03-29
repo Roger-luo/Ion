@@ -6,8 +6,8 @@ use crate::commands::install_shared::{
 use crate::commands::validation::{print_validation_summary, select_warned_skills};
 use crate::context::WorkspaceContext;
 
-pub fn run(json: bool, allow_warnings: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     if !project.has_manifest() {

@@ -3,8 +3,13 @@ use ion_skill::binary;
 
 use crate::context::WorkspaceContext;
 
-pub fn run(name: &str, args: &[String], json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(
+    name: &str,
+    args: &[String],
+    json: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
 
     if !project.lockfile_path.exists() {

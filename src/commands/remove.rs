@@ -2,8 +2,8 @@ use ion_skill::manifest_writer;
 
 use crate::context::WorkspaceContext;
 
-pub fn run(name: &str, yes: bool, json: bool) -> anyhow::Result<()> {
-    let ws = WorkspaceContext::load(&[])?;
+pub fn run(name: &str, yes: bool, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
     let project = ws.single_project()?;
     let p = ws.paint();
     let manifest = project.manifest()?;
