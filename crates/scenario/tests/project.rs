@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use scenario::Project;
+use scenario::{Error, Project};
 
 // ── Manifest parsing ───────────────────────────────────────────────
 
@@ -102,4 +102,72 @@ fn empty_project_cleanup_on_drop() {
         assert!(path.exists());
     }
     assert!(!path.exists());
+}
+
+// ── Template: basic rendering ──────────────────────────────────────
+
+#[test]
+fn template_basic_rendering() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Hello")
+        .build()
+        .unwrap();
+    let content = fs::read_to_string(project.path().join("greeting.txt")).unwrap();
+    assert_eq!(content, "Hello, world!\n");
+}
+
+#[test]
+fn template_override_default() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Hi")
+        .var("name", "Rust")
+        .build()
+        .unwrap();
+    let content = fs::read_to_string(project.path().join("greeting.txt")).unwrap();
+    assert_eq!(content, "Hi, Rust!\n");
+}
+
+#[test]
+fn template_missing_required_var() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let result = Project::from_template(&fixtures).build();
+    match result {
+        Err(Error::MissingVariable { names }) => {
+            assert_eq!(names, vec!["greeting"]);
+        }
+        other => panic!("expected MissingVariable error, got: {other:?}"),
+    }
+}
+
+#[test]
+fn template_unknown_var() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let result = Project::from_template(&fixtures)
+        .var("greeting", "Hello")
+        .var("typo_var", "oops")
+        .build();
+    match result {
+        Err(Error::UnknownVariable { name }) => {
+            assert_eq!(name, "typo_var");
+        }
+        other => panic!("expected UnknownVariable error, got: {other:?}"),
+    }
+}
+
+#[test]
+fn template_not_found() {
+    let result = Project::from_template("/nonexistent/path").build();
+    assert!(matches!(result, Err(Error::TemplateNotFound { .. })));
+}
+
+#[test]
+fn template_excludes_manifest_from_output() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Hello")
+        .build()
+        .unwrap();
+    assert!(!project.path().join("template.toml").exists());
 }
