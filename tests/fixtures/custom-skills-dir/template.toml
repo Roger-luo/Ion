@@ -1,0 +1,10 @@
+[variables]
+name = { description = "Skill name", default = "my-skill" }
+description = { description = "Skill description", default = "A skill in a custom directory" }
+skills_dir = { description = "Custom skills directory", default = "my-skills" }
+
+[files]
+
+[files.mappings]
+"Ion.toml.j2" = "Ion.toml"
+"my-skills/my-skill/SKILL.md" = "{{ skills_dir }}/{{ name }}/SKILL.md"

@@ -24,6 +24,8 @@ toml_edit.workspace = true
 
 [dev-dependencies]
 scenario = { path = "crates/scenario" }
+serde_json.workspace = true
+tempfile.workspace = true
 
 [build-dependencies]
 ionem = { workspace = true, default-features = false }

@@ -363,7 +363,8 @@ pub fn run(
     force: bool,
     json: bool,
 ) -> anyhow::Result<()> {
-    // When --path is provided, use the original explicit-directory flow (no Ion.toml tracking).
+    // When --path is provided, create the skill in the given directory.
+    // If we're inside a project (Ion.toml exists), also register it.
     if let Some(p) = path {
         let target_dir = resolve_path(p)?;
         if !target_dir.exists() {
@@ -374,7 +375,47 @@ pub fn run(
             return run_collection(&target_dir, force, json);
         }
 
-        return run_explicit_path(&target_dir, force, json);
+        let dir_name = target_dir
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("my-skill");
+        let name = {
+            let s = slugify(dir_name);
+            if s.is_empty() {
+                "my-skill".to_string()
+            } else {
+                s
+            }
+        };
+
+        write_skill_md(&target_dir, &name, false, force)?;
+
+        let cwd = std::env::current_dir()?;
+        let manifest_path = cwd.join("Ion.toml");
+        if manifest_path.exists() {
+            let source = SkillSource::local();
+            manifest_writer::add_skill(&manifest_path, &name, &source)?;
+
+            if json {
+                crate::json::print_success(serde_json::json!({
+                    "name": name,
+                    "path": target_dir.display().to_string(),
+                    "registered": true,
+                }));
+            } else {
+                println!("Created local skill in {}", target_dir.display());
+                println!("Registered '{}' in Ion.toml as local skill", name);
+            }
+        } else if json {
+            crate::json::print_success(serde_json::json!({
+                "name": name,
+                "path": target_dir.display().to_string(),
+            }));
+        } else {
+            println!("Created SKILL.md in {}", target_dir.display());
+        }
+
+        return Ok(());
     }
 
     // Local skill flow: no --path provided.

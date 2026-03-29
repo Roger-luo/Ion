@@ -1,0 +1,10 @@
+[variables]
+name = { description = "Skill name", default = "my-skill" }
+description = { description = "Skill description", default = "A locked skill" }
+
+[files]
+
+[files.mappings]
+"Ion.toml.j2" = "Ion.toml"
+"Ion.lock.j2" = "Ion.lock"
+".agents/skills/skill/SKILL.md" = ".agents/skills/{{ name }}/SKILL.md"

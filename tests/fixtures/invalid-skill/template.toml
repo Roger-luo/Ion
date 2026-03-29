@@ -1,0 +1,8 @@
+[variables]
+name = { description = "Skill name", default = "bad-skill" }
+
+[files]
+
+[files.mappings]
+"Ion.toml.j2" = "Ion.toml"
+".agents/skills/bad-skill/SKILL.md" = ".agents/skills/{{ name }}/SKILL.md"

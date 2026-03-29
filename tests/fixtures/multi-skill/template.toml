@@ -1,0 +1,12 @@
+[variables]
+alpha_name = { description = "First skill name", default = "alpha-skill" }
+alpha_description = { description = "First skill description", default = "The alpha skill" }
+beta_name = { description = "Second skill name", default = "beta-skill" }
+beta_description = { description = "Second skill description", default = "The beta skill" }
+
+[files]
+
+[files.mappings]
+"Ion.toml.j2" = "Ion.toml"
+".agents/skills/alpha/SKILL.md" = ".agents/skills/{{ alpha_name }}/SKILL.md"
+".agents/skills/beta/SKILL.md" = ".agents/skills/{{ beta_name }}/SKILL.md"
