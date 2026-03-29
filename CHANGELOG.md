@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add project fixture tests and fix skill new --path registration (62bb09d)
+- Scaffold project fixture modules and error variants (dca17d9)
+
+### Documentation
+
+- Add design spec and implementation plan for project fixtures (e406cef)
+
+### Fixed
+
+- Unignore test fixture .agents dirs to fix release-plz CI (acc608b)
+
+### Added
+
 - AGENTS.md/CLAUDE.md migration and symlink management ([#103](https://github.com/Roger-luo/Ion/pull/103)) (351a964)
 - Add scenario crate for CLI behavior testing (177ce22)
 - Use compact JSON by default, add --pretty flag (d95f287)
