@@ -360,3 +360,28 @@ fn scenario_project_sets_current_dir() {
     assert!(output.success());
     assert!(output.stdout().contains("found it"));
 }
+
+// ── Error cases ────────────────────────────────────────────────────
+
+#[test]
+fn template_render_error_on_bad_syntax() {
+    let tmp = tempfile::tempdir().unwrap();
+    let template_dir = tmp.path().join("template");
+    fs::create_dir_all(&template_dir).unwrap();
+    fs::write(template_dir.join("template.toml"), "[variables]\n").unwrap();
+    fs::write(template_dir.join("bad.txt"), "{{ unclosed").unwrap();
+
+    let result = Project::from_template(&template_dir).build();
+    assert!(matches!(result, Err(Error::TemplateRender { .. })));
+}
+
+#[test]
+fn malformed_manifest_toml() {
+    let tmp = tempfile::tempdir().unwrap();
+    let template_dir = tmp.path().join("template");
+    fs::create_dir_all(&template_dir).unwrap();
+    fs::write(template_dir.join("template.toml"), "[invalid\nbroken").unwrap();
+
+    let result = Project::from_template(&template_dir).build();
+    assert!(matches!(result, Err(Error::ManifestParse { .. })));
+}
