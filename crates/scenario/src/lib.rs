@@ -45,5 +45,6 @@ mod session;
 
 pub use error::Error;
 pub use output::Output;
+pub use project::{Project, ProjectBuilder};
 pub use scenario::{Scenario, Terminal};
 pub use session::Session;

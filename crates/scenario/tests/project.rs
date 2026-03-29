@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::Path;
 
+use scenario::Project;
+
 // ── Manifest parsing ───────────────────────────────────────────────
 
 #[test]
@@ -54,4 +56,50 @@ fn parse_manifest_missing_file() {
     let tmp = tempfile::tempdir().unwrap();
     let result = scenario::manifest::TemplateManifest::from_dir(tmp.path());
     assert!(result.is_err());
+}
+
+// ── Empty project ──────────────────────────────────────────────────
+
+#[test]
+fn empty_project_creates_tempdir() {
+    let project = Project::empty().build().unwrap();
+    assert!(project.path().exists());
+    assert!(project.path().is_dir());
+}
+
+#[test]
+fn empty_project_with_file() {
+    let project = Project::empty()
+        .file("config.toml", "[settings]\nkey = \"value\"")
+        .build()
+        .unwrap();
+    let content = fs::read_to_string(project.path().join("config.toml")).unwrap();
+    assert_eq!(content, "[settings]\nkey = \"value\"");
+}
+
+#[test]
+fn empty_project_with_nested_file() {
+    let project = Project::empty().file("a/b/c.txt", "deep").build().unwrap();
+    let content = fs::read_to_string(project.path().join("a/b/c.txt")).unwrap();
+    assert_eq!(content, "deep");
+}
+
+#[test]
+fn empty_project_with_dir() {
+    let project = Project::empty().dir("empty-dir").build().unwrap();
+    assert!(project.path().join("empty-dir").is_dir());
+}
+
+#[test]
+fn empty_project_cleanup_on_drop() {
+    let path;
+    {
+        let project = Project::empty()
+            .file("tmp.txt", "gone soon")
+            .build()
+            .unwrap();
+        path = project.path().to_path_buf();
+        assert!(path.exists());
+    }
+    assert!(!path.exists());
 }
