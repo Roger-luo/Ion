@@ -2,6 +2,9 @@
 .claude
 .worktrees
 
+# Allow test fixtures that live inside .agents directories
+!tests/fixtures/**/.agents
+
 
 # Generated at build time by build.rs from templates/ion-cli.md.j2
 /SKILL.md
