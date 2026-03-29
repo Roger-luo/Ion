@@ -1,0 +1,8 @@
+[variables]
+name = { description = "Skill name" }
+
+[files.mappings]
+"skills/readme.md" = ".agents/skills/{{ name }}/readme.md"
+
+[files.symlinks]
+".targets/{{ name }}" = "../.agents/skills/{{ name }}"

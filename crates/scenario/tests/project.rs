@@ -271,3 +271,41 @@ fn extra_file_added_verbatim() {
     let content = fs::read_to_string(project.path().join("extra.txt")).unwrap();
     assert_eq!(content, "{{ not rendered }}");
 }
+
+// ── Symlinks ───────────────────────────────────────────────────────
+
+#[test]
+fn symlink_created_with_rendered_paths() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-symlinks");
+    let project = Project::from_template(&fixtures)
+        .var("name", "my-skill")
+        .build()
+        .unwrap();
+
+    let link_path = project.path().join(".targets/my-skill");
+    assert!(link_path.symlink_metadata().unwrap().is_symlink());
+
+    // The symlink should resolve to the real skill directory
+    let resolved = fs::read_to_string(link_path.join("readme.md")).unwrap();
+    assert!(resolved.contains("Skill: my-skill"));
+}
+
+#[test]
+fn symlink_missing_target_errors() {
+    let tmp = tempfile::tempdir().unwrap();
+    let template_dir = tmp.path().join("template");
+    fs::create_dir_all(&template_dir).unwrap();
+    fs::write(
+        template_dir.join("template.toml"),
+        r#"
+[variables]
+
+[files.symlinks]
+"link" = "nonexistent-target"
+"#,
+    )
+    .unwrap();
+
+    let result = Project::from_template(&template_dir).build();
+    assert!(matches!(result, Err(Error::SymlinkTarget { .. })));
+}
