@@ -10,6 +10,7 @@ use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 
 use crate::error::Error;
 use crate::output::Output;
+use crate::project::Project;
 use crate::session::{ReaderState, Session};
 
 /// Terminal conditions for a scenario.
@@ -116,6 +117,14 @@ impl Scenario {
     pub fn current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
         self.current_dir = Some(dir.into());
         self
+    }
+
+    /// Set the working directory to a [`Project`]'s path.
+    ///
+    /// This is convenience sugar for `.current_dir(project.path())`.
+    /// The `Project` must outlive the scenario execution.
+    pub fn project(self, project: &Project) -> Self {
+        self.current_dir(project.path())
     }
 
     /// Set the terminal conditions.

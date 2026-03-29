@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use scenario::{Error, Project};
+use scenario::{Error, Project, Scenario};
 
 // ── Manifest parsing ───────────────────────────────────────────────
 
@@ -340,4 +340,23 @@ fn build_in_does_not_cleanup_on_drop() {
 
     // Directory still exists after Project is dropped
     assert!(target_path.join("test.txt").exists());
+}
+
+// ── Scenario integration ───────────────────────────────────────────
+
+#[test]
+fn scenario_project_sets_current_dir() {
+    let project = Project::empty()
+        .file("marker.txt", "found it")
+        .build()
+        .unwrap();
+
+    let output = Scenario::new("cat")
+        .arg("marker.txt")
+        .project(&project)
+        .run()
+        .unwrap();
+
+    assert!(output.success());
+    assert!(output.stdout().contains("found it"));
 }
