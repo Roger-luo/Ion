@@ -145,6 +145,13 @@ impl ManifestOptions {
     }
 }
 
+/// Workspace configuration for multi-project setups.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct WorkspaceConfig {
+    #[serde(default)]
+    pub members: Vec<String>,
+}
+
 /// Metadata about the project itself (not its dependencies).
 ///
 /// Present in `[project]` section of Ion.toml for projects that are themselves
@@ -171,6 +178,8 @@ impl ProjectMeta {
 pub struct Manifest {
     #[serde(default)]
     pub project: Option<ProjectMeta>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workspace: Option<WorkspaceConfig>,
     #[serde(default)]
     pub skills: BTreeMap<String, SkillEntry>,
     #[serde(default)]
@@ -213,6 +222,7 @@ impl Manifest {
     pub fn empty() -> Self {
         Self {
             project: None,
+            workspace: None,
             skills: BTreeMap::new(),
             options: ManifestOptions::default(),
             agents: None,
@@ -438,5 +448,37 @@ path = "templates/AGENTS.md"
             skills_dir: Some("custom/skills".to_string()),
         };
         assert_eq!(opts.skills_dir_or_default(), "custom/skills");
+    }
+
+    #[test]
+    fn parse_workspace_config() {
+        let toml_str = r#"
+[workspace]
+members = ["docs", "packages/frontend"]
+
+[skills]
+foo = "bar/baz"
+"#;
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let ws = manifest
+            .workspace
+            .as_ref()
+            .expect("workspace should be present");
+        assert_eq!(ws.members, vec!["docs", "packages/frontend"]);
+    }
+
+    #[test]
+    fn parse_manifest_without_workspace() {
+        let toml_str = "[skills]\nfoo = \"bar/baz\"\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        assert!(manifest.workspace.is_none());
+    }
+
+    #[test]
+    fn parse_empty_workspace_members() {
+        let toml_str = "[workspace]\nmembers = []\n\n[skills]\n";
+        let manifest = Manifest::parse(toml_str).unwrap();
+        let ws = manifest.workspace.as_ref().unwrap();
+        assert!(ws.members.is_empty());
     }
 }
