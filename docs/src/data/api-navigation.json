@@ -1,0 +1,161 @@
+[
+  {
+    "title": "API: ion-skill",
+    "items": [
+      {
+        "title": "Overview",
+        "slug": "api-reference/ion-skill"
+      },
+      {
+        "title": "agents",
+        "slug": "api-reference/ion-skill/agents"
+      },
+      {
+        "title": "binary",
+        "slug": "api-reference/ion-skill/binary"
+      },
+      {
+        "title": "config",
+        "slug": "api-reference/ion-skill/config"
+      },
+      {
+        "title": "error",
+        "slug": "api-reference/ion-skill/error"
+      },
+      {
+        "title": "git",
+        "slug": "api-reference/ion-skill/git"
+      },
+      {
+        "title": "gitignore",
+        "slug": "api-reference/ion-skill/gitignore"
+      },
+      {
+        "title": "installer",
+        "slug": "api-reference/ion-skill/installer"
+      },
+      {
+        "title": "lockfile",
+        "slug": "api-reference/ion-skill/lockfile"
+      },
+      {
+        "title": "manifest",
+        "slug": "api-reference/ion-skill/manifest"
+      },
+      {
+        "title": "manifest_writer",
+        "slug": "api-reference/ion-skill/manifest-writer"
+      },
+      {
+        "title": "migrate",
+        "slug": "api-reference/ion-skill/migrate"
+      },
+      {
+        "title": "registry",
+        "slug": "api-reference/ion-skill/registry"
+      },
+      {
+        "title": "search",
+        "slug": "api-reference/ion-skill/search"
+      },
+      {
+        "title": "skill",
+        "slug": "api-reference/ion-skill/skill"
+      },
+      {
+        "title": "source",
+        "slug": "api-reference/ion-skill/source"
+      },
+      {
+        "title": "update",
+        "slug": "api-reference/ion-skill/update"
+      },
+      {
+        "title": "update::binary",
+        "slug": "api-reference/ion-skill/update/binary"
+      },
+      {
+        "title": "update::git",
+        "slug": "api-reference/ion-skill/update/git"
+      },
+      {
+        "title": "validate",
+        "slug": "api-reference/ion-skill/validate"
+      },
+      {
+        "title": "validate::codeblock",
+        "slug": "api-reference/ion-skill/validate/codeblock"
+      },
+      {
+        "title": "validate::discovery",
+        "slug": "api-reference/ion-skill/validate/discovery"
+      },
+      {
+        "title": "validate::markdown",
+        "slug": "api-reference/ion-skill/validate/markdown"
+      },
+      {
+        "title": "validate::security",
+        "slug": "api-reference/ion-skill/validate/security"
+      },
+      {
+        "title": "validate::structure",
+        "slug": "api-reference/ion-skill/validate/structure"
+      }
+    ]
+  },
+  {
+    "title": "API: ionem",
+    "items": [
+      {
+        "title": "Overview",
+        "slug": "api-reference/ionem"
+      },
+      {
+        "title": "build",
+        "slug": "api-reference/ionem/build"
+      },
+      {
+        "title": "error",
+        "slug": "api-reference/ionem/error"
+      },
+      {
+        "title": "release",
+        "slug": "api-reference/ionem/release"
+      },
+      {
+        "title": "self_update",
+        "slug": "api-reference/ionem/self-update"
+      },
+      {
+        "title": "shell",
+        "slug": "api-reference/ionem/shell"
+      },
+      {
+        "title": "shell::cargo",
+        "slug": "api-reference/ionem/shell/cargo"
+      },
+      {
+        "title": "shell::gh",
+        "slug": "api-reference/ionem/shell/gh"
+      },
+      {
+        "title": "shell::git",
+        "slug": "api-reference/ionem/shell/git"
+      }
+    ]
+  },
+  {
+    "title": "API: scenario",
+    "items": [
+      {
+        "title": "Overview",
+        "slug": "api-reference/scenario"
+      },
+      {
+        "title": "manifest",
+        "slug": "api-reference/scenario/manifest"
+      }
+    ]
+  }
+]

@@ -1,3 +1,5 @@
+import apiNav from './api-navigation.json';
+
 export interface NavItem {
   title: string;
   slug: string;
@@ -24,6 +26,7 @@ export const navigation: NavSection[] = [
       { title: 'Configuration', slug: 'guides/configuration' },
     ],
   },
+  ...apiNav,
 ];
 
 /** Flatten all navigation sections into a single ordered list of NavItems. */

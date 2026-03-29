@@ -3,8 +3,9 @@
   "type": "module",
   "version": "0.0.1",
   "scripts": {
+    "generate-api": "npx tsx scripts/generate-api-docs.ts",
     "dev": "astro dev",
-    "build": "astro build && npx pagefind --site dist",
+    "build": "npm run generate-api && astro build && npx pagefind --site dist",
     "preview": "astro preview",
     "astro": "astro"
   },
@@ -12,6 +13,7 @@
     "astro": "^5.0.0"
   },
   "devDependencies": {
-    "pagefind": "^1.4.0"
+    "pagefind": "^1.4.0",
+    "tsx": "^4.0.0"
   }
 }
