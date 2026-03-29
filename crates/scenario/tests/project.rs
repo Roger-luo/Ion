@@ -309,3 +309,35 @@ fn symlink_missing_target_errors() {
     let result = Project::from_template(&template_dir).build();
     assert!(matches!(result, Err(Error::SymlinkTarget { .. })));
 }
+
+// ── build_in ───────────────────────────────────────────────────────
+
+#[test]
+fn build_in_populates_existing_dir() {
+    let target = tempfile::tempdir().unwrap();
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/basic");
+    let project = Project::from_template(&fixtures)
+        .var("greeting", "Hello")
+        .build_in(target.path())
+        .unwrap();
+
+    assert_eq!(project.path(), target.path());
+    let content = fs::read_to_string(target.path().join("greeting.txt")).unwrap();
+    assert_eq!(content, "Hello, world!\n");
+}
+
+#[test]
+fn build_in_does_not_cleanup_on_drop() {
+    let target = tempfile::tempdir().unwrap();
+    let target_path = target.path().to_path_buf();
+
+    {
+        let _project = Project::empty()
+            .file("test.txt", "data")
+            .build_in(&target_path)
+            .unwrap();
+    }
+
+    // Directory still exists after Project is dropped
+    assert!(target_path.join("test.txt").exists());
+}
