@@ -28,3 +28,11 @@ language = "system"
 entry = "cargo clippy --all-targets --all-features -- -D warnings"
 pass_filenames = false
 types = ["rust"]
+
+[[repos.hooks]]
+id = "astro-check"
+name = "astro check"
+language = "system"
+entry = "npx --prefix docs astro check"
+pass_filenames = false
+files = '^docs/'
