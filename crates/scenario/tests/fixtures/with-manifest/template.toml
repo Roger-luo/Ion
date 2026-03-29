@@ -1,0 +1,13 @@
+[variables]
+name = { description = "Skill name", default = "test-skill" }
+description = { description = "Skill description" }
+version = { default = "1.0" }
+
+[files]
+optional = ["Ion.lock"]
+
+[files.mappings]
+"skills/SKILL.md" = ".agents/skills/{{name}}/SKILL.md"
+
+[files.symlinks]
+".claude/skills/{{name}}" = "../../.agents/skills/{{name}}"
