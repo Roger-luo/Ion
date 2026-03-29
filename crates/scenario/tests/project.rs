@@ -219,3 +219,26 @@ fn exclude_removes_non_optional() {
     assert!(!project.path().join("config.txt").exists());
     assert!(!project.path().join("lockfile.txt").exists());
 }
+
+// ── Path mappings ──────────────────────────────────────────────────
+
+#[test]
+fn mapping_routes_source_to_rendered_dest() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-mappings");
+    let project = Project::from_template(&fixtures)
+        .var("name", "my-skill")
+        .build()
+        .unwrap();
+
+    // Source file should NOT exist at its natural path
+    assert!(!project.path().join("skill.md").exists());
+
+    // It should exist at the mapped, rendered path
+    let content =
+        fs::read_to_string(project.path().join(".agents/skills/my-skill/SKILL.md")).unwrap();
+    assert!(content.contains("name: my-skill"));
+    assert!(content.contains("Body of my-skill"));
+
+    // Unmapped files keep their natural path
+    assert!(project.path().join("config.txt").exists());
+}

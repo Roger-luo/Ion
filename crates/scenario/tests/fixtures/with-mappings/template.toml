@@ -1,0 +1,5 @@
+[variables]
+name = { description = "Skill name" }
+
+[files.mappings]
+"skill.md" = ".agents/skills/{{ name }}/SKILL.md"
