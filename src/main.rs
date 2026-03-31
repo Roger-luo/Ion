@@ -18,6 +18,10 @@ struct Cli {
     #[arg(long, global = true, requires = "json")]
     pretty: bool,
 
+    /// Operate on a specific project within the workspace (path relative to root, or "." for root)
+    #[arg(long, global = true)]
+    project: Vec<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -130,6 +134,11 @@ enum Commands {
         #[arg(long, short = 'y')]
         yes: bool,
     },
+    /// Manage workspace members
+    Workspace {
+        #[command(subcommand)]
+        action: WorkspaceCommands,
+    },
     /// Manage the skill cache
     Cache {
         #[command(subcommand)]
@@ -234,6 +243,24 @@ enum CacheCommands {
 }
 
 #[derive(Subcommand)]
+enum WorkspaceCommands {
+    /// Add a sub-project to the workspace
+    Add {
+        /// Path to the sub-project directory (relative to workspace root)
+        path: String,
+    },
+    /// Remove a sub-project from the workspace
+    Remove {
+        /// Path of the sub-project to remove
+        path: String,
+    },
+    /// List all workspace members
+    List,
+    /// Show workspace status
+    Status,
+}
+
+#[derive(Subcommand)]
 enum AgentsCommands {
     /// Set up AGENTS.md template sourcing from a remote repository
     Init {
@@ -260,6 +287,7 @@ fn main() {
 
     let cli = Cli::parse();
     let json = cli.json;
+    let project_flags = cli.project;
     crate::json::set_pretty(cli.pretty);
     let skip_update_check = matches!(
         cli.command,
@@ -281,7 +309,7 @@ fn main() {
                     "--ci requires --bin (CI/CD setup is for binary skill projects)"
                 ))
             } else {
-                commands::init::run(&target, force, json)
+                commands::init::run(&target, force, json, &project_flags)
             }
         }
         Commands::Ci { force } => commands::ci::run(force, json),
@@ -303,10 +331,11 @@ fn main() {
                 json,
                 allow_warnings,
                 skills.as_deref(),
+                &project_flags,
             ),
-            None => commands::install::run(json, allow_warnings),
+            None => commands::install::run(json, allow_warnings, &project_flags),
         },
-        Commands::Remove { name, yes } => commands::remove::run(&name, yes, json),
+        Commands::Remove { name, yes } => commands::remove::run(&name, yes, json, &project_flags),
         Commands::Search {
             query,
             agent,
@@ -321,15 +350,19 @@ fn main() {
             }
             commands::search::run(&query, agent, json, source.as_deref(), limit)
         }
-        Commands::Update { name } => commands::update::run(name.as_deref(), json),
+        Commands::Update { name } => commands::update::run(name.as_deref(), json, &project_flags),
         Commands::Agents { action } => match action {
-            AgentsCommands::Init { source, rev, path } => {
-                commands::agents::init(&source, rev.as_deref(), path.as_deref(), json)
-            }
-            AgentsCommands::Update => commands::agents::update(json),
-            AgentsCommands::Diff => commands::agents::diff(),
+            AgentsCommands::Init { source, rev, path } => commands::agents::init(
+                &source,
+                rev.as_deref(),
+                path.as_deref(),
+                json,
+                &project_flags,
+            ),
+            AgentsCommands::Update => commands::agents::update(json, &project_flags),
+            AgentsCommands::Diff => commands::agents::diff(&project_flags),
         },
-        Commands::Run { name, args } => commands::run::run(&name, &args, json),
+        Commands::Run { name, args } => commands::run::run(&name, &args, json, &project_flags),
         Commands::Skill { action } => match action {
             SkillCommands::New {
                 path,
@@ -338,18 +371,24 @@ fn main() {
                 force,
             } => commands::new::run(path.as_deref(), dir.as_deref(), collection, force, json),
             SkillCommands::Validate { path } => commands::validate::run(path.as_deref(), json),
-            SkillCommands::Info { skill } => commands::info::run(&skill, json),
-            SkillCommands::List => commands::list::run(json),
-            SkillCommands::Link { path } => commands::link::run(&path, json),
-            SkillCommands::Eject { name } => commands::eject::run(&name, json),
+            SkillCommands::Info { skill } => commands::info::run(&skill, json, &project_flags),
+            SkillCommands::List => commands::list::run(json, &project_flags),
+            SkillCommands::Link { path } => commands::link::run(&path, json, &project_flags),
+            SkillCommands::Eject { name } => commands::eject::run(&name, json, &project_flags),
         },
         Commands::Migrate { from, dry_run, yes } => {
-            commands::migrate::run(from.as_deref(), dry_run, json, yes)
+            commands::migrate::run(from.as_deref(), dry_run, json, yes, &project_flags)
         }
+        Commands::Workspace { action } => match action {
+            WorkspaceCommands::Add { path } => commands::workspace::add(&path, json),
+            WorkspaceCommands::Remove { path } => commands::workspace::remove(&path, json),
+            WorkspaceCommands::List => commands::workspace::list(json),
+            WorkspaceCommands::Status => commands::workspace::status(json),
+        },
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
         },
-        Commands::Config { action } => commands::config::run(action, json),
+        Commands::Config { action } => commands::config::run(action, json, &project_flags),
         Commands::Self_ { action } => match action {
             SelfCommands::Skill => {
                 commands::self_cmd::skill();

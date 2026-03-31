@@ -15,6 +15,7 @@ pub mod skill;
 pub mod source;
 pub mod update;
 pub mod validate;
+pub mod workspace;
 
 // Re-export ionem's self_update for backward compatibility.
 // New code should depend on `ionem` directly.

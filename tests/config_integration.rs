@@ -24,7 +24,7 @@ fn config_set_and_get_project() {
     std::fs::write(&manifest_path, "[skills]\n").unwrap();
 
     let output = ion_cmd()
-        .args(["config", "list", "--project"])
+        .args(["config", "list", "--local"])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -42,7 +42,7 @@ fn config_list_no_project() {
     let dir = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
-        .args(["config", "list", "--project"])
+        .args(["config", "list", "--local"])
         .current_dir(dir.path())
         .output()
         .unwrap();

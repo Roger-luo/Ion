@@ -12,8 +12,9 @@ use crate::commands::install_shared::{
 use crate::commands::validation::{
     confirm_proceed_with_collection, print_validation_summary, select_warned_skills,
 };
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 use crate::style::Paint;
+use ion_skill::workspace::Project;
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
@@ -25,9 +26,11 @@ pub fn run(
     json: bool,
     allow_warnings: bool,
     skills_filter: Option<&str>,
+    project_flags: &[String],
 ) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
+    let ws = WorkspaceContext::load(project_flags)?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
 
     let mut bin = bin;
 
@@ -35,7 +38,7 @@ pub fn run(
         anyhow::bail!("--dev can only be used with --bin for local binary skills");
     }
 
-    let expanded = ctx.global_config.resolve_source(source_str);
+    let expanded = ws.global_config.resolve_source(source_str);
     let mut source = SkillSource::infer(&expanded)?;
     if let Some(r) = rev {
         source.rev = Some(r.to_string());
@@ -85,10 +88,9 @@ pub fn run(
         }
     }
 
-    let manifest = ctx.manifest_or_empty()?;
-    let merged_options = ctx.merged_options(&manifest);
+    let merged_options = ws.merged_options_for(project)?;
 
-    ctx.ensure_builtin_skill(&merged_options);
+    ws.ensure_builtin_skill(project, &merged_options);
 
     // Binary skills always install as a single skill — no collection fallback
     if bin {
@@ -109,9 +111,9 @@ pub fn run(
             mode,
             p.info(source_str)
         );
-        let installer = ctx.installer(&merged_options);
+        let installer = ws.installer_for(project, &merged_options);
         let locked = installer.install(&name, &source)?;
-        return finish_single_install(&ctx, &p, &merged_options, &name, &source, locked, json);
+        return finish_single_install(project, &p, &merged_options, &name, &source, locked, json);
     }
 
     // If the source has no path (i.e. points to a whole repo), check if it's
@@ -127,11 +129,11 @@ pub fn run(
             p.info(source_str)
         );
 
-        let installer = ctx.installer(&merged_options);
+        let installer = ws.installer_for(project, &merged_options);
         match installer.install(&name, &source) {
             Ok(locked) => {
                 return finish_single_install(
-                    &ctx,
+                    project,
                     &p,
                     &merged_options,
                     &name,
@@ -156,7 +158,7 @@ pub fn run(
                     },
                 )?;
                 return finish_single_install(
-                    &ctx,
+                    project,
                     &p,
                     &merged_options,
                     &name,
@@ -190,10 +192,10 @@ pub fn run(
                             p.bold(&format!("'{bin_name}'")),
                             p.info(source_str)
                         );
-                        let installer = ctx.installer(&merged_options);
+                        let installer = ws.installer_for(project, &merged_options);
                         let locked = installer.install(&bin_name, &bin_source)?;
                         return finish_single_install(
-                            &ctx,
+                            project,
                             &p,
                             &merged_options,
                             &bin_name,
@@ -206,7 +208,7 @@ pub fn run(
 
                 // Not a single-skill repo — try as a multi-skill collection
                 return install_collection(
-                    &ctx,
+                    project,
                     &p,
                     &merged_options,
                     &source,
@@ -230,7 +232,7 @@ pub fn run(
         p.info(source_str)
     );
 
-    let installer = ctx.installer(&merged_options);
+    let installer = ws.installer_for(project, &merged_options);
     let locked = crate::commands::install_shared::install_with_warning_prompt(
         &installer,
         &name,
@@ -239,12 +241,12 @@ pub fn run(
         allow_warnings,
     )?;
 
-    finish_single_install(&ctx, &p, &merged_options, &name, &source, locked, json)
+    finish_single_install(project, &p, &merged_options, &name, &source, locked, json)
 }
 
 #[allow(clippy::too_many_arguments)]
 fn install_collection(
-    ctx: &ProjectContext,
+    project: &Project,
     p: &Paint,
     merged_options: &ion_skill::manifest::ManifestOptions,
     base_source: &SkillSource,
@@ -274,7 +276,7 @@ fn install_collection(
     }
 
     // Phase 1: Validate all skills upfront
-    let installer = ctx.installer(merged_options);
+    let installer = ion_skill::installer::SkillInstaller::new(&project.dir, merged_options);
 
     println!("Validating skills...");
     let buckets = ValidationBuckets::collect(
@@ -367,7 +369,7 @@ fn install_collection(
     };
 
     // Phase 3: Install approved skills
-    let mut lockfile = ctx.lockfile()?;
+    let mut lockfile = project.lockfile()?;
 
     let installed_count = install_approved_skills(
         &installer,
@@ -384,7 +386,7 @@ fn install_collection(
                 println!("    Linked to {}", p.info(target_name));
             }
             finalize_skill_install(
-                ctx,
+                project,
                 merged_options,
                 name,
                 source,
@@ -401,9 +403,9 @@ fn install_collection(
     }
 
     // Register in global registry (once for the base source)
-    register_in_registry(base_source, &ctx.project_dir)?;
+    register_in_registry(base_source, &project.dir)?;
 
-    lockfile.write_to(&ctx.lockfile_path)?;
+    lockfile.write_to(&project.lockfile_path)?;
 
     if json {
         // Collect names of installed skills
@@ -450,7 +452,7 @@ fn install_collection(
 }
 
 fn finish_single_install(
-    ctx: &ProjectContext,
+    project: &Project,
     p: &Paint,
     merged_options: &ion_skill::manifest::ManifestOptions,
     name: &str,
@@ -459,7 +461,7 @@ fn finish_single_install(
     json: bool,
 ) -> anyhow::Result<()> {
     finalize_skill_install_and_write(
-        ctx,
+        project,
         merged_options,
         name,
         source,

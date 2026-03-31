@@ -3,12 +3,13 @@ use std::path::Path;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
-use crate::context::ProjectContext;
+use crate::context::WorkspaceContext;
 
-pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
-    let ctx = ProjectContext::load()?;
-    let p = ctx.paint();
-    let manifest = ctx.manifest()?;
+pub fn run(name: &str, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
+    let ws = WorkspaceContext::load(project_flags)?;
+    let project = ws.single_project()?;
+    let p = ws.paint();
+    let manifest = project.manifest()?;
 
     // Verify skill exists and is not already local/path
     let entry = manifest
@@ -22,11 +23,11 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     }
 
     // Resolve skills-dir from merged options (default ".agents/skills")
-    let merged_options = ctx.merged_options(&manifest);
+    let merged_options = ws.merged_options_for(project)?;
     let skills_dir = merged_options.skills_dir_or_default();
 
     // Find the current installed skill
-    let agents_skill = ctx.project_dir.join(skills_dir).join(name);
+    let agents_skill = project.dir.join(skills_dir).join(name);
     if !agents_skill.exists() {
         anyhow::bail!("Skill '{}' is not installed. Run `ion add` first.", name);
     }
@@ -35,7 +36,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let real_source = std::fs::canonicalize(&agents_skill)?;
 
     // Determine destination
-    let dest = ctx.project_dir.join(skills_dir).join(name);
+    let dest = project.dir.join(skills_dir).join(name);
 
     if !json {
         println!(
@@ -76,10 +77,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
         std::os::unix::fs::symlink(&rel_target, &agents_skill)?;
     }
 
-    let display_dest = dest
-        .strip_prefix(&ctx.project_dir)
-        .unwrap_or(&dest)
-        .display();
+    let display_dest = dest.strip_prefix(&project.dir).unwrap_or(&dest).display();
     if !json {
         println!(
             "  Copied skill content to {}",
@@ -93,20 +91,20 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
     let forked_from = build_forked_from(&source);
 
     let local_source = SkillSource::local().with_forked_from(forked_from.clone());
-    manifest_writer::remove_skill(&ctx.manifest_path, name)?;
-    manifest_writer::add_skill(&ctx.manifest_path, name, &local_source)?;
+    manifest_writer::remove_skill(&project.manifest_path, name)?;
+    manifest_writer::add_skill(&project.manifest_path, name, &local_source)?;
     if !json {
         println!("  Updated {} — type changed to local", p.dim("Ion.toml"));
     }
 
     // Remove gitignore entries (local skills are tracked by git)
-    ion_skill::gitignore::remove_skill_entries(&ctx.project_dir, name)?;
+    ion_skill::gitignore::remove_skill_entries(&project.dir, name)?;
     if !json {
         println!("  Updated {} — removed skill entries", p.dim(".gitignore"));
     }
 
     // Update lockfile: convert to local kind, preserve checksum
-    let mut lockfile = ctx.lockfile()?;
+    let mut lockfile = project.lockfile()?;
     if let Some(locked) = lockfile.find(name).cloned() {
         let mut updated =
             ion_skill::lockfile::LockedSkill::local(name).with_source(locked.source.clone());
@@ -120,7 +118,7 @@ pub fn run(name: &str, json: bool) -> anyhow::Result<()> {
             updated = updated.with_version(version);
         }
         lockfile.upsert(updated);
-        lockfile.write_to(&ctx.lockfile_path)?;
+        lockfile.write_to(&project.lockfile_path)?;
         if !json {
             println!("  Updated {}", p.dim("Ion.lock"));
         }

@@ -225,6 +225,70 @@ pub fn delete_option(manifest_path: &Path, key: &str) -> Result<String> {
     Ok(result)
 }
 
+/// Add a member to [workspace].members in an Ion.toml file.
+/// Creates the [workspace] section if it doesn't exist.
+pub fn add_workspace_member(manifest_path: &Path, member: &str) -> Result<String> {
+    let content =
+        std::fs::read_to_string(manifest_path).unwrap_or_else(|_| "[skills]\n".to_string());
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    if !doc.contains_key("workspace") {
+        doc["workspace"] = Item::Table(Table::new());
+    }
+    let ws = doc["workspace"]
+        .as_table_mut()
+        .ok_or_else(|| Error::Manifest("[workspace] is not a table".to_string()))?;
+
+    if !ws.contains_key("members") {
+        ws["members"] = Item::Value(toml_edit::Value::Array(toml_edit::Array::new()));
+    }
+    let members = ws["members"]
+        .as_array_mut()
+        .ok_or_else(|| Error::Manifest("[workspace].members is not an array".to_string()))?;
+
+    let already_exists = members.iter().any(|v| v.as_str() == Some(member));
+    if !already_exists {
+        members.push(member);
+    }
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
+/// Remove a member from [workspace].members in an Ion.toml file.
+pub fn remove_workspace_member(manifest_path: &Path, member: &str) -> Result<String> {
+    let content = std::fs::read_to_string(manifest_path).map_err(Error::Io)?;
+    let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
+
+    let ws = doc
+        .get_mut("workspace")
+        .and_then(|w| w.as_table_mut())
+        .ok_or_else(|| Error::Manifest("No [workspace] section in Ion.toml".to_string()))?;
+
+    let members = ws
+        .get_mut("members")
+        .and_then(|m| m.as_array_mut())
+        .ok_or_else(|| Error::Manifest("No [workspace].members in Ion.toml".to_string()))?;
+
+    let idx = members.iter().position(|v| v.as_str() == Some(member));
+    match idx {
+        Some(i) => {
+            members.remove(i);
+        }
+        None => {
+            return Err(Error::Manifest(format!(
+                "'{}' is not a workspace member",
+                member
+            )));
+        }
+    }
+
+    let result = doc.to_string();
+    std::fs::write(manifest_path, &result).map_err(Error::Io)?;
+    Ok(result)
+}
+
 /// Build a TOML representation of a skill source.
 fn skill_to_toml(source: &SkillSource) -> Item {
     // Extract kind-specific optional fields
@@ -634,5 +698,47 @@ mod tests {
         std::fs::write(&path, "[skills]\n").unwrap();
 
         assert!(delete_option(&path, "unknown.key").is_err());
+    }
+
+    #[test]
+    fn add_workspace_member_creates_section() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[skills]\n").unwrap();
+
+        add_workspace_member(&path, "docs").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("[workspace]"));
+        assert!(content.contains("\"docs\""));
+    }
+
+    #[test]
+    fn remove_workspace_member_removes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(
+            &path,
+            "[workspace]\nmembers = [\"docs\", \"frontend\"]\n\n[skills]\n",
+        )
+        .unwrap();
+
+        remove_workspace_member(&path, "docs").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(!content.contains("\"docs\""));
+        assert!(content.contains("\"frontend\""));
+    }
+
+    #[test]
+    fn add_duplicate_workspace_member_is_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("Ion.toml");
+        std::fs::write(&path, "[workspace]\nmembers = [\"docs\"]\n\n[skills]\n").unwrap();
+
+        add_workspace_member(&path, "docs").unwrap();
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content.matches("\"docs\"").count(), 1);
     }
 }

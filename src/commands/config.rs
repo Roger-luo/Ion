@@ -11,7 +11,7 @@ pub enum ConfigAction {
         key: String,
         /// Read from project config (Ion.toml) instead of global
         #[arg(long)]
-        project: bool,
+        local: bool,
     },
     /// Set a config value
     Set {
@@ -21,34 +21,37 @@ pub enum ConfigAction {
         value: String,
         /// Write to project config (Ion.toml) instead of global
         #[arg(long)]
-        project: bool,
+        local: bool,
     },
     /// List all config values
     List {
         /// Show project config (Ion.toml) instead of global
         #[arg(long)]
-        project: bool,
+        local: bool,
     },
 }
 
-pub fn run(action: Option<ConfigAction>, json: bool) -> anyhow::Result<()> {
+pub fn run(
+    action: Option<ConfigAction>,
+    json: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
     match action {
-        None if json => run_list(false, json),
-        None => run_interactive(),
-        Some(ConfigAction::Get { key, project }) => run_get(&key, project, json),
-        Some(ConfigAction::Set {
-            key,
-            value,
-            project,
-        }) => run_set(&key, &value, project, json),
-        Some(ConfigAction::List { project }) => run_list(project, json),
+        None if json => run_list(false, json, project_flags),
+        None => run_interactive(project_flags),
+        Some(ConfigAction::Get { key, local }) => run_get(&key, local, json, project_flags),
+        Some(ConfigAction::Set { key, value, local }) => {
+            run_set(&key, &value, local, json, project_flags)
+        }
+        Some(ConfigAction::List { local }) => run_list(local, json, project_flags),
     }
 }
 
-fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
+fn run_get(key: &str, project: bool, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
     let (value, scope) = if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        let manifest = Manifest::from_file(&ctx.manifest_path)?;
+        let ws = crate::context::WorkspaceContext::load(project_flags)?;
+        let proj = ws.single_project()?;
+        let manifest = Manifest::from_file(&proj.manifest_path)?;
         (manifest.options.get_value(key), "project")
     } else {
         let config = GlobalConfig::load()?;
@@ -73,10 +76,17 @@ fn run_get(key: &str, project: bool, json: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_set(key: &str, value: &str, project: bool, json: bool) -> anyhow::Result<()> {
+fn run_set(
+    key: &str,
+    value: &str,
+    project: bool,
+    json: bool,
+    project_flags: &[String],
+) -> anyhow::Result<()> {
     if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        manifest_writer::set_option(&ctx.manifest_path, key, value)?;
+        let ws = crate::context::WorkspaceContext::load(project_flags)?;
+        let proj = ws.single_project()?;
+        manifest_writer::set_option(&proj.manifest_path, key, value)?;
     } else {
         let config_path = GlobalConfig::config_path()
             .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
@@ -120,10 +130,11 @@ fn print_config_sections(values: &[(String, String)]) {
     }
 }
 
-fn run_list(project: bool, json: bool) -> anyhow::Result<()> {
+fn run_list(project: bool, json: bool, project_flags: &[String]) -> anyhow::Result<()> {
     let (values, scope) = if project {
-        let ctx = crate::context::ProjectContext::load()?;
-        let manifest = Manifest::from_file(&ctx.manifest_path)?;
+        let ws = crate::context::WorkspaceContext::load(project_flags)?;
+        let proj = ws.single_project()?;
+        let manifest = Manifest::from_file(&proj.manifest_path)?;
         (manifest.options.list_values(), "project")
     } else {
         let config = GlobalConfig::load()?;
@@ -147,7 +158,7 @@ fn run_list(project: bool, json: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run_interactive() -> anyhow::Result<()> {
+fn run_interactive(project_flags: &[String]) -> anyhow::Result<()> {
     use std::io;
 
     use crossterm::event::{self, Event};
@@ -162,9 +173,10 @@ fn run_interactive() -> anyhow::Result<()> {
     let global_config_path = GlobalConfig::config_path()
         .ok_or_else(|| anyhow::anyhow!("Could not determine global config path"))?;
 
-    let ctx = crate::context::ProjectContext::load()?;
-    let manifest_opt = if ctx.manifest_path.exists() {
-        Some(ctx.manifest_path)
+    let ws = crate::context::WorkspaceContext::load(project_flags)?;
+    let proj = ws.single_project()?;
+    let manifest_opt = if proj.manifest_path.exists() {
+        Some(proj.manifest_path.clone())
     } else {
         None
     };

@@ -8,8 +8,8 @@ use ion_skill::source::SkillSource;
 use ion_skill::validate::ValidationReport;
 
 use crate::commands::validation::{confirm_install_on_warnings, print_validation_report};
-use crate::context::ProjectContext;
 use crate::style::Paint;
+use ion_skill::workspace::Project;
 
 /// A skill ready for installation (validated, source resolved).
 pub struct SkillEntry {
@@ -158,7 +158,7 @@ impl FinalizeOptions {
 
 /// Post-install bookkeeping: conditionally does gitignore, registry, manifest, lockfile.
 pub fn finalize_skill_install(
-    ctx: &ProjectContext,
+    project: &Project,
     merged_options: &ManifestOptions,
     name: &str,
     source: &SkillSource,
@@ -166,12 +166,12 @@ pub fn finalize_skill_install(
     lockfile: &mut Lockfile,
     opts: &FinalizeOptions,
 ) -> anyhow::Result<()> {
-    add_gitignore_entries(&ctx.project_dir, name, source, merged_options)?;
+    add_gitignore_entries(&project.dir, name, source, merged_options)?;
     if opts.register_in_registry {
-        register_in_registry(source, &ctx.project_dir)?;
+        register_in_registry(source, &project.dir)?;
     }
     if opts.write_manifest {
-        manifest_writer::add_skill(&ctx.manifest_path, name, source)?;
+        manifest_writer::add_skill(&project.manifest_path, name, source)?;
     }
     lockfile.upsert(locked);
     Ok(())
@@ -179,16 +179,16 @@ pub fn finalize_skill_install(
 
 /// Post-install bookkeeping + write lockfile (for single-skill commands like add/link).
 pub fn finalize_skill_install_and_write(
-    ctx: &ProjectContext,
+    project: &Project,
     merged_options: &ManifestOptions,
     name: &str,
     source: &SkillSource,
     locked: LockedSkill,
     opts: &FinalizeOptions,
 ) -> anyhow::Result<()> {
-    let mut lockfile = ctx.lockfile()?;
+    let mut lockfile = project.lockfile()?;
     finalize_skill_install(
-        ctx,
+        project,
         merged_options,
         name,
         source,
@@ -196,7 +196,7 @@ pub fn finalize_skill_install_and_write(
         &mut lockfile,
         opts,
     )?;
-    lockfile.write_to(&ctx.lockfile_path)?;
+    lockfile.write_to(&project.lockfile_path)?;
     Ok(())
 }
 
