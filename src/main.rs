@@ -134,6 +134,11 @@ enum Commands {
         #[arg(long, short = 'y')]
         yes: bool,
     },
+    /// Manage workspace members
+    Workspace {
+        #[command(subcommand)]
+        action: WorkspaceCommands,
+    },
     /// Manage the skill cache
     Cache {
         #[command(subcommand)]
@@ -235,6 +240,24 @@ enum CacheCommands {
         #[arg(long)]
         dry_run: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum WorkspaceCommands {
+    /// Add a sub-project to the workspace
+    Add {
+        /// Path to the sub-project directory (relative to workspace root)
+        path: String,
+    },
+    /// Remove a sub-project from the workspace
+    Remove {
+        /// Path of the sub-project to remove
+        path: String,
+    },
+    /// List all workspace members
+    List,
+    /// Show workspace status
+    Status,
 }
 
 #[derive(Subcommand)]
@@ -356,6 +379,12 @@ fn main() {
         Commands::Migrate { from, dry_run, yes } => {
             commands::migrate::run(from.as_deref(), dry_run, json, yes, &project_flags)
         }
+        Commands::Workspace { action } => match action {
+            WorkspaceCommands::Add { path } => commands::workspace::add(&path, json),
+            WorkspaceCommands::Remove { path } => commands::workspace::remove(&path, json),
+            WorkspaceCommands::List => commands::workspace::list(json),
+            WorkspaceCommands::Status => commands::workspace::status(json),
+        },
         Commands::Cache { action } => match action {
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
         },

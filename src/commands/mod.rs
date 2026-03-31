@@ -20,3 +20,4 @@ pub mod self_cmd;
 pub mod update;
 pub mod validate;
 pub mod validation;
+pub mod workspace;
