@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Workspace support for multi-project skill management ([#106](https://github.com/Roger-luo/Ion/pull/106)) (0d8cf7b)
+- Add rustdoc JSON → Astro docs pipeline for API reference (130a108)
+
+### CI
+
+- Add astro check pre-commit hook for docs site (acc9ac8)
+
+### Documentation
+
+- Widen code blocks on large screens to reduce scrollbars (3fdc52a)
+- Add Astro documentation site with academic theme (fb14654)
+
+### Added
+
 - Add project fixture tests and fix skill new --path registration (62bb09d)
 - Scaffold project fixture modules and error variants (dca17d9)
 
