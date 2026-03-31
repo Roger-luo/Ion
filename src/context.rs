@@ -242,7 +242,10 @@ fn resolve_project_flags(
     let mut indices = Vec::new();
     for flag in flags {
         if flag == "." {
-            indices.push(0);
+            // Resolve "." to the project at CWD, not always root
+            let cwd = std::env::current_dir()?;
+            let idx = projects.iter().position(|p| p.dir == cwd).unwrap_or(0); // fall back to root if CWD isn't a registered project
+            indices.push(idx);
         } else {
             let target = root_dir.join(flag);
             let found = projects
