@@ -181,10 +181,16 @@ impl SkillSource {
                 *bn = binary_name;
             }
             _ => {
+                // Preserve locality when converting from a Path kind
+                let local_project = if matches!(self.kind, SkillSourceKind::Path) {
+                    Some(std::path::PathBuf::from(&self.source))
+                } else {
+                    None
+                };
                 self.kind = SkillSourceKind::Binary {
                     binary_name,
                     asset_pattern: None,
-                    local_project: None,
+                    local_project,
                     dev: false,
                 };
             }
@@ -604,5 +610,38 @@ mod tests {
         assert!(SkillSource::binary("owner/tool", "tool").is_remote_installable());
         assert!(!SkillSource::path("./local").is_remote_installable());
         assert!(!SkillSource::local().is_remote_installable());
+    }
+
+    #[test]
+    fn with_binary_preserves_local_path() {
+        // Regression: with_binary() on a Path source must preserve locality
+        let s = SkillSource::path("/home/user/my-tool").with_binary("my-tool");
+        assert!(s.is_binary());
+        assert!(
+            s.is_local_path(),
+            "local path should be preserved after with_binary()"
+        );
+        match &s.kind {
+            SkillSourceKind::Binary { local_project, .. } => {
+                assert_eq!(
+                    local_project.as_ref().map(|p| p.to_str().unwrap()),
+                    Some("/home/user/my-tool")
+                );
+            }
+            _ => panic!("Expected Binary kind"),
+        }
+    }
+
+    #[test]
+    fn with_binary_on_github_has_no_local_project() {
+        let s = SkillSource::github("owner/repo").with_binary("tool");
+        assert!(s.is_binary());
+        assert!(!s.is_local_path());
+        match &s.kind {
+            SkillSourceKind::Binary { local_project, .. } => {
+                assert!(local_project.is_none());
+            }
+            _ => panic!("Expected Binary kind"),
+        }
     }
 }
