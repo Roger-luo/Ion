@@ -35,7 +35,14 @@ pub fn checksum_dir(dir: &Path) -> Result<String> {
     }
 
     let hash = hasher.finalize();
-    Ok(format!("sha256:{:x}", hash))
+    let bytes: &[u8] = hash.as_ref();
+    Ok(format!(
+        "sha256:{}",
+        bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>()
+    ))
 }
 
 fn collect_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<()> {
