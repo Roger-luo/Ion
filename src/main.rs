@@ -262,9 +262,9 @@ enum WorkspaceCommands {
 
 #[derive(Subcommand)]
 enum AgentsCommands {
-    /// Set up AGENTS.md template sourcing from a remote repository
+    /// Set up AGENTS.md from a built-in template or remote repository
     Init {
-        /// Template source (e.g., org/repo, git URL, or local path)
+        /// Template source: builtin:<name> (rust, python, julia, rust+python), org/repo, git URL, or local path
         source: String,
         /// Pin to a specific git ref (branch, tag, or commit SHA)
         #[arg(long)]
