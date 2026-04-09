@@ -86,7 +86,14 @@ pub fn file_checksum(path: &Path) -> crate::Result<String> {
     let bytes = fs::read(path)
         .map_err(|e| crate::Error::Other(format!("Failed to read file for checksum: {}", e)))?;
     let hash = Sha256::digest(&bytes);
-    Ok(format!("sha256:{:x}", hash))
+    let bytes_ref: &[u8] = hash.as_ref();
+    Ok(format!(
+        "sha256:{}",
+        bytes_ref
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>()
+    ))
 }
 
 /// Run `<binary> self skill` and capture the SKILL.md output from stdout.

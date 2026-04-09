@@ -131,7 +131,14 @@ pub fn is_agents_pointer(content: &str) -> bool {
 fn checksum_content(content: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let hash = Sha256::new().chain_update(content).finalize();
-    format!("sha256:{:x}", hash)
+    let bytes: &[u8] = hash.as_ref();
+    format!(
+        "sha256:{}",
+        bytes
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>()
+    )
 }
 
 /// Current UTC time as ISO 8601 string (e.g. "2026-03-27T12:00:00Z").
