@@ -56,6 +56,22 @@ pub struct CargoMetadata {
     pub manifest_path: String,
 }
 
+/// Run `cargo metadata --no-deps` and return the raw JSON string.
+/// Useful when callers need to inspect all workspace packages directly.
+pub fn raw_metadata(manifest_path: &Path) -> Result<String> {
+    CLI.run_command(
+        CLI.command()
+            .args([
+                "metadata",
+                "--no-deps",
+                "--format-version",
+                "1",
+                "--manifest-path",
+            ])
+            .arg(manifest_path),
+    )
+}
+
 /// Run `cargo metadata --no-deps` and parse the result.
 /// `manifest_path` should point to the Cargo.toml file.
 pub fn metadata(manifest_path: &Path) -> Result<CargoMetadata> {
