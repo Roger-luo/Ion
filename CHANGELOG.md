@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add built-in AGENTS.md templates for common project types ([#112](https://github.com/Roger-luo/Ion/pull/112)) (728bf3e)
+
+### Documentation
+
+- Add local development workflow to ion-cli skill template ([#110](https://github.com/Roger-luo/Ion/pull/110)) (582a3da)
+
+### Added
+
 - Workspace support for multi-project skill management ([#106](https://github.com/Roger-luo/Ion/pull/106)) (0d8cf7b)
 - Add rustdoc JSON → Astro docs pipeline for API reference (130a108)
 
