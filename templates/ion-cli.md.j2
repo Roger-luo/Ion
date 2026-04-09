@@ -189,6 +189,24 @@ $ ion add owner/mytool --name custom-name
 
 In Ion.toml: `mytool = { type = "binary", source = "owner/mytool", binary = "mytool" }`
 
+### Local development with binary skills
+
+To test a local checkout of a binary skill (e.g., after cloning a repo you normally install from
+GitHub), use `--dev` to point `ion run` at the source directory:
+
+```bash
+# Switch from remote to local dev
+$ ion add ./path/to/local-checkout --dev
+$ ion run mytool [args...]      # runs: cargo run -- [args]
+
+# Switch back to remote release
+$ ion add owner/mytool --bin
+```
+
+Dev mode forwards every `ion run` to `cargo run` in the source directory, so changes are picked
+up immediately without a rebuild step. This is the equivalent of `pip install -e .` for Rust
+binary skills.
+
 ### Developing a binary skill
 
 A binary skill project is a Cargo crate. Declare it in `Ion.toml`:
