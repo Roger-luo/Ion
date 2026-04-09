@@ -452,8 +452,9 @@ pub struct CargoProject {
 
 /// Run `cargo metadata` to extract binary name and version from a Cargo project.
 ///
-/// Finds the first `[[bin]]` target in the package. Errors if no binary target is found
-/// or if the path doesn't contain a valid Cargo project.
+/// Finds the first `[[bin]]` target in the package. For workspaces, scans all member
+/// packages if the root package has no binary targets. Errors if no binary target is
+/// found or if the path doesn't contain a valid Cargo project.
 pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
     let manifest_path = project_path.join("Cargo.toml");
     if !manifest_path.exists() {
@@ -464,21 +465,57 @@ pub fn cargo_project_info(project_path: &Path) -> crate::Result<CargoProject> {
     }
 
     let meta = ionem::shell::cargo::project(&manifest_path).metadata()?;
-    let binary_name = meta
-        .binary_targets
-        .first()
-        .ok_or_else(|| {
-            crate::Error::Other(format!(
-                "No binary target found in {}. Is this a binary crate?",
-                project_path.display()
-            ))
-        })?
-        .clone();
+    if let Some(binary_name) = meta.binary_targets.first() {
+        return Ok(CargoProject {
+            binary_name: binary_name.clone(),
+            version: meta.version,
+        });
+    }
 
-    Ok(CargoProject {
-        binary_name,
-        version: meta.version,
-    })
+    // No binary target in the default package — scan all workspace members.
+    if let Some(result) = find_workspace_binary(&manifest_path)? {
+        return Ok(result);
+    }
+
+    Err(crate::Error::Other(format!(
+        "No binary target found in {}. Is this a binary crate?",
+        project_path.display()
+    )))
+}
+
+/// Scan all packages in a cargo workspace for the first binary target.
+fn find_workspace_binary(manifest_path: &Path) -> crate::Result<Option<CargoProject>> {
+    let json_str = ionem::shell::cargo::raw_metadata(manifest_path)
+        .map_err(|e| crate::Error::Other(format!("Failed to run cargo metadata: {e}")))?;
+
+    let json: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| crate::Error::Other(format!("Failed to parse cargo metadata: {e}")))?;
+
+    let packages = match json["packages"].as_array() {
+        Some(pkgs) => pkgs,
+        None => return Ok(None),
+    };
+
+    for package in packages {
+        let targets = match package["targets"].as_array() {
+            Some(t) => t,
+            None => continue,
+        };
+        for target in targets {
+            let is_bin = target["kind"]
+                .as_array()
+                .is_some_and(|kinds| kinds.iter().any(|k| k.as_str() == Some("bin")));
+            if is_bin && let Some(name) = target["name"].as_str() {
+                let version = package["version"].as_str().unwrap_or("0.0.0").to_string();
+                return Ok(Some(CargoProject {
+                    binary_name: name.to_string(),
+                    version,
+                }));
+            }
+        }
+    }
+
+    Ok(None)
 }
 
 /// Build a local Cargo project in release mode and install the binary.
