@@ -172,16 +172,35 @@ pub struct FetchedTemplate {
     pub checksum: String,
 }
 
+/// Return a `FetchedTemplate` from an embedded built-in template.
+pub fn fetch_builtin_template(name: &str) -> Result<FetchedTemplate> {
+    let content = crate::templates::get(name)
+        .ok_or_else(|| Error::Other(format!("Unknown built-in template: {name}")))?;
+    let checksum = checksum_content(content.as_bytes());
+    Ok(FetchedTemplate {
+        content: content.to_string(),
+        rev: None,
+        checksum,
+    })
+}
+
 /// Fetch an AGENTS.md template from a source.
 ///
 /// Resolves the source using SkillSource::infer, fetches the repo/path,
 /// and extracts the AGENTS.md file at the specified path (default: root).
+/// Built-in templates (`builtin:rust`, etc.) are resolved from the binary
+/// without any network access.
 pub fn fetch_template(
     source_str: &str,
     rev: Option<&str>,
     file_path: Option<&str>,
     _project_dir: &Path,
 ) -> Result<FetchedTemplate> {
+    // Built-in templates are resolved from the binary directly.
+    if let Some(name) = crate::templates::parse_builtin_name(source_str) {
+        return fetch_builtin_template(name);
+    }
+
     let mut source = SkillSource::infer(source_str)?;
     if let Some(r) = rev {
         source.rev = Some(r.to_string());

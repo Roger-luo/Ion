@@ -108,11 +108,24 @@ pub fn init(
         );
     }
 
-    // Resolve source through global config aliases
-    let resolved_source = ws.global_config.resolve_source(source);
-
-    // Fetch template
-    let fetched = ion_skill::agents::fetch_template(&resolved_source, rev, path, &project.dir)?;
+    // Detect built-in templates and normalize the source name
+    let (fetched, canonical_source) = if let Some(name) =
+        ion_skill::templates::parse_builtin_name(source)
+    {
+        if rev.is_some() {
+            anyhow::bail!("--rev cannot be used with built-in templates");
+        }
+        if path.is_some() {
+            anyhow::bail!("--path cannot be used with built-in templates");
+        }
+        let fetched = ion_skill::agents::fetch_builtin_template(name)?;
+        let canonical = format!("builtin:{name}");
+        (fetched, canonical)
+    } else {
+        let resolved_source = ws.global_config.resolve_source(source);
+        let fetched = ion_skill::agents::fetch_template(&resolved_source, rev, path, &project.dir)?;
+        (fetched, source.to_string())
+    };
 
     let agents_md_path = project.dir.join("AGENTS.md");
     let upstream_dir = project.dir.join(".agents/templates");
@@ -140,12 +153,17 @@ pub fn init(
     }
 
     // Write [agents] to Ion.toml
-    ion_skill::manifest_writer::write_agents_config(&project.manifest_path, source, rev, path)?;
+    ion_skill::manifest_writer::write_agents_config(
+        &project.manifest_path,
+        &canonical_source,
+        rev,
+        path,
+    )?;
 
     // Write lock entry
     let mut lockfile = project.lockfile()?;
     lockfile.agents = Some(ion_skill::agents::AgentsLockEntry {
-        template: source.to_string(),
+        template: canonical_source.clone(),
         rev: fetched.rev,
         checksum: fetched.checksum,
         updated_at: ion_skill::agents::now_iso8601(),
@@ -178,7 +196,7 @@ pub fn init(
 
     if json {
         crate::json::print_success(serde_json::json!({
-            "template": source,
+            "template": canonical_source,
             "agents_md_created": !already_existed,
         }));
     }
