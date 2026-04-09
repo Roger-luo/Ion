@@ -1213,7 +1213,7 @@ dependencies = [
 
 [[package]]
 name = "ion"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "clap",
@@ -1266,7 +1266,7 @@ dependencies = [
 
 [[package]]
 name = "ionem"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "log",

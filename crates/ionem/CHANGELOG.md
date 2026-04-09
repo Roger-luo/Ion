@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Support Cargo workspaces in binary skill dev mode ([#111](https://github.com/Roger-luo/Ion/pull/111)) (e203343)
+
+### Fixed
+
 - Suppress git stdout/stderr to prevent progress bar corruption (de7f5eb)
 
 ### Refactored
