@@ -28,6 +28,8 @@ pub struct SearchApp {
 
 impl SearchApp {
     pub fn new(mut results: Vec<SearchResult>) -> Self {
+        // Results arrive pre-sorted by unified relevance scoring (text match +
+        // normalized popularity). Re-sort by stars as a simple TUI ordering.
         SearchResult::sort_by_stars(&mut results);
         let rows = build_rows(&results);
         Self {

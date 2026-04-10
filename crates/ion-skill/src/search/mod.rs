@@ -72,15 +72,27 @@ impl SearchResult {
     }
 
     /// Sort results by relevance to the query, combining text match quality
-    /// with popularity (stars). Exact name/source matches rank highest,
-    /// then prefix matches, then substring matches, with stars as tiebreaker.
+    /// with normalized popularity. Popularity (stars / installs) is normalized
+    /// per-registry so that different scales (GitHub stars vs skills.sh weekly
+    /// installs) become comparable.
     pub fn sort_by_relevance(results: &mut [Self], query: &str) {
         let query_lower = query.to_lowercase();
         let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
+        // Compute max popularity per registry for normalization.
+        let mut max_by_registry: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        for r in results.iter() {
+            let val = r.stars.unwrap_or(0) as f64;
+            let entry = max_by_registry.entry(r.registry.clone()).or_insert(0.0);
+            if val > *entry {
+                *entry = val;
+            }
+        }
+
         results.sort_by(|a, b| {
-            let score_a = relevance_score(a, &query_lower, &query_words);
-            let score_b = relevance_score(b, &query_lower, &query_words);
+            let score_a = relevance_score(a, &query_lower, &query_words, &max_by_registry);
+            let score_b = relevance_score(b, &query_lower, &query_words, &max_by_registry);
             score_b
                 .partial_cmp(&score_a)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -88,8 +100,15 @@ impl SearchResult {
     }
 }
 
+/// Maximum popularity bonus after normalization. This determines how much
+/// popularity matters relative to text relevance (max 1000). At 200, the
+/// most popular skill in any registry gets a meaningful boost but can't
+/// override a stronger text match (prefix > description + max popularity).
+const POPULARITY_WEIGHT: f64 = 200.0;
+
 /// Compute a relevance score for a search result against a query.
-/// Higher score = more relevant. Combines text match quality with popularity.
+/// Higher score = more relevant. Combines text match quality with
+/// popularity normalized across registries.
 ///
 /// Scoring:
 /// - Exact match on name/source segment:    1000
@@ -97,8 +116,14 @@ impl SearchResult {
 /// - All query words found in name/source:   200
 /// - Substring match in name/source:         100
 /// - Match in description:                    50
-/// - Popularity bonus: log2(stars + 1)     (0–20ish)
-fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> f64 {
+/// - Normalized popularity:                 0–200
+///   (raw value / max in registry × POPULARITY_WEIGHT)
+fn relevance_score(
+    result: &SearchResult,
+    query: &str,
+    query_words: &[&str],
+    max_by_registry: &std::collections::HashMap<String, f64>,
+) -> f64 {
     let name_lower = result.name.to_lowercase();
     let source_lower = result.source.to_lowercase();
     let desc_lower = result.description.to_lowercase();
@@ -135,10 +160,17 @@ fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> 
         text_score = 50.0;
     }
 
-    // Popularity bonus: logarithmic so stars don't dominate relevance
-    let star_bonus = (result.stars.unwrap_or(0) as f64 + 1.0).log2();
+    // Normalize popularity within each registry so different scales
+    // (GitHub stars vs skills.sh weekly installs) are comparable.
+    let raw = result.stars.unwrap_or(0) as f64;
+    let max = max_by_registry
+        .get(&result.registry)
+        .copied()
+        .unwrap_or(1.0)
+        .max(1.0);
+    let popularity_bonus = (raw / max) * POPULARITY_WEIGHT;
 
-    text_score + star_bonus
+    text_score + popularity_bonus
 }
 
 /// A searchable source of skills.
