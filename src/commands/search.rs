@@ -293,12 +293,23 @@ fn format_metrics(r: &SearchResult) -> String {
     }
 }
 
-fn print_install_line(source: &str, color: bool) {
+/// Short display label for a registry link.
+fn registry_link_label(registry: &str) -> &str {
+    match registry {
+        "skills.sh" | "skills-sh" => "skills.sh",
+        _ => "github.com",
+    }
+}
+
+fn print_install_line(source: &str, registry: &str, color: bool) {
+    let url = source_url(registry, source);
+    let label = registry_link_label(registry);
+    let link = terminal_link(label, &url);
     let line = format!("ion add {source}");
     if color {
-        println!("    {}", line.grey());
+        println!("    {}  {}", line.grey(), link.dark_blue());
     } else {
-        println!("    {line}");
+        println!("    {line}  {link}");
     }
 }
 
@@ -309,16 +320,14 @@ fn print_single_result(r: &SearchResult, rank: usize, color: bool) {
     }
 
     let metrics = format_metrics(r);
-    let url = source_url(&r.registry, &r.source);
-    let linked_name = terminal_link(&r.name, &url);
     if color {
         print!(
             "  {rank}. {}{}",
-            linked_name.clone().white().bold(),
+            r.name.clone().white().bold(),
             metrics.clone().grey()
         );
     } else {
-        print!("  {rank}. {}{}", linked_name, metrics);
+        print!("  {rank}. {}{}", r.name, metrics);
     }
     println!();
 
@@ -328,7 +337,7 @@ fn print_single_result(r: &SearchResult, rank: usize, color: bool) {
         print_wrapped(desc, 4, usable, 2, color);
     }
 
-    print_install_line(&r.source, color);
+    print_install_line(&r.source, &r.registry, color);
 }
 
 fn print_repo_group(owner_repo: &str, group: &[&SearchResult], rank: usize, color: bool) {
@@ -337,11 +346,9 @@ fn print_repo_group(owner_repo: &str, group: &[&SearchResult], rank: usize, colo
     let width = terminal_width();
 
     let metrics = format_metrics(r0);
-    let url = source_url(&r0.registry, owner_repo);
-    let linked_repo = terminal_link(owner_repo, &url);
     let heading = format!(
         "{rank}. {}{}  ({} skill{})",
-        linked_repo,
+        owner_repo,
         metrics,
         skill_count,
         if skill_count == 1 { "" } else { "s" }
@@ -373,7 +380,7 @@ fn print_repo_group(owner_repo: &str, group: &[&SearchResult], rank: usize, colo
         println!("    {skills_line}");
     }
 
-    print_install_line(owner_repo, color);
+    print_install_line(owner_repo, &r0.registry, color);
 }
 
 /// Join names with ", " and truncate with "..." if it exceeds `max_width`.

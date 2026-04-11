@@ -198,13 +198,10 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
     ];
 
     push_metric_lines(&mut lines, r.stars, r.weekly_installs);
+    lines.push(Line::from(""));
 
     let url = source_url(&r.registry, &r.source);
-    lines.push(Line::from(vec![
-        Span::styled("Link:    ", LABEL_STYLE),
-        Span::styled(url, LINK_STYLE),
-    ]));
-    lines.push(Line::from(""));
+    push_styled_section(&mut lines, "Link:", &url, wrap_width, LINK_STYLE);
 
     // Show skill description first (from SKILL.md), then repo description
     if let Some(ref skill_desc) = r.skill_description {
@@ -269,11 +266,7 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
     ]));
 
     let url = source_url(registry, owner_repo);
-    lines.push(Line::from(vec![
-        Span::styled("Link:    ", LABEL_STYLE),
-        Span::styled(url, LINK_STYLE),
-    ]));
-    lines.push(Line::from(""));
+    push_styled_section(&mut lines, "Link:", &url, wrap_width, LINK_STYLE);
 
     push_wrapped_section(&mut lines, "Description:", description, wrap_width);
 
@@ -294,15 +287,23 @@ fn push_wrapped_section<'a>(
     text: &str,
     wrap_width: usize,
 ) {
+    push_styled_section(lines, label, text, wrap_width, VALUE_STYLE);
+}
+
+/// Append a labeled wrapped section with a custom style.
+fn push_styled_section<'a>(
+    lines: &mut Vec<Line<'a>>,
+    label: &'a str,
+    text: &str,
+    wrap_width: usize,
+    style: Style,
+) {
     if text.is_empty() {
         return;
     }
     lines.push(Line::from(Span::styled(label, LABEL_STYLE)));
     for wrapped_line in wrap_text(text, wrap_width) {
-        lines.push(Line::from(Span::styled(
-            format!("  {wrapped_line}"),
-            VALUE_STYLE,
-        )));
+        lines.push(Line::from(Span::styled(format!("  {wrapped_line}"), style)));
     }
     lines.push(Line::from(""));
 }
