@@ -393,7 +393,14 @@ pub fn run(
         let cwd = std::env::current_dir()?;
         let manifest_path = cwd.join("Ion.toml");
         if manifest_path.exists() {
-            let source = SkillSource::local();
+            // Record the path relative to the project root so install can find it
+            // even when it differs from skills-dir
+            let rel_path = target_dir
+                .strip_prefix(&cwd)
+                .ok()
+                .map(|p| p.display().to_string());
+            let mut source = SkillSource::local();
+            source.path = rel_path;
             manifest_writer::add_skill(&manifest_path, &name, &source)?;
 
             if json {

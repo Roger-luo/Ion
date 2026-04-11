@@ -70,8 +70,13 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
             let source = entry.resolve()?;
 
             if source.is_local() {
-                let skills_dir = merged_options.skills_dir_or_default();
-                let local_skill_dir = project.dir.join(skills_dir).join(name);
+                // Use explicit path from Ion.toml if set, otherwise fall back to skills-dir
+                let local_skill_dir = if let Some(ref path) = source.path {
+                    project.dir.join(path)
+                } else {
+                    let skills_dir = merged_options.skills_dir_or_default();
+                    project.dir.join(skills_dir).join(name)
+                };
 
                 if !local_skill_dir.exists() {
                     println!(

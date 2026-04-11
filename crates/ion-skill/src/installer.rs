@@ -200,6 +200,22 @@ impl<'a> SkillInstaller<'a> {
         Ok((meta, body))
     }
 
+    /// Check whether a skill is fully deployed: its canonical directory exists
+    /// and all configured target symlinks are in place and resolve to valid paths.
+    pub fn is_deployed(&self, name: &str) -> bool {
+        let skill_dir = self.skill_dir(name);
+        if !skill_dir.exists() {
+            return false;
+        }
+        for target_path in self.options.targets.values() {
+            let target_dir = self.project_dir.join(target_path).join(name);
+            if !target_dir.exists() {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn deploy(&self, name: &str, skill_dir: &Path) -> Result<()> {
         let agents_target = self.skill_dir(name);
 
@@ -637,6 +653,93 @@ mod tests {
             targets: std::collections::BTreeMap::new(),
             skills_dir: None,
         }
+    }
+
+    fn options_with_targets() -> ManifestOptions {
+        let mut targets = std::collections::BTreeMap::new();
+        targets.insert("claude".to_string(), ".claude/skills".to_string());
+        ManifestOptions {
+            targets,
+            skills_dir: None,
+        }
+    }
+
+    #[test]
+    fn is_deployed_true_when_all_exist() {
+        let project = tempfile::tempdir().unwrap();
+        let options = options_with_targets();
+
+        // Create skill dir and target symlink
+        let skill_dir = project.path().join(".agents/skills/my-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "x").unwrap();
+        let claude_dir = project.path().join(".claude/skills");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            std::path::Path::new("../../.agents/skills/my-skill"),
+            claude_dir.join("my-skill"),
+        )
+        .unwrap();
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        assert!(installer.is_deployed("my-skill"));
+    }
+
+    #[test]
+    fn is_deployed_false_when_skill_dir_missing() {
+        let project = tempfile::tempdir().unwrap();
+        let options = options_with_targets();
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        assert!(!installer.is_deployed("nonexistent"));
+    }
+
+    #[test]
+    fn is_deployed_false_when_target_symlink_missing() {
+        let project = tempfile::tempdir().unwrap();
+        let options = options_with_targets();
+
+        // Create skill dir but no target symlink
+        let skill_dir = project.path().join(".agents/skills/my-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(skill_dir.join("SKILL.md"), "x").unwrap();
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        assert!(!installer.is_deployed("my-skill"));
+    }
+
+    #[test]
+    fn is_deployed_false_when_symlink_dangling() {
+        let project = tempfile::tempdir().unwrap();
+        let options = options_with_targets();
+
+        // Create a dangling symlink for the target
+        let claude_dir = project.path().join(".claude/skills");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            std::path::Path::new("../../.agents/skills/my-skill"),
+            claude_dir.join("my-skill"),
+        )
+        .unwrap();
+        // .agents/skills/my-skill does NOT exist, so both the skill_dir and target are broken
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        assert!(!installer.is_deployed("my-skill"));
+    }
+
+    #[test]
+    fn is_deployed_true_with_no_targets() {
+        let project = tempfile::tempdir().unwrap();
+        let options = empty_options();
+
+        // Only need the skill dir when there are no targets
+        let skill_dir = project.path().join(".agents/skills/my-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        let installer = SkillInstaller::new(project.path(), &options);
+        assert!(installer.is_deployed("my-skill"));
     }
 
     #[test]
