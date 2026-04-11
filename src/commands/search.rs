@@ -264,6 +264,19 @@ fn group_by_owner_repo_refs<'a>(
     groups
 }
 
+/// Build a web URL for the result's source.
+fn source_url(registry: &str, source: &str) -> String {
+    match registry {
+        "skills.sh" | "skills-sh" => format!("https://skills.sh/{source}"),
+        _ => format!("https://github.com/{source}"),
+    }
+}
+
+/// Wrap `text` in an OSC 8 terminal hyperlink pointing to `url`.
+fn terminal_link(text: &str, url: &str) -> String {
+    format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
+}
+
 /// Format the metrics line for a search result (stars and/or weekly installs).
 fn format_metrics(r: &SearchResult) -> String {
     let mut parts = Vec::new();
@@ -296,14 +309,16 @@ fn print_single_result(r: &SearchResult, rank: usize, color: bool) {
     }
 
     let metrics = format_metrics(r);
+    let url = source_url(&r.registry, &r.source);
+    let linked_name = terminal_link(&r.name, &url);
     if color {
         print!(
             "  {rank}. {}{}",
-            r.name.clone().white().bold(),
+            linked_name.clone().white().bold(),
             metrics.clone().grey()
         );
     } else {
-        print!("  {rank}. {}{}", r.name, metrics);
+        print!("  {rank}. {}{}", linked_name, metrics);
     }
     println!();
 
@@ -322,9 +337,11 @@ fn print_repo_group(owner_repo: &str, group: &[&SearchResult], rank: usize, colo
     let width = terminal_width();
 
     let metrics = format_metrics(r0);
+    let url = source_url(&r0.registry, owner_repo);
+    let linked_repo = terminal_link(owner_repo, &url);
     let heading = format!(
         "{rank}. {}{}  ({} skill{})",
-        owner_repo,
+        linked_repo,
         metrics,
         skill_count,
         if skill_count == 1 { "" } else { "s" }
