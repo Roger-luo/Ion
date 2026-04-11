@@ -6,9 +6,7 @@ mod skills_sh;
 
 pub use agent::{AgentSource, parse_agent_output};
 pub use cache::SearchCache;
-pub use github::{
-    GitHubSource, enrich_github_results, parse_gh_code_response, parse_gh_repo_response,
-};
+pub use github::{GitHubSource, enrich_results, parse_gh_code_response, parse_gh_repo_response};
 pub use registry::{RegistrySource, parse_registry_response};
 pub use skills_sh::{SkillsShSource, parse_skills_sh_page};
 
@@ -45,7 +43,10 @@ pub struct SearchResult {
     pub description: String,
     pub source: String,
     pub registry: String,
+    /// GitHub stargazer count.
     pub stars: Option<u64>,
+    /// skills.sh weekly install count.
+    pub weekly_installs: Option<u64>,
     pub skill_description: Option<String>,
 }
 
@@ -62,13 +63,20 @@ impl SearchResult {
             source: source.into(),
             registry: registry.into(),
             stars: None,
+            weekly_installs: None,
             skill_description: None,
         }
     }
 
-    /// Sort results by stars descending (missing stars treated as 0).
-    pub fn sort_by_stars(results: &mut [Self]) {
-        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+    /// The popularity value used for ranking: weekly installs for skills.sh,
+    /// stars for everything else.
+    pub fn popularity(&self) -> u64 {
+        self.weekly_installs.or(self.stars).unwrap_or(0)
+    }
+
+    /// Sort results by popularity descending.
+    pub fn sort_by_popularity(results: &mut [Self]) {
+        results.sort_by_key(|r| std::cmp::Reverse(r.popularity()));
     }
 
     /// Sort results by relevance to the query, combining text match quality
@@ -83,7 +91,7 @@ impl SearchResult {
         let mut max_by_registry: std::collections::HashMap<String, f64> =
             std::collections::HashMap::new();
         for r in results.iter() {
-            let val = r.stars.unwrap_or(0) as f64;
+            let val = r.popularity() as f64;
             let entry = max_by_registry.entry(r.registry.clone()).or_insert(0.0);
             if val > *entry {
                 *entry = val;
@@ -162,7 +170,7 @@ fn relevance_score(
 
     // Normalize popularity within each registry so different scales
     // (GitHub stars vs skills.sh weekly installs) are comparable.
-    let raw = result.stars.unwrap_or(0) as f64;
+    let raw = result.popularity() as f64;
     let max = max_by_registry
         .get(&result.registry)
         .copied()
@@ -385,11 +393,25 @@ pub(crate) fn parse_skill_description(content: &str) -> Option<String> {
     let rest = &content[3..];
     let end = rest.find("---")?;
     let frontmatter = &rest[..end];
-    for line in frontmatter.lines() {
-        let line = line.trim();
-        if let Some(value) = line.strip_prefix("description:") {
+    let lines: Vec<&str> = frontmatter.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if let Some(value) = trimmed.strip_prefix("description:") {
             let value = value.trim().trim_matches('"').trim_matches('\'');
-            if !value.is_empty() {
+            // Handle YAML block scalars (> for folded, | for literal)
+            if value == ">" || value == "|" {
+                let mut parts = Vec::new();
+                for continuation in &lines[i + 1..] {
+                    if continuation.starts_with(' ') || continuation.starts_with('\t') {
+                        parts.push(continuation.trim());
+                    } else {
+                        break;
+                    }
+                }
+                if !parts.is_empty() {
+                    return Some(parts.join(" "));
+                }
+            } else if !value.is_empty() {
                 return Some(value.to_string());
             }
         }
@@ -561,6 +583,15 @@ mod tests {
     }
 
     #[test]
+    fn parse_skill_description_folded_scalar() {
+        let content = "---\nname: test\ndescription: >\n  Guide for writing idiomatic Rust code.\n  Use when reviewing Rust.\n---\n";
+        assert_eq!(
+            parse_skill_description(content),
+            Some("Guide for writing idiomatic Rust code. Use when reviewing Rust.".to_string())
+        );
+    }
+
+    #[test]
     fn parse_skill_description_missing() {
         let content = "---\nname: test\n---\n# No description";
         assert_eq!(parse_skill_description(content), None);
@@ -685,7 +716,7 @@ mod tests {
     }
 
     #[test]
-    fn sort_by_stars_descending() {
+    fn sort_by_popularity_descending() {
         let mut results = vec![
             {
                 let mut r = SearchResult::new("a", "", "", "test");
@@ -699,7 +730,7 @@ mod tests {
             },
             SearchResult::new("c", "", "", "test"),
         ];
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
         assert_eq!(results[0].name, "b");
         assert_eq!(results[1].name, "a");
         assert_eq!(results[2].name, "c");

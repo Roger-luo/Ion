@@ -4,7 +4,7 @@ use crossterm::style::Stylize;
 use ion_skill::config::GlobalConfig;
 use ion_skill::search::{
     AgentSource, GitHubSource, RegistrySource, SearchCache, SearchResult, SearchSource,
-    SkillsShSource, enrich_github_results, owner_repo_of, parallel_search, skill_dir_name,
+    SkillsShSource, enrich_results, owner_repo_of, parallel_search, skill_dir_name,
 };
 
 pub fn run(
@@ -39,7 +39,7 @@ pub fn run(
         "found {} total results, enriching GitHub results",
         results.len()
     );
-    enrich_github_results(&mut results);
+    enrich_results(&mut results);
 
     if json {
         crate::json::print_success(&results);
@@ -212,6 +212,7 @@ fn print_results(results: &[SearchResult]) {
         }
     }
 
+    let mut rank = 1usize;
     for (i, registry) in registries.iter().enumerate() {
         if i > 0 {
             println!();
@@ -235,10 +236,11 @@ fn print_results(results: &[SearchResult]) {
             }
 
             if group.len() == 1 {
-                print_single_result(group[0], color);
+                print_single_result(group[0], rank, color);
             } else {
-                print_repo_group(owner_repo, group, color);
+                print_repo_group(owner_repo, group, rank, color);
             }
+            rank += 1;
         }
     }
 }
@@ -262,10 +264,19 @@ fn group_by_owner_repo_refs<'a>(
     groups
 }
 
-fn format_stars(stars: Option<u64>) -> String {
-    match stars {
-        Some(n) => format!("  * {n}"),
-        None => String::new(),
+/// Format the metrics line for a search result (stars and/or weekly installs).
+fn format_metrics(r: &SearchResult) -> String {
+    let mut parts = Vec::new();
+    if let Some(s) = r.stars {
+        parts.push(format!("{s} stars"));
+    }
+    if let Some(w) = r.weekly_installs {
+        parts.push(format!("{w} installs/wk"));
+    }
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!("  ({})", parts.join(", "))
     }
 }
 
@@ -278,21 +289,21 @@ fn print_install_line(source: &str, color: bool) {
     }
 }
 
-fn print_single_result(r: &SearchResult, color: bool) {
+fn print_single_result(r: &SearchResult, rank: usize, color: bool) {
     if r.source.is_empty() {
         println!("  {}", r.description);
         return;
     }
 
-    let stars = format_stars(r.stars);
+    let metrics = format_metrics(r);
     if color {
         print!(
-            "  {}{}",
+            "  {rank}. {}{}",
             r.name.clone().white().bold(),
-            stars.white().bold()
+            metrics.clone().grey()
         );
     } else {
-        print!("  {}{}", r.name, stars);
+        print!("  {rank}. {}{}", r.name, metrics);
     }
     println!();
 
@@ -305,16 +316,16 @@ fn print_single_result(r: &SearchResult, color: bool) {
     print_install_line(&r.source, color);
 }
 
-fn print_repo_group(owner_repo: &str, group: &[&SearchResult], color: bool) {
+fn print_repo_group(owner_repo: &str, group: &[&SearchResult], rank: usize, color: bool) {
     let r0 = group[0];
     let skill_count = group.len();
     let width = terminal_width();
 
-    let stars = format_stars(r0.stars);
+    let metrics = format_metrics(r0);
     let heading = format!(
-        "{}{}  ({} skill{})",
+        "{rank}. {}{}  ({} skill{})",
         owner_repo,
-        stars,
+        metrics,
         skill_count,
         if skill_count == 1 { "" } else { "s" }
     );
@@ -324,9 +335,17 @@ fn print_repo_group(owner_repo: &str, group: &[&SearchResult], color: bool) {
         println!("  {heading}");
     }
 
-    if !r0.description.is_empty() {
+    // Show first available description from the group
+    let desc = group
+        .iter()
+        .find_map(|r| r.skill_description.as_deref())
+        .or_else(|| {
+            let d = r0.description.as_str();
+            if d.is_empty() { None } else { Some(d) }
+        });
+    if let Some(desc) = desc {
         let usable = width.saturating_sub(4).max(20);
-        print_wrapped(&r0.description, 4, usable, 2, color);
+        print_wrapped(desc, 4, usable, 2, color);
     }
 
     let skill_names: Vec<&str> = group.iter().map(|r| skill_dir_name(&r.source)).collect();

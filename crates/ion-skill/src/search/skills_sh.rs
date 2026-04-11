@@ -108,7 +108,7 @@ pub fn parse_skills_sh_page(body: &str, query: &str, limit: usize) -> Vec<Search
             };
 
             let mut result = SearchResult::new(e.name, "", source, "skills.sh");
-            result.stars = Some(e.installs);
+            result.weekly_installs = Some(e.installs);
             result
         })
         .collect()
@@ -149,7 +149,7 @@ pub fn parse_skills_sh_api_response(body: &str, limit: usize) -> Vec<SearchResul
             };
 
             let mut result = SearchResult::new(e.name, "", source, "skills.sh");
-            result.stars = Some(e.installs);
+            result.weekly_installs = Some(e.installs);
             result
         })
         .collect()
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(results[0].name, "brainstorming");
         assert_eq!(results[0].source, "obra/superpowers/brainstorming");
         assert_eq!(results[0].registry, "skills.sh");
-        assert_eq!(results[0].stars, Some(5000));
+        assert_eq!(results[0].weekly_installs, Some(5000));
     }
 
     #[test]
@@ -250,7 +250,7 @@ mod tests {
             results[0].source,
             "apollographql/skills/rust-best-practices"
         );
-        assert_eq!(results[0].stars, Some(6219));
+        assert_eq!(results[0].weekly_installs, Some(6219));
         assert_eq!(results[0].registry, "skills.sh");
         assert_eq!(results[1].source, "wshobson/agents/rust-async-patterns");
     }

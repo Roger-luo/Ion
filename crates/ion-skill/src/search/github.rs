@@ -386,21 +386,22 @@ fn select_with_diversity(
     results
 }
 
-/// Enrich GitHub search results by fetching SKILL.md descriptions from each repository.
-pub fn enrich_github_results(results: &mut [SearchResult]) {
+/// Enrich search results by fetching SKILL.md descriptions and star counts.
+/// Works for both GitHub and skills.sh results (skills.sh skills are GitHub-hosted).
+pub fn enrich_results(results: &mut [SearchResult]) {
     let handles: Vec<_> = results
         .iter()
         .enumerate()
-        .filter(|(_, r)| r.registry == "github" && !r.source.is_empty())
+        .filter(|(_, r)| !r.source.is_empty())
         .map(|(i, r)| {
             let source = r.source.clone();
-            let has_stars = r.stars.is_some();
+            let needs_stars = r.stars.is_none();
             std::thread::spawn(move || {
                 let desc = fetch_skill_description(&source);
-                let stars = if has_stars {
-                    None
-                } else {
+                let stars = if needs_stars {
                     fetch_stars(&source)
+                } else {
+                    None
                 };
                 (i, desc, stars)
             })
@@ -420,27 +421,41 @@ pub fn enrich_github_results(results: &mut [SearchResult]) {
 }
 
 /// Fetch the description from a SKILL.md file in a GitHub repository.
+/// Tries the direct path first, then common monorepo layouts (e.g. `skills/`).
 fn fetch_skill_description(source: &str) -> Option<String> {
     let repo = owner_repo_of(source);
     if repo.is_empty() || !repo.contains('/') {
         return None;
     }
 
-    let skill_path = source
+    let sub = source
         .strip_prefix(repo)
         .and_then(|s| s.strip_prefix('/'))
-        .map(|s| format!("{s}/SKILL.md"))
-        .unwrap_or_else(|| "SKILL.md".to_string());
+        .unwrap_or("");
 
-    log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let stdout = ionem::shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
-        .jq(".content")
-        .run()
-        .ok()?;
+    // Build candidate paths: direct, then skills/ prefix, then root.
+    let mut candidates = Vec::with_capacity(3);
+    if !sub.is_empty() {
+        candidates.push(format!("{sub}/SKILL.md"));
+        candidates.push(format!("skills/{sub}/SKILL.md"));
+    }
+    candidates.push("SKILL.md".to_string());
 
-    let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
-    let decoded = base64_decode(&b64_clean)?;
-    parse_skill_description(&decoded)
+    for skill_path in &candidates {
+        log::debug!("enrich: trying SKILL.md from {repo} path={skill_path}");
+        if let Ok(stdout) = ionem::shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
+            .jq(".content")
+            .run()
+        {
+            let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
+            if let Some(decoded) = base64_decode(&b64_clean)
+                && let Some(desc) = parse_skill_description(&decoded)
+            {
+                return Some(desc);
+            }
+        }
+    }
+    None
 }
 
 /// Fetch star count for a repo.
@@ -564,7 +579,7 @@ mod tests {
         results.push(make_result("other/b", "other/b", 5));
         results.push(make_result("other/c", "other/c", 1));
 
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
 
         let selected = select_with_diversity(results, 10, "skill");
         assert_eq!(selected.len(), 10);
@@ -594,7 +609,7 @@ mod tests {
         }
         results.push(make_result("small/a", "small/a", 500));
         results.push(make_result("small/b", "small/b", 200));
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
 
         let selected = select_with_diversity(results, 10, "skill");
         // Results should still be sorted (by relevance now, not just stars)
