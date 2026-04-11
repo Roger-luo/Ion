@@ -272,11 +272,6 @@ fn source_url(registry: &str, source: &str) -> String {
     }
 }
 
-/// Wrap `text` in an OSC 8 terminal hyperlink pointing to `url`.
-fn terminal_link(text: &str, url: &str) -> String {
-    format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
-}
-
 /// Format the metrics line for a search result (stars and/or weekly installs).
 fn format_metrics(r: &SearchResult) -> String {
     let mut parts = Vec::new();
@@ -293,23 +288,13 @@ fn format_metrics(r: &SearchResult) -> String {
     }
 }
 
-/// Short display label for a registry link.
-fn registry_link_label(registry: &str) -> &str {
-    match registry {
-        "skills.sh" | "skills-sh" => "skills.sh",
-        _ => "github.com",
-    }
-}
-
 fn print_install_line(source: &str, registry: &str, color: bool) {
     let url = source_url(registry, source);
-    let label = registry_link_label(registry);
-    let link = terminal_link(label, &url);
     let line = format!("ion add {source}");
     if color {
-        println!("    {}  {}", line.grey(), link.dark_blue());
+        println!("    {}  {}", line.grey(), url.dark_blue());
     } else {
-        println!("    {line}  {link}");
+        println!("    {line}  {url}");
     }
 }
 
@@ -432,7 +417,12 @@ fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, colo
 }
 
 fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    use crossterm::cursor::MoveTo;
     use crossterm::event::{self, Event};
+    use crossterm::queue;
+    use crossterm::style::{Print, SetAttribute, SetForegroundColor};
 
     use crate::tui::search_app::SearchApp;
     use crate::tui::search_event::handle_search_key;
@@ -454,6 +444,26 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
     run_tui(|terminal| {
         loop {
             terminal.draw(|frame| render_search(frame, &mut app))?;
+
+            // Emit OSC 8 hyperlinks after draw — ratatui doesn't support
+            // hyperlinks natively, so we re-print the link text wrapped in
+            // OSC 8 sequences at the known positions.
+            {
+                let writer = terminal.backend_mut();
+                for link in &app.hyperlinks {
+                    queue!(
+                        writer,
+                        MoveTo(link.x, link.y),
+                        Print(format!("\x1b]8;;{}\x07", link.url)),
+                        SetForegroundColor(crossterm::style::Color::Blue),
+                        SetAttribute(crossterm::style::Attribute::Underlined),
+                        Print(&link.text),
+                        SetAttribute(crossterm::style::Attribute::NoUnderline),
+                        Print("\x1b]8;;\x07"),
+                    )?;
+                }
+                writer.flush()?;
+            }
 
             if let Event::Key(key) = event::read()? {
                 handle_search_key(&mut app, key)?;

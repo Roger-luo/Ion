@@ -17,6 +17,14 @@ pub enum ListRow {
     Skill { result_idx: usize, grouped: bool },
 }
 
+/// A terminal hyperlink to be applied after each frame draw via OSC 8.
+pub struct Hyperlink {
+    pub x: u16,
+    pub y: u16,
+    pub text: String,
+    pub url: String,
+}
+
 pub struct SearchApp {
     pub results: Vec<SearchResult>,
     pub rows: Vec<ListRow>,
@@ -25,6 +33,8 @@ pub struct SearchApp {
     pub visible_height: usize,
     pub should_quit: bool,
     pub should_install: bool,
+    /// Hyperlinks to emit after each frame draw.
+    pub hyperlinks: Vec<Hyperlink>,
 }
 
 impl SearchApp {
@@ -41,6 +51,7 @@ impl SearchApp {
             visible_height: 0,
             should_quit: false,
             should_install: false,
+            hyperlinks: Vec::new(),
         }
     }
 

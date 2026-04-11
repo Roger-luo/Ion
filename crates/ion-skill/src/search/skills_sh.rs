@@ -96,18 +96,20 @@ pub fn parse_skills_sh_page(body: &str, query: &str, limit: usize) -> Vec<Search
         })
         .take(limit)
         .map(|e| {
-            let source = if e.source.contains('/') {
-                let repo_name = e.source.rsplit('/').next().unwrap_or("");
-                if e.skill_id != repo_name && !e.skill_id.is_empty() {
-                    format!("{}/{}", e.source, e.skill_id)
+            let src = e.source.trim();
+            let sid = e.skill_id.trim();
+            let source = if src.contains('/') {
+                let repo_name = src.rsplit('/').next().unwrap_or("");
+                if sid != repo_name && !sid.is_empty() {
+                    format!("{src}/{sid}")
                 } else {
-                    e.source.clone()
+                    src.to_string()
                 }
             } else {
-                e.source.clone()
+                src.to_string()
             };
 
-            let mut result = SearchResult::new(e.name, "", source, "skills.sh");
+            let mut result = SearchResult::new(e.name.trim(), "", source, "skills.sh");
             result.weekly_installs = Some(e.installs);
             result
         })
@@ -137,18 +139,20 @@ pub fn parse_skills_sh_api_response(body: &str, limit: usize) -> Vec<SearchResul
         .into_iter()
         .take(limit)
         .map(|e| {
-            let source = if e.source.contains('/') {
-                let repo_name = e.source.rsplit('/').next().unwrap_or("");
-                if e.skill_id != repo_name && !e.skill_id.is_empty() {
-                    format!("{}/{}", e.source, e.skill_id)
+            let src = e.source.trim();
+            let sid = e.skill_id.trim();
+            let source = if src.contains('/') {
+                let repo_name = src.rsplit('/').next().unwrap_or("");
+                if sid != repo_name && !sid.is_empty() {
+                    format!("{src}/{sid}")
                 } else {
-                    e.source.clone()
+                    src.to_string()
                 }
             } else {
-                e.source.clone()
+                src.to_string()
             };
 
-            let mut result = SearchResult::new(e.name, "", source, "skills.sh");
+            let mut result = SearchResult::new(e.name.trim(), "", source, "skills.sh");
             result.weekly_installs = Some(e.installs);
             result
         })
@@ -260,5 +264,23 @@ mod tests {
         let body = r#"{"skills":[{"source":"a/b","skillId":"s1","name":"s1","installs":100},{"source":"a/b","skillId":"s2","name":"s2","installs":50}]}"#;
         let results = parse_skills_sh_api_response(body, 1);
         assert_eq!(results.len(), 1);
+    }
+
+    #[test]
+    fn skills_sh_api_trims_whitespace() {
+        let body = r#"{"skills":[{"source":" wshobson/agents ","skillId":" rust-async-patterns ","name":" rust-async-patterns ","installs":100}]}"#;
+        let results = parse_skills_sh_api_response(body, 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "rust-async-patterns");
+        assert_eq!(results[0].source, "wshobson/agents/rust-async-patterns");
+    }
+
+    #[test]
+    fn skills_sh_page_trims_whitespace() {
+        let body = r#"x"initialSkills":[{"source":" owner/repo ","skillId":" my-skill ","name":" my-skill ","installs":42}]y"#;
+        let results = parse_skills_sh_page(body, "my-skill", 10);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "my-skill");
+        assert_eq!(results[0].source, "owner/repo/my-skill");
     }
 }
