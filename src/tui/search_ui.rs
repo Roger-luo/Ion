@@ -201,7 +201,7 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
     lines.push(Line::from(""));
 
     let url = source_url(&r.registry, &r.source);
-    push_styled_section(&mut lines, "Link:", &url, wrap_width, LINK_STYLE);
+    push_link_section(&mut lines, &url, wrap_width);
 
     // Show skill description first (from SKILL.md), then repo description
     if let Some(ref skill_desc) = r.skill_description {
@@ -266,7 +266,7 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
     ]));
 
     let url = source_url(registry, owner_repo);
-    push_styled_section(&mut lines, "Link:", &url, wrap_width, LINK_STYLE);
+    push_link_section(&mut lines, &url, wrap_width);
 
     push_wrapped_section(&mut lines, "Description:", description, wrap_width);
 
@@ -304,6 +304,22 @@ fn push_styled_section<'a>(
     lines.push(Line::from(Span::styled(label, LABEL_STYLE)));
     for wrapped_line in wrap_text(text, wrap_width) {
         lines.push(Line::from(Span::styled(format!("  {wrapped_line}"), style)));
+    }
+    lines.push(Line::from(""));
+}
+
+/// Append a link section with character-level wrapping (URLs have no spaces).
+fn push_link_section(lines: &mut Vec<Line<'_>>, url: &str, wrap_width: usize) {
+    if url.is_empty() {
+        return;
+    }
+    lines.push(Line::from(Span::styled("Link:", LABEL_STYLE)));
+    let indent = 2;
+    let usable = wrap_width.saturating_sub(indent);
+    for chunk in url.as_bytes().chunks(usable.max(1)) {
+        let s = std::str::from_utf8(chunk).unwrap_or("");
+        let pad = " ".repeat(indent);
+        lines.push(Line::from(Span::styled(format!("{pad}{s}"), LINK_STYLE)));
     }
     lines.push(Line::from(""));
 }
