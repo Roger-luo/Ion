@@ -6,7 +6,7 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 
 use ion_skill::search::skill_dir_name;
 
-use super::search_app::{ListRow, SearchApp};
+use super::search_app::{Hyperlink, ListRow, SearchApp};
 use super::util::wrap_text;
 
 const LABEL_STYLE: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
@@ -25,6 +25,7 @@ fn source_url(registry: &str, source: &str) -> String {
 }
 
 pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
+    app.hyperlinks.clear();
     let area = frame.area();
 
     let chunks = Layout::vertical([Constraint::Min(3), Constraint::Length(1)]).split(area);
@@ -154,25 +155,28 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
     frame.render_widget(paragraph, inner);
 }
 
-fn render_detail(frame: &mut Frame, app: &SearchApp, area: Rect) {
+fn render_detail(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
     let block = Block::default().borders(Borders::ALL).title(" Details ");
 
     let inner = block.inner(area);
     frame.render_widget(block, area);
 
-    let Some(row) = app.rows.get(app.selected) else {
+    let Some(selected) = app.rows.get(app.selected) else {
         let msg = Paragraph::new("No result selected.").style(Style::default().fg(Color::DarkGray));
         frame.render_widget(msg, inner);
         return;
     };
 
-    match row {
-        ListRow::Skill { result_idx, .. } => render_skill_detail(frame, app, inner, *result_idx),
-        ListRow::RepoHeader { .. } => render_repo_detail(frame, inner, row),
+    match selected {
+        ListRow::Skill { result_idx, .. } => {
+            let idx = *result_idx;
+            render_skill_detail(frame, app, inner, idx);
+        }
+        ListRow::RepoHeader { .. } => render_repo_detail(frame, app, inner),
     }
 }
 
-fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usize) {
+fn render_skill_detail(frame: &mut Frame, app: &mut SearchApp, area: Rect, idx: usize) {
     let Some(r) = app.results.get(idx) else {
         return;
     };
@@ -183,13 +187,12 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
         .map_or(r.source.as_str(), |(owner, _)| owner);
     let wrap_width = area.width.saturating_sub(2) as usize;
 
+    let source_label = registry_label(&r.registry);
+    let url = source_url(&r.registry, &r.source);
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
             Span::styled("Source: ", LABEL_STYLE),
-            Span::styled(
-                registry_label(&r.registry),
-                Style::new().fg(registry_color(&r.registry)),
-            ),
+            Span::styled(source_label, LINK_STYLE),
         ]),
         Line::from(vec![
             Span::styled("Owner:  ", LABEL_STYLE),
@@ -199,9 +202,6 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
 
     push_metric_lines(&mut lines, r.stars, r.weekly_installs);
     lines.push(Line::from(""));
-
-    let url = source_url(&r.registry, &r.source);
-    push_link_section(&mut lines, &url, wrap_width);
 
     // Show skill description first (from SKILL.md), then repo description
     if let Some(ref skill_desc) = r.skill_description {
@@ -220,9 +220,18 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, area);
+
+    // Record hyperlink for post-draw OSC 8 emission.
+    // "Source: " is 8 columns, so the label starts at area.x + 8.
+    app.hyperlinks.push(Hyperlink {
+        x: area.x + 8,
+        y: area.y,
+        text: source_label.to_string(),
+        url,
+    });
 }
 
-fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
+fn render_repo_detail(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
     let ListRow::RepoHeader {
         owner_repo,
         stars,
@@ -230,27 +239,33 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
         description,
         skill_count,
         registry,
-    } = row
+    } = &app.rows[app.selected]
     else {
         return;
     };
 
     let owner = owner_repo
         .split_once('/')
-        .map_or(owner_repo.as_str(), |(o, _)| o);
+        .map_or(owner_repo.as_str(), |(o, _)| o)
+        .to_string();
     let wrap_width = area.width.saturating_sub(2) as usize;
+
+    let source_label = registry_label(registry).to_string();
+    let url = source_url(registry, owner_repo);
+    let owner_repo = owner_repo.clone();
+    let stars = *stars;
+    let weekly_installs = *weekly_installs;
+    let description = description.clone();
+    let skill_count = *skill_count;
 
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
             Span::styled("Source:  ", LABEL_STYLE),
-            Span::styled(
-                registry_label(registry),
-                Style::new().fg(registry_color(registry)),
-            ),
+            Span::styled(source_label.clone(), LINK_STYLE),
         ]),
         Line::from(vec![
             Span::styled("Repo:    ", LABEL_STYLE),
-            Span::styled(owner_repo.as_str(), VALUE_STYLE),
+            Span::styled(owner_repo.clone(), VALUE_STYLE),
         ]),
         Line::from(vec![
             Span::styled("Owner:   ", LABEL_STYLE),
@@ -258,17 +273,14 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
         ]),
     ];
 
-    push_metric_lines(&mut lines, *stars, *weekly_installs);
+    push_metric_lines(&mut lines, stars, weekly_installs);
 
     lines.push(Line::from(vec![
         Span::styled("Skills:  ", LABEL_STYLE),
         Span::styled(skill_count.to_string(), VALUE_STYLE),
     ]));
 
-    let url = source_url(registry, owner_repo);
-    push_link_section(&mut lines, &url, wrap_width);
-
-    push_wrapped_section(&mut lines, "Description:", description, wrap_width);
+    push_wrapped_section(&mut lines, "Description:", &description, wrap_width);
 
     lines.push(Line::from(Span::styled("Install all:", LABEL_STYLE)));
     lines.push(Line::from(Span::styled(
@@ -278,6 +290,15 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, area);
+
+    // Record hyperlink for post-draw OSC 8 emission.
+    // "Source:  " is 9 columns.
+    app.hyperlinks.push(Hyperlink {
+        x: area.x + 9,
+        y: area.y,
+        text: source_label,
+        url,
+    });
 }
 
 /// Append a labeled wrapped-text section to `lines` if text is non-empty.
@@ -304,22 +325,6 @@ fn push_styled_section<'a>(
     lines.push(Line::from(Span::styled(label, LABEL_STYLE)));
     for wrapped_line in wrap_text(text, wrap_width) {
         lines.push(Line::from(Span::styled(format!("  {wrapped_line}"), style)));
-    }
-    lines.push(Line::from(""));
-}
-
-/// Append a link section with character-level wrapping (URLs have no spaces).
-fn push_link_section(lines: &mut Vec<Line<'_>>, url: &str, wrap_width: usize) {
-    if url.is_empty() {
-        return;
-    }
-    lines.push(Line::from(Span::styled("Link:", LABEL_STYLE)));
-    let indent = 2;
-    let usable = wrap_width.saturating_sub(indent);
-    for chunk in url.as_bytes().chunks(usable.max(1)) {
-        let s = std::str::from_utf8(chunk).unwrap_or("");
-        let pad = " ".repeat(indent);
-        lines.push(Line::from(Span::styled(format!("{pad}{s}"), LINK_STYLE)));
     }
     lines.push(Line::from(""));
 }
