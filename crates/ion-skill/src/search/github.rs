@@ -421,7 +421,7 @@ pub fn enrich_results(results: &mut [SearchResult]) {
 }
 
 /// Fetch the description from a SKILL.md file in a GitHub repository.
-/// Tries the direct path first, then common monorepo layouts (e.g. `skills/`).
+/// Tries common paths first, then falls back to searching the repo tree.
 fn fetch_skill_description(source: &str) -> Option<String> {
     let repo = owner_repo_of(source);
     if repo.is_empty() || !repo.contains('/') {
@@ -433,7 +433,7 @@ fn fetch_skill_description(source: &str) -> Option<String> {
         .and_then(|s| s.strip_prefix('/'))
         .unwrap_or("");
 
-    // Build candidate paths: direct, then skills/ prefix, then root.
+    // Try common paths first (cheap: one API call each).
     let mut candidates = Vec::with_capacity(3);
     if !sub.is_empty() {
         candidates.push(format!("{sub}/SKILL.md"));
@@ -443,19 +443,48 @@ fn fetch_skill_description(source: &str) -> Option<String> {
 
     for skill_path in &candidates {
         log::debug!("enrich: trying SKILL.md from {repo} path={skill_path}");
-        if let Ok(stdout) = ionem::shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
-            .jq(".content")
-            .run()
-        {
-            let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
-            if let Some(decoded) = base64_decode(&b64_clean)
-                && let Some(desc) = parse_skill_description(&decoded)
-            {
-                return Some(desc);
-            }
+        if let Some(desc) = fetch_skill_md_content(repo, skill_path) {
+            return Some(desc);
         }
     }
+
+    // Fallback: search the repo tree for a SKILL.md in a directory matching
+    // the skill name. This handles deeply nested monorepo layouts.
+    if !sub.is_empty() {
+        let suffix = format!("{sub}/SKILL.md");
+        log::debug!("enrich: searching repo tree for */{suffix} in {repo}");
+        if let Some(path) = find_skill_md_in_tree(repo, &suffix) {
+            return fetch_skill_md_content(repo, &path);
+        }
+    }
+
     None
+}
+
+/// Fetch and parse a SKILL.md at the given path, returning the description.
+fn fetch_skill_md_content(repo: &str, path: &str) -> Option<String> {
+    let stdout = ionem::shell::gh::api(format!("repos/{repo}/contents/{path}"))
+        .jq(".content")
+        .run()
+        .ok()?;
+    let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
+    let decoded = base64_decode(&b64_clean)?;
+    parse_skill_description(&decoded)
+}
+
+/// Search a repo's git tree for a SKILL.md path ending with `suffix`.
+fn find_skill_md_in_tree(repo: &str, suffix: &str) -> Option<String> {
+    let jq = format!("[.tree[].path | select(endswith(\"{suffix}\"))][0] // empty");
+    let path = ionem::shell::gh::api(format!("repos/{repo}/git/trees/HEAD?recursive=1"))
+        .jq(jq)
+        .run()
+        .ok()?;
+    let path = path.trim().trim_matches('"');
+    if path.is_empty() {
+        None
+    } else {
+        Some(path.to_string())
+    }
 }
 
 /// Fetch star count for a repo.
