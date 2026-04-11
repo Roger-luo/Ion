@@ -6,9 +6,7 @@ mod skills_sh;
 
 pub use agent::{AgentSource, parse_agent_output};
 pub use cache::SearchCache;
-pub use github::{
-    GitHubSource, enrich_github_results, parse_gh_code_response, parse_gh_repo_response,
-};
+pub use github::{GitHubSource, enrich_results, parse_gh_code_response, parse_gh_repo_response};
 pub use registry::{RegistrySource, parse_registry_response};
 pub use skills_sh::{SkillsShSource, parse_skills_sh_page};
 
@@ -45,7 +43,10 @@ pub struct SearchResult {
     pub description: String,
     pub source: String,
     pub registry: String,
+    /// GitHub stargazer count.
     pub stars: Option<u64>,
+    /// skills.sh weekly install count.
+    pub weekly_installs: Option<u64>,
     pub skill_description: Option<String>,
 }
 
@@ -62,25 +63,44 @@ impl SearchResult {
             source: source.into(),
             registry: registry.into(),
             stars: None,
+            weekly_installs: None,
             skill_description: None,
         }
     }
 
-    /// Sort results by stars descending (missing stars treated as 0).
-    pub fn sort_by_stars(results: &mut [Self]) {
-        results.sort_by(|a, b| b.stars.unwrap_or(0).cmp(&a.stars.unwrap_or(0)));
+    /// The popularity value used for ranking: weekly installs for skills.sh,
+    /// stars for everything else.
+    pub fn popularity(&self) -> u64 {
+        self.weekly_installs.or(self.stars).unwrap_or(0)
+    }
+
+    /// Sort results by popularity descending.
+    pub fn sort_by_popularity(results: &mut [Self]) {
+        results.sort_by_key(|r| std::cmp::Reverse(r.popularity()));
     }
 
     /// Sort results by relevance to the query, combining text match quality
-    /// with popularity (stars). Exact name/source matches rank highest,
-    /// then prefix matches, then substring matches, with stars as tiebreaker.
+    /// with normalized popularity. Popularity (stars / installs) is normalized
+    /// per-registry so that different scales (GitHub stars vs skills.sh weekly
+    /// installs) become comparable.
     pub fn sort_by_relevance(results: &mut [Self], query: &str) {
         let query_lower = query.to_lowercase();
         let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
+        // Compute max popularity per registry for normalization.
+        let mut max_by_registry: std::collections::HashMap<String, f64> =
+            std::collections::HashMap::new();
+        for r in results.iter() {
+            let val = r.popularity() as f64;
+            let entry = max_by_registry.entry(r.registry.clone()).or_insert(0.0);
+            if val > *entry {
+                *entry = val;
+            }
+        }
+
         results.sort_by(|a, b| {
-            let score_a = relevance_score(a, &query_lower, &query_words);
-            let score_b = relevance_score(b, &query_lower, &query_words);
+            let score_a = relevance_score(a, &query_lower, &query_words, &max_by_registry);
+            let score_b = relevance_score(b, &query_lower, &query_words, &max_by_registry);
             score_b
                 .partial_cmp(&score_a)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -88,8 +108,15 @@ impl SearchResult {
     }
 }
 
+/// Maximum popularity bonus after normalization. This determines how much
+/// popularity matters relative to text relevance (max 1000). At 200, the
+/// most popular skill in any registry gets a meaningful boost but can't
+/// override a stronger text match (prefix > description + max popularity).
+const POPULARITY_WEIGHT: f64 = 200.0;
+
 /// Compute a relevance score for a search result against a query.
-/// Higher score = more relevant. Combines text match quality with popularity.
+/// Higher score = more relevant. Combines text match quality with
+/// popularity normalized across registries.
 ///
 /// Scoring:
 /// - Exact match on name/source segment:    1000
@@ -97,8 +124,14 @@ impl SearchResult {
 /// - All query words found in name/source:   200
 /// - Substring match in name/source:         100
 /// - Match in description:                    50
-/// - Popularity bonus: log2(stars + 1)     (0–20ish)
-fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> f64 {
+/// - Normalized popularity:                 0–200
+///   (raw value / max in registry × POPULARITY_WEIGHT)
+fn relevance_score(
+    result: &SearchResult,
+    query: &str,
+    query_words: &[&str],
+    max_by_registry: &std::collections::HashMap<String, f64>,
+) -> f64 {
     let name_lower = result.name.to_lowercase();
     let source_lower = result.source.to_lowercase();
     let desc_lower = result.description.to_lowercase();
@@ -135,10 +168,17 @@ fn relevance_score(result: &SearchResult, query: &str, query_words: &[&str]) -> 
         text_score = 50.0;
     }
 
-    // Popularity bonus: logarithmic so stars don't dominate relevance
-    let star_bonus = (result.stars.unwrap_or(0) as f64 + 1.0).log2();
+    // Normalize popularity within each registry so different scales
+    // (GitHub stars vs skills.sh weekly installs) are comparable.
+    let raw = result.popularity() as f64;
+    let max = max_by_registry
+        .get(&result.registry)
+        .copied()
+        .unwrap_or(1.0)
+        .max(1.0);
+    let popularity_bonus = (raw / max) * POPULARITY_WEIGHT;
 
-    text_score + star_bonus
+    text_score + popularity_bonus
 }
 
 /// A searchable source of skills.
@@ -353,11 +393,25 @@ pub(crate) fn parse_skill_description(content: &str) -> Option<String> {
     let rest = &content[3..];
     let end = rest.find("---")?;
     let frontmatter = &rest[..end];
-    for line in frontmatter.lines() {
-        let line = line.trim();
-        if let Some(value) = line.strip_prefix("description:") {
+    let lines: Vec<&str> = frontmatter.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if let Some(value) = trimmed.strip_prefix("description:") {
             let value = value.trim().trim_matches('"').trim_matches('\'');
-            if !value.is_empty() {
+            // Handle YAML block scalars (> for folded, | for literal)
+            if value == ">" || value == "|" {
+                let mut parts = Vec::new();
+                for continuation in &lines[i + 1..] {
+                    if continuation.starts_with(' ') || continuation.starts_with('\t') {
+                        parts.push(continuation.trim());
+                    } else {
+                        break;
+                    }
+                }
+                if !parts.is_empty() {
+                    return Some(parts.join(" "));
+                }
+            } else if !value.is_empty() {
                 return Some(value.to_string());
             }
         }
@@ -529,6 +583,15 @@ mod tests {
     }
 
     #[test]
+    fn parse_skill_description_folded_scalar() {
+        let content = "---\nname: test\ndescription: >\n  Guide for writing idiomatic Rust code.\n  Use when reviewing Rust.\n---\n";
+        assert_eq!(
+            parse_skill_description(content),
+            Some("Guide for writing idiomatic Rust code. Use when reviewing Rust.".to_string())
+        );
+    }
+
+    #[test]
     fn parse_skill_description_missing() {
         let content = "---\nname: test\n---\n# No description";
         assert_eq!(parse_skill_description(content), None);
@@ -653,7 +716,7 @@ mod tests {
     }
 
     #[test]
-    fn sort_by_stars_descending() {
+    fn sort_by_popularity_descending() {
         let mut results = vec![
             {
                 let mut r = SearchResult::new("a", "", "", "test");
@@ -667,7 +730,7 @@ mod tests {
             },
             SearchResult::new("c", "", "", "test"),
         ];
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
         assert_eq!(results[0].name, "b");
         assert_eq!(results[1].name, "a");
         assert_eq!(results[2].name, "c");

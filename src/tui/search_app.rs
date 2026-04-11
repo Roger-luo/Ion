@@ -8,6 +8,7 @@ pub enum ListRow {
     RepoHeader {
         owner_repo: String,
         stars: Option<u64>,
+        weekly_installs: Option<u64>,
         description: String,
         skill_count: usize,
         registry: String,
@@ -28,7 +29,9 @@ pub struct SearchApp {
 
 impl SearchApp {
     pub fn new(mut results: Vec<SearchResult>) -> Self {
-        SearchResult::sort_by_stars(&mut results);
+        // Results arrive pre-sorted by unified relevance scoring (text match +
+        // normalized popularity). Re-sort by stars as a simple TUI ordering.
+        SearchResult::sort_by_popularity(&mut results);
         let rows = build_rows(&results);
         Self {
             results,
@@ -85,6 +88,7 @@ fn build_rows(results: &[SearchResult]) -> Vec<ListRow> {
             rows.push(ListRow::RepoHeader {
                 owner_repo,
                 stars: first.stars,
+                weekly_installs: first.weekly_installs,
                 description: first.description.clone(),
                 skill_count: indices.len(),
                 registry: first.registry.clone(),

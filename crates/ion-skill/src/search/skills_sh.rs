@@ -108,13 +108,54 @@ pub fn parse_skills_sh_page(body: &str, query: &str, limit: usize) -> Vec<Search
             };
 
             let mut result = SearchResult::new(e.name, "", source, "skills.sh");
-            result.stars = Some(e.installs);
+            result.weekly_installs = Some(e.installs);
             result
         })
         .collect()
 }
 
-/// Searches skills.sh by fetching the website and filtering the embedded skill catalog.
+/// JSON response from the skills.sh search API.
+#[derive(Deserialize)]
+struct SkillsShApiResponse {
+    #[serde(default)]
+    skills: Vec<SkillsShEntry>,
+}
+
+/// Parse the skills.sh search API JSON response.
+pub fn parse_skills_sh_api_response(body: &str, limit: usize) -> Vec<SearchResult> {
+    let resp: SkillsShApiResponse = match serde_json::from_str(body) {
+        Ok(r) => r,
+        Err(e) => {
+            log::debug!("skills.sh: failed to parse API response: {e}");
+            return vec![];
+        }
+    };
+
+    log::debug!("skills.sh: API returned {} skills", resp.skills.len());
+
+    resp.skills
+        .into_iter()
+        .take(limit)
+        .map(|e| {
+            let source = if e.source.contains('/') {
+                let repo_name = e.source.rsplit('/').next().unwrap_or("");
+                if e.skill_id != repo_name && !e.skill_id.is_empty() {
+                    format!("{}/{}", e.source, e.skill_id)
+                } else {
+                    e.source.clone()
+                }
+            } else {
+                e.source.clone()
+            };
+
+            let mut result = SearchResult::new(e.name, "", source, "skills.sh");
+            result.weekly_installs = Some(e.installs);
+            result
+        })
+        .collect()
+}
+
+/// Searches skills.sh using its search API, falling back to homepage scraping.
 pub struct SkillsShSource;
 
 impl SearchSource for SkillsShSource {
@@ -123,6 +164,28 @@ impl SearchSource for SkillsShSource {
     }
 
     fn search(&self, query: &str, limit: usize) -> crate::Result<Vec<SearchResult>> {
+        // Try the search API first
+        log::debug!("skills.sh: querying search API for {query:?}");
+        match super::http_get_with_query(
+            "https://skills.sh/api/search",
+            &[("q", query)],
+            15,
+            "skills.sh",
+        ) {
+            Ok(body) => {
+                let results = parse_skills_sh_api_response(&body, limit);
+                if !results.is_empty() {
+                    log::debug!("skills.sh: API returned {} results", results.len());
+                    return Ok(results);
+                }
+                log::debug!("skills.sh: API returned 0 results, falling back to page scrape");
+            }
+            Err(e) => {
+                log::debug!("skills.sh: API failed ({e}), falling back to page scrape");
+            }
+        }
+
+        // Fallback: scrape the homepage
         log::debug!("skills.sh: fetching website");
         let body = super::http_get("https://skills.sh/", 15, "skills.sh")?;
         log::debug!("skills.sh: received {} bytes", body.len());
@@ -144,7 +207,7 @@ mod tests {
         assert_eq!(results[0].name, "brainstorming");
         assert_eq!(results[0].source, "obra/superpowers/brainstorming");
         assert_eq!(results[0].registry, "skills.sh");
-        assert_eq!(results[0].stars, Some(5000));
+        assert_eq!(results[0].weekly_installs, Some(5000));
     }
 
     #[test]
@@ -175,5 +238,27 @@ mod tests {
         let results = parse_skills_sh_page(body, "tdd", 10);
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].source, "acme/tdd");
+    }
+
+    #[test]
+    fn skills_sh_api_response_parses() {
+        let body = r#"{"query":"rust","searchType":"fuzzy","skills":[{"source":"apollographql/skills","skillId":"rust-best-practices","name":"rust-best-practices","installs":6219},{"source":"wshobson/agents","skillId":"rust-async-patterns","name":"rust-async-patterns","installs":7967}],"count":2,"duration_ms":10}"#;
+        let results = parse_skills_sh_api_response(body, 10);
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].name, "rust-best-practices");
+        assert_eq!(
+            results[0].source,
+            "apollographql/skills/rust-best-practices"
+        );
+        assert_eq!(results[0].weekly_installs, Some(6219));
+        assert_eq!(results[0].registry, "skills.sh");
+        assert_eq!(results[1].source, "wshobson/agents/rust-async-patterns");
+    }
+
+    #[test]
+    fn skills_sh_api_response_respects_limit() {
+        let body = r#"{"skills":[{"source":"a/b","skillId":"s1","name":"s1","installs":100},{"source":"a/b","skillId":"s2","name":"s2","installs":50}]}"#;
+        let results = parse_skills_sh_api_response(body, 1);
+        assert_eq!(results.len(), 1);
     }
 }

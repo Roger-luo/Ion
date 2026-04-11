@@ -155,47 +155,60 @@ impl SearchSource for GitHubSource {
         }
 
         // 3. Repo search: find repos whose name/description matches the query
-        log::debug!("github: repo search for {query:?}");
-        if let Ok(body) = gh
-            .search_repos(query)
-            .json(&["fullName", "description", "stargazersCount"])
-            .limit(10)
-            .run()
-            .map_err(|e| crate::Error::Search(e.to_string()))
-        {
-            let repo_results = parse_gh_repo_response(&body, 10)?;
-            log::debug!("github: repo search found {} repos", repo_results.len());
-            for repo in &repo_results {
-                if seen_sources.contains(&repo.source) {
-                    continue;
-                }
-                if looks_skill_related(repo) {
-                    let mut skills = enumerate_repo_skills(&repo.source, limit * 3, &seen_sources);
-                    if !skills.is_empty() {
-                        log::debug!(
-                            "github: enumerated {} skills in {}",
-                            skills.len(),
-                            repo.source
-                        );
-                        for r in &mut skills {
-                            if r.stars.is_none() {
-                                r.stars = repo.stars;
-                            }
-                        }
-                        for r in skills {
-                            seen_sources.insert(r.source.clone());
-                            results.push(r);
-                        }
-                    } else {
-                        log::debug!(
-                            "github: {} looks skill-related but has no SKILL.md, skipping",
-                            repo.source
-                        );
+        //    Also do a skill-focused search ("{query} skill") to surface skill
+        //    repos that would otherwise be drowned out by popular non-skill repos.
+        let repo_queries: Vec<String> = {
+            let mut qs = vec![query.to_string()];
+            let q_lower = query.to_lowercase();
+            if !q_lower.contains("skill") {
+                qs.push(format!("{query} skill"));
+            }
+            qs
+        };
+        for repo_query in &repo_queries {
+            log::debug!("github: repo search for {repo_query:?}");
+            if let Ok(body) = gh
+                .search_repos(repo_query)
+                .json(&["fullName", "description", "stargazersCount"])
+                .limit(10)
+                .run()
+                .map_err(|e| crate::Error::Search(e.to_string()))
+            {
+                let repo_results = parse_gh_repo_response(&body, 10)?;
+                log::debug!("github: repo search found {} repos", repo_results.len());
+                for repo in &repo_results {
+                    if seen_sources.contains(&repo.source) {
+                        continue;
                     }
-                    continue;
-                }
-                if seen_sources.insert(repo.source.clone()) && repo_has_skill_md(&repo.source) {
-                    results.push(repo.clone());
+                    if looks_skill_related(repo) {
+                        let mut skills =
+                            enumerate_repo_skills(&repo.source, limit * 3, &seen_sources);
+                        if !skills.is_empty() {
+                            log::debug!(
+                                "github: enumerated {} skills in {}",
+                                skills.len(),
+                                repo.source
+                            );
+                            for r in &mut skills {
+                                if r.stars.is_none() {
+                                    r.stars = repo.stars;
+                                }
+                            }
+                            for r in skills {
+                                seen_sources.insert(r.source.clone());
+                                results.push(r);
+                            }
+                        } else {
+                            log::debug!(
+                                "github: {} looks skill-related but has no SKILL.md, skipping",
+                                repo.source
+                            );
+                        }
+                        continue;
+                    }
+                    if seen_sources.insert(repo.source.clone()) && repo_has_skill_md(&repo.source) {
+                        results.push(repo.clone());
+                    }
                 }
             }
         }
@@ -221,6 +234,7 @@ fn looks_skill_related(result: &SearchResult) -> bool {
 }
 
 /// Enumerate individual skills in a GitHub repo by searching for SKILL.md files.
+/// Falls back to the Contents API when code search is rate-limited.
 fn enumerate_repo_skills(
     repo: &str,
     limit: usize,
@@ -237,7 +251,9 @@ fn enumerate_repo_skills(
         Ok(b) => b,
         Err(e) => {
             log::debug!("github: failed to enumerate {repo}: {e}");
-            return vec![];
+            // Code search may be rate-limited; fall back to the Contents API
+            // which uses a separate (much higher) rate limit.
+            return repo_has_root_skill_md(repo, seen);
         }
     };
     match parse_gh_code_response(&body, limit) {
@@ -252,19 +268,48 @@ fn enumerate_repo_skills(
     }
 }
 
+/// Check whether a repo has a SKILL.md at its root using the Contents API.
+/// This uses the REST API rate limit (5000/hr) instead of the code search
+/// rate limit (30/min), making it a reliable fallback.
+fn repo_has_root_skill_md(
+    repo: &str,
+    seen: &std::collections::HashSet<String>,
+) -> Vec<SearchResult> {
+    log::debug!("github: checking root SKILL.md in {repo} via contents API");
+    let endpoint = format!("repos/{repo}/contents/SKILL.md");
+    match ionem::shell::gh::api(endpoint).jq(".name").run() {
+        Ok(name) if name.trim().eq_ignore_ascii_case("SKILL.md") => {
+            if seen.contains(repo) {
+                return vec![];
+            }
+            let result =
+                SearchResult::new(repo.to_string(), String::new(), repo.to_string(), "github");
+            vec![result]
+        }
+        _ => vec![],
+    }
+}
+
 /// Check whether a repo has a SKILL.md at its root.
 fn repo_has_skill_md(repo: &str) -> bool {
     log::debug!("github: checking if {repo} has SKILL.md");
-    let Ok(body) = ionem::shell::gh::search_code("")
+    // Try code search first
+    if let Ok(body) = ionem::shell::gh::search_code("")
         .filename("SKILL.md")
         .repo(repo)
         .json(&["path", "repository"])
         .limit(1)
         .run()
-    else {
-        return false;
-    };
-    parse_gh_code_response(&body, 1).is_ok_and(|r| !r.is_empty())
+    {
+        return parse_gh_code_response(&body, 1).is_ok_and(|r| !r.is_empty());
+    }
+    // Fall back to Contents API if code search is rate-limited
+    log::debug!("github: falling back to contents API for {repo}");
+    let endpoint = format!("repos/{repo}/contents/SKILL.md");
+    ionem::shell::gh::api(endpoint)
+        .jq(".name")
+        .run()
+        .is_ok_and(|name| name.trim().eq_ignore_ascii_case("SKILL.md"))
 }
 
 /// Select up to `limit` results while ensuring repo diversity.
@@ -341,21 +386,22 @@ fn select_with_diversity(
     results
 }
 
-/// Enrich GitHub search results by fetching SKILL.md descriptions from each repository.
-pub fn enrich_github_results(results: &mut [SearchResult]) {
+/// Enrich search results by fetching SKILL.md descriptions and star counts.
+/// Works for both GitHub and skills.sh results (skills.sh skills are GitHub-hosted).
+pub fn enrich_results(results: &mut [SearchResult]) {
     let handles: Vec<_> = results
         .iter()
         .enumerate()
-        .filter(|(_, r)| r.registry == "github" && !r.source.is_empty())
+        .filter(|(_, r)| !r.source.is_empty())
         .map(|(i, r)| {
             let source = r.source.clone();
-            let has_stars = r.stars.is_some();
+            let needs_stars = r.stars.is_none();
             std::thread::spawn(move || {
                 let desc = fetch_skill_description(&source);
-                let stars = if has_stars {
-                    None
-                } else {
+                let stars = if needs_stars {
                     fetch_stars(&source)
+                } else {
+                    None
                 };
                 (i, desc, stars)
             })
@@ -375,27 +421,70 @@ pub fn enrich_github_results(results: &mut [SearchResult]) {
 }
 
 /// Fetch the description from a SKILL.md file in a GitHub repository.
+/// Tries common paths first, then falls back to searching the repo tree.
 fn fetch_skill_description(source: &str) -> Option<String> {
     let repo = owner_repo_of(source);
     if repo.is_empty() || !repo.contains('/') {
         return None;
     }
 
-    let skill_path = source
+    let sub = source
         .strip_prefix(repo)
         .and_then(|s| s.strip_prefix('/'))
-        .map(|s| format!("{s}/SKILL.md"))
-        .unwrap_or_else(|| "SKILL.md".to_string());
+        .unwrap_or("");
 
-    log::debug!("enrich: fetching SKILL.md from {repo} path={skill_path}");
-    let stdout = ionem::shell::gh::api(format!("repos/{repo}/contents/{skill_path}"))
+    // Try common paths first (cheap: one API call each).
+    let mut candidates = Vec::with_capacity(3);
+    if !sub.is_empty() {
+        candidates.push(format!("{sub}/SKILL.md"));
+        candidates.push(format!("skills/{sub}/SKILL.md"));
+    }
+    candidates.push("SKILL.md".to_string());
+
+    for skill_path in &candidates {
+        log::debug!("enrich: trying SKILL.md from {repo} path={skill_path}");
+        if let Some(desc) = fetch_skill_md_content(repo, skill_path) {
+            return Some(desc);
+        }
+    }
+
+    // Fallback: search the repo tree for a SKILL.md in a directory matching
+    // the skill name. This handles deeply nested monorepo layouts.
+    if !sub.is_empty() {
+        let suffix = format!("{sub}/SKILL.md");
+        log::debug!("enrich: searching repo tree for */{suffix} in {repo}");
+        if let Some(path) = find_skill_md_in_tree(repo, &suffix) {
+            return fetch_skill_md_content(repo, &path);
+        }
+    }
+
+    None
+}
+
+/// Fetch and parse a SKILL.md at the given path, returning the description.
+fn fetch_skill_md_content(repo: &str, path: &str) -> Option<String> {
+    let stdout = ionem::shell::gh::api(format!("repos/{repo}/contents/{path}"))
         .jq(".content")
         .run()
         .ok()?;
-
     let b64_clean: String = stdout.chars().filter(|c| !c.is_whitespace()).collect();
     let decoded = base64_decode(&b64_clean)?;
     parse_skill_description(&decoded)
+}
+
+/// Search a repo's git tree for a SKILL.md path ending with `suffix`.
+fn find_skill_md_in_tree(repo: &str, suffix: &str) -> Option<String> {
+    let jq = format!("[.tree[].path | select(endswith(\"{suffix}\"))][0] // empty");
+    let path = ionem::shell::gh::api(format!("repos/{repo}/git/trees/HEAD?recursive=1"))
+        .jq(jq)
+        .run()
+        .ok()?;
+    let path = path.trim().trim_matches('"');
+    if path.is_empty() {
+        None
+    } else {
+        Some(path.to_string())
+    }
 }
 
 /// Fetch star count for a repo.
@@ -519,7 +608,7 @@ mod tests {
         results.push(make_result("other/b", "other/b", 5));
         results.push(make_result("other/c", "other/c", 1));
 
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
 
         let selected = select_with_diversity(results, 10, "skill");
         assert_eq!(selected.len(), 10);
@@ -549,7 +638,7 @@ mod tests {
         }
         results.push(make_result("small/a", "small/a", 500));
         results.push(make_result("small/b", "small/b", 200));
-        SearchResult::sort_by_stars(&mut results);
+        SearchResult::sort_by_popularity(&mut results);
 
         let selected = select_with_diversity(results, 10, "skill");
         // Results should still be sorted (by relevance now, not just stars)

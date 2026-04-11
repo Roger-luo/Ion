@@ -11,7 +11,18 @@ use super::util::wrap_text;
 
 const LABEL_STYLE: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
 const VALUE_STYLE: Style = Style::new().fg(Color::White);
+const LINK_STYLE: Style = Style::new()
+    .fg(Color::Blue)
+    .add_modifier(Modifier::UNDERLINED);
 const DIM_STYLE: Style = Style::new().fg(Color::DarkGray);
+
+/// Build a web URL for a result source.
+fn source_url(registry: &str, source: &str) -> String {
+    match registry {
+        "skills.sh" | "skills-sh" => format!("https://skills.sh/{source}"),
+        _ => format!("https://github.com/{source}"),
+    }
+}
 
 pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     let area = frame.area();
@@ -56,6 +67,7 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
             ListRow::RepoHeader {
                 owner_repo,
                 stars,
+                weekly_installs,
                 skill_count,
                 ..
             } => {
@@ -69,7 +81,7 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                         .fg(Color::Cyan)
                         .add_modifier(Modifier::BOLD)
                 };
-                let stars_str = format_stars_compact(*stars);
+                let stars_str = format_metric_compact_raw(*stars, *weekly_installs);
                 lines.push(Line::from(vec![
                     Span::styled(prefix, style),
                     Span::styled(owner_repo.as_str(), style),
@@ -117,7 +129,7 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                 let stars_str = if *grouped {
                     String::new()
                 } else {
-                    format_stars_compact(r.stars)
+                    format_metric_compact(r)
                 };
 
                 let badge = if *grouped {
@@ -156,21 +168,7 @@ fn render_detail(frame: &mut Frame, app: &SearchApp, area: Rect) {
 
     match row {
         ListRow::Skill { result_idx, .. } => render_skill_detail(frame, app, inner, *result_idx),
-        ListRow::RepoHeader {
-            owner_repo,
-            stars,
-            description,
-            skill_count,
-            registry,
-        } => render_repo_detail(
-            frame,
-            inner,
-            owner_repo,
-            *stars,
-            description,
-            *skill_count,
-            registry,
-        ),
+        ListRow::RepoHeader { .. } => render_repo_detail(frame, inner, row),
     }
 }
 
@@ -183,7 +181,6 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
         .source
         .split_once('/')
         .map_or(r.source.as_str(), |(owner, _)| owner);
-    let stars_str = r.stars.map_or("—".to_string(), |n| n.to_string());
     let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
@@ -195,20 +192,22 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
             ),
         ]),
         Line::from(vec![
-            Span::styled("Owner: ", LABEL_STYLE),
+            Span::styled("Owner:  ", LABEL_STYLE),
             Span::styled(owner, VALUE_STYLE),
         ]),
-        Line::from(vec![
-            Span::styled("Stars: ", LABEL_STYLE),
-            Span::styled(format!("* {stars_str}"), VALUE_STYLE),
-        ]),
-        Line::from(""),
     ];
 
-    push_wrapped_section(&mut lines, "Description:", &r.description, wrap_width);
+    push_metric_lines(&mut lines, r.stars, r.weekly_installs);
+    lines.push(Line::from(""));
 
+    let url = source_url(&r.registry, &r.source);
+    push_link_section(&mut lines, &url, wrap_width);
+
+    // Show skill description first (from SKILL.md), then repo description
     if let Some(ref skill_desc) = r.skill_description {
-        push_wrapped_section(&mut lines, "Skill Description:", skill_desc, wrap_width);
+        push_wrapped_section(&mut lines, "Description:", skill_desc, wrap_width);
+    } else if !r.description.is_empty() {
+        push_wrapped_section(&mut lines, "Description:", &r.description, wrap_width);
     }
 
     if !r.source.is_empty() {
@@ -223,47 +222,51 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
     frame.render_widget(paragraph, area);
 }
 
-fn render_repo_detail(
-    frame: &mut Frame,
-    area: Rect,
-    owner_repo: &str,
-    stars: Option<u64>,
-    description: &str,
-    skill_count: usize,
-    registry: &str,
-) {
+fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
+    let ListRow::RepoHeader {
+        owner_repo,
+        stars,
+        weekly_installs,
+        description,
+        skill_count,
+        registry,
+    } = row
+    else {
+        return;
+    };
+
     let owner = owner_repo
         .split_once('/')
-        .map_or(owner_repo, |(owner, _)| owner);
-    let stars_str = stars.map_or("—".to_string(), |n| n.to_string());
+        .map_or(owner_repo.as_str(), |(o, _)| o);
     let wrap_width = area.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = vec![
         Line::from(vec![
-            Span::styled("Source: ", LABEL_STYLE),
+            Span::styled("Source:  ", LABEL_STYLE),
             Span::styled(
                 registry_label(registry),
                 Style::new().fg(registry_color(registry)),
             ),
         ]),
         Line::from(vec![
-            Span::styled("Repo: ", LABEL_STYLE),
-            Span::styled(owner_repo, VALUE_STYLE),
+            Span::styled("Repo:    ", LABEL_STYLE),
+            Span::styled(owner_repo.as_str(), VALUE_STYLE),
         ]),
         Line::from(vec![
-            Span::styled("Owner: ", LABEL_STYLE),
+            Span::styled("Owner:   ", LABEL_STYLE),
             Span::styled(owner, VALUE_STYLE),
         ]),
-        Line::from(vec![
-            Span::styled("Stars: ", LABEL_STYLE),
-            Span::styled(format!("* {stars_str}"), VALUE_STYLE),
-        ]),
-        Line::from(vec![
-            Span::styled("Skills: ", LABEL_STYLE),
-            Span::styled(skill_count.to_string(), VALUE_STYLE),
-        ]),
-        Line::from(""),
     ];
+
+    push_metric_lines(&mut lines, *stars, *weekly_installs);
+
+    lines.push(Line::from(vec![
+        Span::styled("Skills:  ", LABEL_STYLE),
+        Span::styled(skill_count.to_string(), VALUE_STYLE),
+    ]));
+
+    let url = source_url(registry, owner_repo);
+    push_link_section(&mut lines, &url, wrap_width);
 
     push_wrapped_section(&mut lines, "Description:", description, wrap_width);
 
@@ -284,23 +287,82 @@ fn push_wrapped_section<'a>(
     text: &str,
     wrap_width: usize,
 ) {
+    push_styled_section(lines, label, text, wrap_width, VALUE_STYLE);
+}
+
+/// Append a labeled wrapped section with a custom style.
+fn push_styled_section<'a>(
+    lines: &mut Vec<Line<'a>>,
+    label: &'a str,
+    text: &str,
+    wrap_width: usize,
+    style: Style,
+) {
     if text.is_empty() {
         return;
     }
     lines.push(Line::from(Span::styled(label, LABEL_STYLE)));
     for wrapped_line in wrap_text(text, wrap_width) {
-        lines.push(Line::from(Span::styled(
-            format!("  {wrapped_line}"),
-            VALUE_STYLE,
-        )));
+        lines.push(Line::from(Span::styled(format!("  {wrapped_line}"), style)));
     }
     lines.push(Line::from(""));
 }
 
-fn format_stars_compact(stars: Option<u64>) -> String {
-    match stars {
-        Some(n) => format!(" *{n}"),
-        None => String::new(),
+/// Append a link section with character-level wrapping (URLs have no spaces).
+fn push_link_section(lines: &mut Vec<Line<'_>>, url: &str, wrap_width: usize) {
+    if url.is_empty() {
+        return;
+    }
+    lines.push(Line::from(Span::styled("Link:", LABEL_STYLE)));
+    let indent = 2;
+    let usable = wrap_width.saturating_sub(indent);
+    for chunk in url.as_bytes().chunks(usable.max(1)) {
+        let s = std::str::from_utf8(chunk).unwrap_or("");
+        let pad = " ".repeat(indent);
+        lines.push(Line::from(Span::styled(format!("{pad}{s}"), LINK_STYLE)));
+    }
+    lines.push(Line::from(""));
+}
+
+/// Format a compact metric badge for the list view.
+fn format_metric_compact(r: &ion_skill::search::SearchResult) -> String {
+    if let Some(w) = r.weekly_installs {
+        format!(" {w}/wk")
+    } else if let Some(s) = r.stars {
+        format!(" *{s}")
+    } else {
+        String::new()
+    }
+}
+
+/// Format a compact metric badge for repo headers.
+fn format_metric_compact_raw(stars: Option<u64>, weekly_installs: Option<u64>) -> String {
+    if let Some(w) = weekly_installs {
+        format!(" {w}/wk")
+    } else if let Some(s) = stars {
+        format!(" *{s}")
+    } else {
+        String::new()
+    }
+}
+
+/// Push metric lines (stars and/or weekly installs) into the detail panel.
+fn push_metric_lines<'a>(
+    lines: &mut Vec<Line<'a>>,
+    stars: Option<u64>,
+    weekly_installs: Option<u64>,
+) {
+    if let Some(s) = stars {
+        lines.push(Line::from(vec![
+            Span::styled("Stars:   ", LABEL_STYLE),
+            Span::styled(s.to_string(), VALUE_STYLE),
+        ]));
+    }
+    if let Some(w) = weekly_installs {
+        lines.push(Line::from(vec![
+            Span::styled("Installs:", LABEL_STYLE),
+            Span::styled(format!(" {w}/wk"), VALUE_STYLE),
+        ]));
     }
 }
 
