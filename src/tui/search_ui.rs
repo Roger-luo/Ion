@@ -11,7 +11,23 @@ use super::util::wrap_text;
 
 const LABEL_STYLE: Style = Style::new().fg(Color::Cyan).add_modifier(Modifier::BOLD);
 const VALUE_STYLE: Style = Style::new().fg(Color::White);
+const LINK_STYLE: Style = Style::new()
+    .fg(Color::Blue)
+    .add_modifier(Modifier::UNDERLINED);
 const DIM_STYLE: Style = Style::new().fg(Color::DarkGray);
+
+/// Build a web URL for a result source.
+fn source_url(registry: &str, source: &str) -> String {
+    match registry {
+        "skills.sh" | "skills-sh" => format!("https://skills.sh/{source}"),
+        _ => format!("https://github.com/{source}"),
+    }
+}
+
+/// Wrap `text` in an OSC 8 terminal hyperlink.
+fn format_terminal_link(text: &str, url: &str) -> String {
+    format!("\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\")
+}
 
 pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     let area = frame.area();
@@ -187,6 +203,12 @@ fn render_skill_detail(frame: &mut Frame, app: &SearchApp, area: Rect, idx: usiz
     ];
 
     push_metric_lines(&mut lines, r.stars, r.weekly_installs);
+
+    let url = source_url(&r.registry, &r.source);
+    lines.push(Line::from(vec![
+        Span::styled("Link:    ", LABEL_STYLE),
+        Span::styled(format_terminal_link(&url, &url), LINK_STYLE),
+    ]));
     lines.push(Line::from(""));
 
     // Show skill description first (from SKILL.md), then repo description
@@ -249,6 +271,12 @@ fn render_repo_detail(frame: &mut Frame, area: Rect, row: &ListRow) {
     lines.push(Line::from(vec![
         Span::styled("Skills:  ", LABEL_STYLE),
         Span::styled(skill_count.to_string(), VALUE_STYLE),
+    ]));
+
+    let url = source_url(registry, owner_repo);
+    lines.push(Line::from(vec![
+        Span::styled("Link:    ", LABEL_STYLE),
+        Span::styled(format_terminal_link(&url, &url), LINK_STYLE),
     ]));
     lines.push(Line::from(""));
 
