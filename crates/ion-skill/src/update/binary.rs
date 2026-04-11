@@ -68,6 +68,10 @@ impl Updater for BinaryUpdater {
             asset_pattern.as_deref(),
         )?;
 
+        // Deploy target symlinks (skill_dir == agents_target for binaries,
+        // so this only creates the target symlinks like .claude/skills/{name})
+        installer.deploy(&skill.name, &skill_dir)?;
+
         // Clean up old version if different
         if let Some(old_version) = skill.binary_version()
             && old_version != result.version

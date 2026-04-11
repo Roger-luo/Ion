@@ -37,6 +37,12 @@ pub fn run(name: Option<&str>, json: bool, project_flags: &[String]) -> anyhow::
         let options = ws.merged_options_for(project)?;
         let installer = ws.installer_for(project, &options);
 
+        // Ensure built-in skill and agent symlinks are up to date (non-fatal)
+        ws.ensure_builtin_skill(project, &options);
+        if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &options.targets) {
+            log::warn!("Failed to create agent symlinks: {e}");
+        }
+
         if multi && !json {
             let label = project_label(project, &ws);
             println!("\n{}:", p.bold(&label));
@@ -269,26 +275,31 @@ fn update_project_skills(
         });
 
         // Check for update
-        let info = match updater.check(&locked, source) {
-            Ok(Some(info)) => info,
+        let update_info = match updater.check(&locked, source) {
+            Ok(Some(info)) => Some(info),
             Ok(None) => {
-                if !json {
-                    pb_println(
-                        &pb,
-                        format!(
-                            "  {} {}  {}",
-                            p.dim("·"),
-                            p.bold(skill_name),
-                            p.dim("already up to date")
-                        ),
-                    );
+                // Remote is up to date — verify local deployment is intact
+                if installer.is_deployed(skill_name) {
+                    if !json {
+                        pb_println(
+                            &pb,
+                            format!(
+                                "  {} {}  {}",
+                                p.dim("·"),
+                                p.bold(skill_name),
+                                p.dim("already up to date")
+                            ),
+                        );
+                    }
+                    json_up_to_date.push(serde_json::json!({ "name": skill_name }));
+                    up_to_date_count += 1;
+                    if let Some(ref pb) = pb {
+                        pb.inc(1);
+                    }
+                    continue;
                 }
-                json_up_to_date.push(serde_json::json!({ "name": skill_name }));
-                up_to_date_count += 1;
-                if let Some(ref pb) = pb {
-                    pb.inc(1);
-                }
-                continue;
+                // Local deployment is broken — needs repair
+                None
             }
             Err(e) => {
                 if !json {
@@ -311,33 +322,57 @@ fn update_project_skills(
             }
         };
 
-        // Apply update
+        // Apply update or repair
         if let Some(ref pb) = pb {
-            pb.set_message(format!("updating {}", skill_name));
+            let action = if update_info.is_some() {
+                "updating"
+            } else {
+                "repairing"
+            };
+            pb.set_message(format!("{} {}", action, skill_name));
         }
 
         match updater.apply(&locked, source, installer) {
             Ok(new_locked) => {
                 if !json {
-                    let binary_suffix = if source.is_binary() { " (binary)" } else { "" };
-                    pb_println(
-                        &pb,
-                        format!(
-                            "  {} {}  {} → {}{}",
-                            p.success("✓"),
-                            p.bold(skill_name),
-                            info.old_version,
-                            p.info(&info.new_version),
-                            binary_suffix
-                        ),
-                    );
+                    if let Some(ref info) = update_info {
+                        let binary_suffix = if source.is_binary() { " (binary)" } else { "" };
+                        pb_println(
+                            &pb,
+                            format!(
+                                "  {} {}  {} → {}{}",
+                                p.success("✓"),
+                                p.bold(skill_name),
+                                info.old_version,
+                                p.info(&info.new_version),
+                                binary_suffix
+                            ),
+                        );
+                    } else {
+                        pb_println(
+                            &pb,
+                            format!(
+                                "  {} {}  {}",
+                                p.success("✓"),
+                                p.bold(skill_name),
+                                p.info("repaired")
+                            ),
+                        );
+                    }
                 }
-                json_updated.push(serde_json::json!({
-                    "name": skill_name,
-                    "old_version": info.old_version,
-                    "new_version": info.new_version,
-                    "binary": source.is_binary(),
-                }));
+                if let Some(ref info) = update_info {
+                    json_updated.push(serde_json::json!({
+                        "name": skill_name,
+                        "old_version": info.old_version,
+                        "new_version": info.new_version,
+                        "binary": source.is_binary(),
+                    }));
+                } else {
+                    json_updated.push(serde_json::json!({
+                        "name": skill_name,
+                        "repaired": true,
+                    }));
+                }
                 lockfile.upsert(new_locked);
                 updated_count += 1;
             }

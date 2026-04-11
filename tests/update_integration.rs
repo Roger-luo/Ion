@@ -83,6 +83,50 @@ fn read_lockfile(project: &std::path::Path) -> ion_skill::lockfile::Lockfile {
     ion_skill::lockfile::Lockfile::from_file(&project.join("Ion.lock")).unwrap()
 }
 
+/// Set up a project with a git skill installed and ready for update tests.
+/// Returns (upstream_path, project_path, initial_commit).
+fn setup_installed_git_skill(
+    tmp: &std::path::Path,
+    skill_name: &str,
+) -> (std::path::PathBuf, std::path::PathBuf, String) {
+    let upstream = tmp.join("upstream");
+    let project = tmp.join("project");
+    std::fs::create_dir_all(&project).unwrap();
+
+    create_upstream_repo(&upstream, skill_name);
+
+    std::fs::write(
+        project.join("Ion.toml"),
+        format!(
+            "[options]\n\n[options.targets]\nclaude = \".claude/skills\"\n\n[skills]\n{skill_name} = {{ type = \"git\", source = \"{}\" }}\n",
+            upstream.display()
+        ),
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(&project)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "install failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    let lock = read_lockfile(&project);
+    let commit = lock
+        .find(skill_name)
+        .expect("skill in lockfile")
+        .commit()
+        .expect("commit")
+        .to_string();
+
+    (upstream, project, commit)
+}
+
 #[test]
 fn update_git_skill_pulls_latest_commit() {
     let tmp = tempfile::tempdir().unwrap();
@@ -340,5 +384,121 @@ fn update_preserves_old_version_on_validation_failure() {
     assert_eq!(
         commit_before, commit_after,
         "lockfile commit should be unchanged when validation fails"
+    );
+}
+
+#[test]
+fn update_repairs_deleted_agents_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (_upstream, project, _commit_before) =
+        setup_installed_git_skill(tmp.path(), "repair-skill");
+
+    // Verify initial deployment
+    assert!(project.join(".agents/skills/repair-skill").exists());
+    assert!(project.join(".claude/skills/repair-skill").exists());
+
+    // Delete the .agents directory to simulate corruption
+    std::fs::remove_dir_all(project.join(".agents")).unwrap();
+    assert!(!project.join(".agents/skills/repair-skill").exists());
+
+    // Run `ion update` — should restore the deployment
+    let output = ion_cmd()
+        .args(["update"])
+        .current_dir(&project)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "update failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Should report either "repaired" (repair path) or "updated" (re-install path)
+    assert!(
+        stdout.contains("repaired") || stdout.contains("updated"),
+        "expected skill to be repaired or updated, got: {stdout}"
+    );
+
+    // Verify deployment is restored
+    assert!(
+        project.join(".agents/skills/repair-skill").exists(),
+        ".agents/skills/repair-skill should be restored"
+    );
+    assert!(
+        project.join(".claude/skills/repair-skill").exists(),
+        ".claude/skills/repair-skill should be restored"
+    );
+}
+
+#[test]
+fn update_repairs_deleted_target_symlink() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (_upstream, project, _commit) = setup_installed_git_skill(tmp.path(), "target-repair");
+
+    // Delete only the target symlink, leaving .agents intact
+    let target = project.join(".claude/skills/target-repair");
+    assert!(target.exists());
+    std::fs::remove_file(&target).unwrap();
+    assert!(!target.exists());
+
+    // .agents dir should still be there
+    assert!(project.join(".agents/skills/target-repair").exists());
+
+    // Run `ion update`
+    let output = ion_cmd()
+        .args(["update"])
+        .current_dir(&project)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "update failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Should report either "repaired" or "updated"
+    assert!(
+        stdout.contains("repaired") || stdout.contains("updated"),
+        "expected skill to be repaired or updated, got: {stdout}"
+    );
+
+    // Target symlink should be restored
+    assert!(
+        target.exists(),
+        ".claude/skills/target-repair should be restored"
+    );
+}
+
+#[test]
+fn install_all_repairs_deleted_agents_dir() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (_upstream, project, _commit) = setup_installed_git_skill(tmp.path(), "install-repair");
+
+    // Delete .agents
+    std::fs::remove_dir_all(project.join(".agents")).unwrap();
+
+    // Run `ion add` (no args = install-all)
+    let output = ion_cmd()
+        .args(["add"])
+        .current_dir(&project)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "install failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Verify deployment is restored
+    assert!(
+        project.join(".agents/skills/install-repair").exists(),
+        ".agents/skills/install-repair should be restored"
+    );
+    assert!(
+        project.join(".claude/skills/install-repair").exists(),
+        ".claude/skills/install-repair should be restored"
     );
 }
