@@ -126,7 +126,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload assets to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.release-plz-release.outputs.ion_tag }}
-          files: ion-*.tar.gz
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload "${{ needs.release-plz-release.outputs.ion_tag }}" ion-*.tar.gz --clobber
