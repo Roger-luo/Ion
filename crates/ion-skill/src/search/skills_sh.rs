@@ -199,6 +199,56 @@ impl SearchSource for SkillsShSource {
     }
 }
 
+/// Fetch the skill description from the skills.sh detail page.
+/// Parses the rendered summary section from the HTML.
+pub(super) fn fetch_skills_sh_description(source: &str) -> Option<String> {
+    let url = format!("https://skills.sh/{source}");
+    let body = super::http_get(&url, 10, "skills.sh-detail").ok()?;
+    parse_skills_sh_summary(&body)
+}
+
+/// Extract the summary text from a skills.sh skill detail page.
+/// The summary is rendered inside a `<div>` after the "SUMMARY" heading,
+/// within a prose block whose first `<p><strong>...</strong></p>` holds
+/// the one-line description.
+fn parse_skills_sh_summary(body: &str) -> Option<String> {
+    // The summary text appears as the first <p><strong>TEXT</strong></p> inside
+    // the "Summary" section. We look for the pattern in the HTML.
+    let marker = "Summary</div>";
+    let idx = body.find(marker)?;
+    let after = &body[idx + marker.len()..];
+
+    // Find the first <p> content — it may be wrapped in <strong>.
+    let p_start = after.find("<p>")?;
+    let p_content = &after[p_start + 3..];
+    let p_end = p_content.find("</p>")?;
+    let inner = &p_content[..p_end];
+
+    // Strip HTML tags to get plain text.
+    let text = strip_html_tags(inner);
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+/// Simple HTML tag stripper — removes `<...>` sequences.
+fn strip_html_tags(html: &str) -> String {
+    let mut result = String::with_capacity(html.len());
+    let mut in_tag = false;
+    for ch in html.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => result.push(ch),
+            _ => {}
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,5 +332,50 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].name, "my-skill");
         assert_eq!(results[0].source, "owner/repo/my-skill");
+    }
+
+    #[test]
+    fn parse_summary_basic() {
+        let html = r#"<div>Summary</div><div><div><p><strong>Refactor code while preserving behavior.</strong></p></div></div>"#;
+        assert_eq!(
+            parse_skills_sh_summary(html),
+            Some("Refactor code while preserving behavior.".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_summary_no_strong() {
+        let html = r#"<div>Summary</div><div><p>A plain description.</p></div>"#;
+        assert_eq!(
+            parse_skills_sh_summary(html),
+            Some("A plain description.".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_summary_missing() {
+        let html = "<html><body>No summary section here</body></html>";
+        assert_eq!(parse_skills_sh_summary(html), None);
+    }
+
+    #[test]
+    fn parse_summary_realistic_html() {
+        // Matches the actual skills.sh page structure
+        let html = r#"<div class="flex items-center gap-2 text-sm font-mono text-white mb-4 pb-4 border-b border-border uppercase">Summary</div><div class="mb-8 rounded-lg border"><div class="prose"><p><strong>Refactor code while preserving behavior, improving clarity, and reducing complexity.</strong></p>
+<ul><li>Covers five core refactoring patterns</li></ul></div></div>"#;
+        assert_eq!(
+            parse_skills_sh_summary(html),
+            Some(
+                "Refactor code while preserving behavior, improving clarity, and reducing complexity."
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn strip_tags() {
+        assert_eq!(strip_html_tags("<strong>bold</strong> text"), "bold text");
+        assert_eq!(strip_html_tags("no tags"), "no tags");
+        assert_eq!(strip_html_tags("<a href=\"x\">link</a>"), "link");
     }
 }
