@@ -24,6 +24,10 @@ pub enum Error {
         buffer: String,
     },
 
+    /// `expect_not()` found a pattern that should NOT have appeared.
+    #[error("expect_not found unexpected pattern {pattern:?} in output:\n{buffer}")]
+    UnexpectedPattern { pattern: String, buffer: String },
+
     /// Invalid regex passed to `expect_regex()`.
     #[error("invalid regex: {0}")]
     Regex(#[from] regex::Error),
