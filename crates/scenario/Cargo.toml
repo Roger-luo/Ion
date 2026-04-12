@@ -1,10 +1,10 @@
 [package]
 name = "scenario"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Define and test CLI behavior scenarios — input/output, interactive sessions, and terminal conditions (TTY, dimensions, color)"
 license = "MIT"
-repository = "https://github.com/Roger-luo/scenario"
+repository = "https://github.com/Roger-luo/Ion"
 keywords = ["cli", "testing", "tty", "pty", "snapshot"]
 categories = ["development-tools::testing"]
 
