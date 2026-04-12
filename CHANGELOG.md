@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+### Fixed
+
+- Show skills.sh descriptions when GitHub repo is unavailable ([#119](https://github.com/Roger-luo/Ion/pull/119)) (31fc4e2)
+- Publish full API to crates.io and fix repository URL (469e16d)
+- Repair broken deployments during update and support local skill paths ([#117](https://github.com/Roger-luo/Ion/pull/117)) (e21c5dd)
+- Improve search link display with clickable OSC 8 hyperlinks ([#116](https://github.com/Roger-luo/Ion/pull/116)) (96061bc)
+- Improve search ranking with skills.sh API and unified scoring ([#115](https://github.com/Roger-luo/Ion/pull/115)) (f4a30f5)
+
 ### Added
 
 - Add built-in AGENTS.md templates for common project types ([#112](https://github.com/Roger-luo/Ion/pull/112)) (728bf3e)
