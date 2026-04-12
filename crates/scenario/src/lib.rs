@@ -37,6 +37,7 @@
 //! ```
 
 mod error;
+mod key;
 pub mod manifest;
 mod output;
 mod project;
@@ -44,6 +45,7 @@ mod scenario;
 mod session;
 
 pub use error::Error;
+pub use key::Key;
 pub use output::Output;
 pub use project::{Project, ProjectBuilder};
 pub use scenario::{Scenario, Terminal};
