@@ -33,15 +33,12 @@ pub fn render_search(frame: &mut Frame, app: &mut SearchApp) {
     let columns = Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(chunks[0]);
 
-    let list_inner_height = columns[0].height.saturating_sub(2) as usize;
-    app.visible_height = list_inner_height;
-
     render_list(frame, app, columns[0]);
     render_detail(frame, app, columns[1]);
     render_footer(frame, chunks[1]);
 }
 
-fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
+fn render_list(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(" Search Results ");
@@ -50,19 +47,23 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
     frame.render_widget(block, area);
 
     if app.rows.is_empty() {
+        app.visible_height = 0;
         let msg =
             Paragraph::new("No installable results.").style(Style::default().fg(Color::DarkGray));
         frame.render_widget(msg, inner);
         return;
     }
 
-    let start = app.scroll_offset;
-    let end = (start + app.visible_height).min(app.rows.len());
+    let max_lines = inner.height as usize;
+    let max_desc_width = inner.width.saturating_sub(2) as usize;
 
     let mut lines: Vec<Line> = Vec::new();
-    for i in start..end {
-        let row = &app.rows[i];
-        let is_selected = i == app.selected;
+    let mut row_idx = app.scroll_offset;
+    let mut rows_rendered: usize = 0;
+
+    while row_idx < app.rows.len() && lines.len() < max_lines {
+        let row = &app.rows[row_idx];
+        let is_selected = row_idx == app.selected;
 
         match row {
             ListRow::RepoHeader {
@@ -70,6 +71,7 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                 stars,
                 weekly_installs,
                 skill_count,
+                description,
                 ..
             } => {
                 let prefix = if is_selected { "> " } else { "  " };
@@ -99,6 +101,18 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                         Style::default().fg(Color::Blue),
                     ),
                 ]));
+
+                // Add description line if there's room
+                if !description.is_empty() && lines.len() < max_lines {
+                    let indent_width = 2;
+                    let available = max_desc_width.saturating_sub(indent_width);
+                    let truncated = truncate_str(description, available);
+                    let desc_indent = " ".repeat(indent_width);
+                    lines.push(Line::from(Span::styled(
+                        format!("{desc_indent}{truncated}"),
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
             }
             ListRow::Skill {
                 result_idx,
@@ -147,12 +161,60 @@ fn render_list(frame: &mut Frame, app: &SearchApp, area: Rect) {
                     Span::styled(stars_str, stars_style),
                     Span::styled(badge, Style::default().fg(badge_color)),
                 ]));
+
+                // Add description line if there's room
+                let desc = r
+                    .skill_description
+                    .as_deref()
+                    .or(Some(r.description.as_str()))
+                    .filter(|s| !s.is_empty());
+                if let Some(desc) = desc
+                    && lines.len() < max_lines
+                {
+                    let indent_width = if *grouped { 6 } else { 2 };
+                    let available = max_desc_width.saturating_sub(indent_width);
+                    let truncated = truncate_str(desc, available);
+                    let desc_indent = " ".repeat(indent_width);
+                    lines.push(Line::from(Span::styled(
+                        format!("{desc_indent}{truncated}"),
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
             }
         }
+
+        rows_rendered += 1;
+        row_idx += 1;
     }
+
+    app.visible_height = rows_rendered;
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, inner);
+}
+
+/// Truncate a string to fit within `max_chars` columns, appending an ellipsis
+/// if truncated. Uses char boundaries to avoid panics on multi-byte characters.
+fn truncate_str(s: &str, max_chars: usize) -> String {
+    if max_chars == 0 {
+        return String::new();
+    }
+    let mut char_count = 0;
+    for (idx, _) in s.char_indices() {
+        char_count += 1;
+        if char_count > max_chars {
+            // We need to truncate; find the byte position for (max_chars - 1) chars
+            // and append ellipsis
+            let truncate_at = s
+                .char_indices()
+                .nth(max_chars.saturating_sub(1))
+                .map_or(idx, |(i, _)| i);
+            return format!("{}\u{2026}", &s[..truncate_at]);
+        }
+    }
+    // String fits entirely
+    let _ = char_count;
+    s.to_string()
 }
 
 fn render_detail(frame: &mut Frame, app: &mut SearchApp, area: Rect) {
