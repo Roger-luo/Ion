@@ -393,6 +393,8 @@ impl Scenario {
             state,
             reader_thread,
             self.timeout,
+            rows,
+            cols,
         ))
     }
 }

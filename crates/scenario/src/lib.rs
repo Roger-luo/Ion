@@ -41,10 +41,12 @@ pub mod manifest;
 mod output;
 mod project;
 mod scenario;
+pub mod screen;
 mod session;
 
 pub use error::Error;
 pub use output::Output;
 pub use project::{Project, ProjectBuilder};
 pub use scenario::{Scenario, Terminal};
+pub use screen::ScreenBuffer;
 pub use session::Session;
