@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Use gh release upload instead of softprops/action-gh-release (3181581)
+
+### Fixed
+
 - Show skills.sh descriptions when GitHub repo is unavailable ([#119](https://github.com/Roger-luo/Ion/pull/119)) (31fc4e2)
 - Publish full API to crates.io and fix repository URL (469e16d)
 - Repair broken deployments during update and support local skill paths ([#117](https://github.com/Roger-luo/Ion/pull/117)) (e21c5dd)
