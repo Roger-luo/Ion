@@ -388,6 +388,8 @@ fn select_with_diversity(
 
 /// Enrich search results by fetching SKILL.md descriptions and star counts.
 /// Works for both GitHub and skills.sh results (skills.sh skills are GitHub-hosted).
+/// For skills.sh results, falls back to scraping the skills.sh detail page when
+/// the GitHub repo is unavailable (deleted or private).
 pub fn enrich_results(results: &mut [SearchResult]) {
     let handles: Vec<_> = results
         .iter()
@@ -395,9 +397,16 @@ pub fn enrich_results(results: &mut [SearchResult]) {
         .filter(|(_, r)| !r.source.is_empty())
         .map(|(i, r)| {
             let source = r.source.clone();
+            let registry = r.registry.clone();
             let needs_stars = r.stars.is_none();
             std::thread::spawn(move || {
-                let desc = fetch_skill_description(&source);
+                let desc = fetch_skill_description(&source).or_else(|| {
+                    if registry == "skills.sh" {
+                        super::skills_sh::fetch_skills_sh_description(&source)
+                    } else {
+                        None
+                    }
+                });
                 let stars = if needs_stars {
                     fetch_stars(&source)
                 } else {

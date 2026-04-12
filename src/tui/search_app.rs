@@ -96,11 +96,24 @@ fn build_rows(results: &[SearchResult]) -> Vec<ListRow> {
             });
         } else {
             let first = &results[indices[0]];
+            // Prefer skill_description (from SKILL.md / skills.sh) over the
+            // bare description field, which is empty for skills.sh results.
+            let description = indices
+                .iter()
+                .find_map(|&i| results[i].skill_description.clone())
+                .or_else(|| {
+                    indices
+                        .iter()
+                        .map(|&i| &results[i])
+                        .find(|r| !r.description.is_empty())
+                        .map(|r| r.description.clone())
+                })
+                .unwrap_or_default();
             rows.push(ListRow::RepoHeader {
                 owner_repo,
                 stars: first.stars,
                 weekly_installs: first.weekly_installs,
-                description: first.description.clone(),
+                description,
                 skill_count: indices.len(),
                 registry: first.registry.clone(),
             });
