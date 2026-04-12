@@ -7,6 +7,7 @@ use portable_pty::PtySize;
 use regex::Regex;
 
 use crate::error::Error;
+use crate::key::Key;
 use crate::output::Output;
 
 /// Shared state between the reader thread and the session.
@@ -87,6 +88,24 @@ impl Session {
         writer.write_all(b"\r")?;
         writer.flush()?;
         Ok(())
+    }
+
+    /// Send a terminal key (arrow keys, Ctrl+C, etc.) to the process.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use scenario::{Key, Scenario, Terminal};
+    ///
+    /// let mut session = Scenario::new("my-cli")
+    ///     .terminal(Terminal::pty(80, 24))
+    ///     .spawn()
+    ///     .unwrap();
+    /// session.send_key(Key::Down).unwrap();
+    /// session.send_key(Key::Enter).unwrap();
+    /// ```
+    pub fn send_key(&mut self, key: Key) -> Result<(), Error> {
+        self.send(&key.to_bytes())
     }
 
     /// Send raw bytes to the process.
