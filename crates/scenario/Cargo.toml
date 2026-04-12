@@ -1,6 +1,6 @@
 [package]
 name = "scenario"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2024"
 description = "Define and test CLI behavior scenarios — input/output, interactive sessions, and terminal conditions (TTY, dimensions, color)"
 license = "MIT"
