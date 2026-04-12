@@ -9,6 +9,7 @@ use regex::Regex;
 use crate::error::Error;
 use crate::key::Key;
 use crate::output::Output;
+use crate::screen::ScreenBuffer;
 
 /// Shared state between the reader thread and the session.
 pub(crate) struct ReaderState {
@@ -56,9 +57,12 @@ pub struct Session {
     reader_thread: Option<JoinHandle<()>>,
     timeout: Duration,
     expect_pos: usize,
+    rows: u16,
+    cols: u16,
 }
 
 impl Session {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         writer: Box<dyn Write + Send>,
         child: Box<dyn portable_pty::Child + Send + Sync>,
@@ -66,6 +70,8 @@ impl Session {
         state: Arc<Mutex<ReaderState>>,
         reader_thread: JoinHandle<()>,
         timeout: Duration,
+        rows: u16,
+        cols: u16,
     ) -> Self {
         Session {
             writer: Some(writer),
@@ -75,6 +81,8 @@ impl Session {
             reader_thread: Some(reader_thread),
             timeout,
             expect_pos: 0,
+            rows,
+            cols,
         }
     }
 
@@ -184,7 +192,7 @@ impl Session {
     }
 
     /// Resize the terminal.
-    pub fn resize(&self, cols: u16, rows: u16) -> Result<(), Error> {
+    pub fn resize(&mut self, cols: u16, rows: u16) -> Result<(), Error> {
         self.master
             .resize(PtySize {
                 rows,
@@ -192,7 +200,27 @@ impl Session {
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .map_err(|e| Error::Pty(e.to_string()))
+            .map_err(|e| Error::Pty(e.to_string()))?;
+        self.rows = rows;
+        self.cols = cols;
+        Ok(())
+    }
+
+    /// Get the current PTY dimensions as `(rows, cols)`.
+    pub fn pty_size(&self) -> (usize, usize) {
+        (self.rows as usize, self.cols as usize)
+    }
+
+    /// Get the current terminal screen content as a grid of lines.
+    ///
+    /// Interprets ANSI escape sequences to determine what would actually
+    /// be visible on screen. Returns one `String` per terminal row.
+    pub fn visible_screen(&self) -> Vec<String> {
+        let state = self.state.lock().unwrap();
+        let (rows, cols) = self.pty_size();
+        let mut screen = ScreenBuffer::new(rows, cols);
+        screen.process(&state.raw);
+        screen.lines()
     }
 
     /// Wait for the process to exit and return the captured output.
