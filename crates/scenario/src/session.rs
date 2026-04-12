@@ -191,6 +191,69 @@ impl Session {
         }
     }
 
+    /// Assert that a literal pattern does NOT appear in the unseen output.
+    ///
+    /// Waits for 500ms (the default quiet period), checking periodically.
+    /// Fails if the pattern is found at any point during that period.
+    /// Does not advance `expect_pos`.
+    pub fn expect_not(&self, pattern: &str) -> Result<(), Error> {
+        self.expect_not_timeout(pattern, Duration::from_millis(500))
+    }
+
+    /// Assert that a literal pattern does NOT appear within the given duration.
+    ///
+    /// Checks the unseen output (after `expect_pos`) periodically. Returns
+    /// `Ok(())` if the pattern never appears before the deadline or the process
+    /// exits. Returns `Err(Error::UnexpectedPattern)` if the pattern is found.
+    pub fn expect_not_timeout(&self, pattern: &str, duration: Duration) -> Result<(), Error> {
+        let deadline = Instant::now() + duration;
+        loop {
+            let unseen = self.unseen_text();
+            if unseen.contains(pattern) {
+                return Err(Error::UnexpectedPattern {
+                    pattern: pattern.to_string(),
+                    buffer: unseen,
+                });
+            }
+            if Instant::now() >= deadline || self.is_done() {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// Assert that a regex pattern does NOT match in the unseen output.
+    ///
+    /// Waits for 500ms (the default quiet period), checking periodically.
+    /// Fails if the pattern matches at any point during that period.
+    /// Does not advance `expect_pos`.
+    pub fn expect_not_regex(&self, pattern: &str) -> Result<(), Error> {
+        self.expect_not_regex_timeout(pattern, Duration::from_millis(500))
+    }
+
+    /// Assert that a regex pattern does NOT match within the given duration.
+    ///
+    /// Checks the unseen output (after `expect_pos`) periodically. Returns
+    /// `Ok(())` if the pattern never matches before the deadline or the process
+    /// exits. Returns `Err(Error::UnexpectedPattern)` if a match is found.
+    pub fn expect_not_regex_timeout(&self, pattern: &str, duration: Duration) -> Result<(), Error> {
+        let re = Regex::new(pattern)?;
+        let deadline = Instant::now() + duration;
+        loop {
+            let unseen = self.unseen_text();
+            if re.is_match(&unseen) {
+                return Err(Error::UnexpectedPattern {
+                    pattern: pattern.to_string(),
+                    buffer: unseen,
+                });
+            }
+            if Instant::now() >= deadline || self.is_done() {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     /// Resize the terminal.
     pub fn resize(&mut self, cols: u16, rows: u16) -> Result<(), Error> {
         self.master
@@ -311,5 +374,73 @@ impl Session {
 
     fn is_done(&self) -> bool {
         self.state.lock().unwrap().done
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Scenario, Terminal};
+
+    #[test]
+    fn expect_not_succeeds_when_pattern_absent() {
+        let mut session = Scenario::new("echo")
+            .arg("hello world")
+            .terminal(Terminal::pty(80, 24))
+            .spawn()
+            .unwrap();
+
+        session.expect("hello").unwrap();
+        // "goodbye" never appears in the output
+        session.expect_not("goodbye").unwrap();
+        let output = session.wait().unwrap();
+        assert!(output.success());
+    }
+
+    #[test]
+    fn expect_not_fails_when_pattern_present() {
+        let session = Scenario::new("echo")
+            .arg("hello world")
+            .terminal(Terminal::pty(80, 24))
+            .spawn()
+            .unwrap();
+
+        // "hello" will appear in the output
+        let result = session.expect_not("hello");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("expect_not found unexpected pattern")
+        );
+        let _ = session.wait();
+    }
+
+    #[test]
+    fn expect_not_regex_succeeds_when_pattern_absent() {
+        let mut session = Scenario::new("echo")
+            .arg("hello world")
+            .terminal(Terminal::pty(80, 24))
+            .spawn()
+            .unwrap();
+
+        session.expect("hello").unwrap();
+        // No digits in "hello world"
+        session.expect_not_regex(r"\d+").unwrap();
+        let output = session.wait().unwrap();
+        assert!(output.success());
+    }
+
+    #[test]
+    fn expect_not_regex_fails_when_pattern_matches() {
+        let session = Scenario::new("echo")
+            .arg("version 42")
+            .terminal(Terminal::pty(80, 24))
+            .spawn()
+            .unwrap();
+
+        // Digits will appear in the output
+        let result = session.expect_not_regex(r"\d+");
+        assert!(result.is_err());
+        let _ = session.wait();
     }
 }
