@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+### Added
+
+- Show skill descriptions in search results list ([#128](https://github.com/Roger-luo/Ion/pull/128)) (abad0f6)
+- Add visible_screen() to get terminal display state ([#127](https://github.com/Roger-luo/Ion/pull/127)) (73aebf3)
+
+### Fixed
+
+- Use gh release upload in release-plz workflow too (bd98447)
+
 ### Fixed
 
 - Use gh release upload instead of softprops/action-gh-release (3181581)
