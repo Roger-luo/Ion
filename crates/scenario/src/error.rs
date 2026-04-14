@@ -67,6 +67,14 @@ pub enum Error {
     /// A symlink target does not exist after rendering.
     #[error("symlink target does not exist: {}", path.display())]
     SymlinkTarget { path: PathBuf },
+
+    /// Post-build project setup failed.
+    #[error("project setup failed during {step}: {source}")]
+    ProjectSetup {
+        step: String,
+        #[source]
+        source: ProjectSetupError,
+    },
 }
 
 fn format_duration(d: &Duration) -> String {
@@ -77,3 +85,21 @@ fn format_duration(d: &Duration) -> String {
         format!("{secs:.1}s")
     }
 }
+
+/// Human-readable error details for a project setup step.
+#[derive(Debug)]
+pub struct ProjectSetupError(String);
+
+impl ProjectSetupError {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self(message.into())
+    }
+}
+
+impl std::fmt::Display for ProjectSetupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ProjectSetupError {}

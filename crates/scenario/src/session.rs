@@ -116,6 +116,32 @@ impl Session {
         self.send(&key.to_bytes())
     }
 
+    /// Send multiple terminal keys in order to the process.
+    pub fn send_keys<I>(&mut self, keys: I) -> Result<(), Error>
+    where
+        I: IntoIterator<Item = Key>,
+    {
+        for key in keys {
+            self.send_key(key)?;
+        }
+        Ok(())
+    }
+
+    /// Send a single terminal key to the process.
+    pub fn press(&mut self, key: Key) -> Result<(), Error> {
+        self.send_key(key)
+    }
+
+    /// Simulate pressing Enter.
+    pub fn enter(&mut self) -> Result<(), Error> {
+        self.send_key(Key::Enter)
+    }
+
+    /// Simulate pressing Ctrl+C.
+    pub fn ctrl_c(&mut self) -> Result<(), Error> {
+        self.send_key(Key::CtrlC)
+    }
+
     /// Send raw bytes to the process.
     pub fn send(&mut self, data: &[u8]) -> Result<(), Error> {
         let writer = self
@@ -286,6 +312,86 @@ impl Session {
         screen.lines()
     }
 
+    /// Get the current terminal screen content as newline-delimited text.
+    pub fn visible_text(&self) -> String {
+        self.visible_screen().join("\n")
+    }
+
+    /// Wait until the current visible screen contains the given string.
+    pub fn expect_screen(&self, pattern: &str) -> Result<(), Error> {
+        self.expect_screen_match(pattern, |visible, pattern| visible.contains(pattern))
+    }
+
+    /// Wait until the current visible screen matches the given regex.
+    pub fn expect_screen_regex(&self, pattern: &str) -> Result<(), Error> {
+        let re = Regex::new(pattern)?;
+        self.expect_screen_match(pattern, |visible, _| re.is_match(visible))
+    }
+
+    /// Assert that the current visible screen does not contain the given string.
+    pub fn expect_screen_not(&self, pattern: &str) -> Result<(), Error> {
+        self.expect_screen_not_timeout(pattern, Duration::from_millis(500))
+    }
+
+    /// Assert that the current visible screen does not contain the given string within the given duration.
+    pub fn expect_screen_not_timeout(
+        &self,
+        pattern: &str,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        self.expect_screen_not_match(pattern, duration, |visible, pattern| {
+            visible.contains(pattern)
+        })
+    }
+
+    /// Assert that the current visible screen does not match the given regex.
+    pub fn expect_screen_not_regex(&self, pattern: &str) -> Result<(), Error> {
+        self.expect_screen_not_regex_timeout(pattern, Duration::from_millis(500))
+    }
+
+    /// Assert that the current visible screen does not match the given regex within the given duration.
+    pub fn expect_screen_not_regex_timeout(
+        &self,
+        pattern: &str,
+        duration: Duration,
+    ) -> Result<(), Error> {
+        let re = Regex::new(pattern)?;
+        self.expect_screen_not_match(pattern, duration, |visible, _| re.is_match(visible))
+    }
+
+    /// Wait until the visible screen is unchanged for the requested quiet period.
+    pub fn wait_for_screen_stable(&self, quiet_period: Duration) -> Result<(), Error> {
+        let deadline = Instant::now() + self.timeout;
+        let mut last_visible = self.visible_text();
+        let mut last_raw_len = self.raw_len();
+        let mut stable_since = if Self::screen_has_content(&last_visible) || last_raw_len > 0 {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        loop {
+            thread::sleep(Duration::from_millis(10));
+            let visible = self.visible_text();
+            let raw_len = self.raw_len();
+            if visible != last_visible {
+                last_visible = visible;
+                stable_since = Some(Instant::now());
+            } else if raw_len != last_raw_len {
+                stable_since = Some(Instant::now());
+            } else if let Some(stable_since) = stable_since
+                && Instant::now().duration_since(stable_since) >= quiet_period
+            {
+                return Ok(());
+            }
+            last_raw_len = raw_len;
+
+            if Instant::now() >= deadline {
+                return Err(Error::Timeout(self.timeout));
+            }
+        }
+    }
+
     /// Wait for the process to exit and return the captured output.
     ///
     /// Drops the writer (sending EOF to the child), waits for exit, and
@@ -363,6 +469,59 @@ impl Session {
         strip_ansi_escapes::strip_str(String::from_utf8_lossy(&state.raw))
     }
 
+    fn expect_screen_match<F>(&self, pattern: &str, matches: F) -> Result<(), Error>
+    where
+        F: Fn(&str, &str) -> bool,
+    {
+        let deadline = Instant::now() + self.timeout;
+        loop {
+            let visible = self.visible_text();
+            if matches(&visible, pattern) {
+                return Ok(());
+            }
+            if self.is_done() {
+                return Err(Error::ExpectTimeout {
+                    pattern: pattern.to_string(),
+                    timeout: self.timeout,
+                    buffer: visible,
+                });
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::ExpectTimeout {
+                    pattern: pattern.to_string(),
+                    timeout: self.timeout,
+                    buffer: visible,
+                });
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn expect_screen_not_match<F>(
+        &self,
+        pattern: &str,
+        quiet_period: Duration,
+        matches: F,
+    ) -> Result<(), Error>
+    where
+        F: Fn(&str, &str) -> bool,
+    {
+        let deadline = Instant::now() + quiet_period;
+        loop {
+            let visible = self.visible_text();
+            if matches(&visible, pattern) {
+                return Err(Error::UnexpectedPattern {
+                    pattern: pattern.to_string(),
+                    buffer: visible,
+                });
+            }
+            if Instant::now() >= deadline || self.is_done() {
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
     fn unseen_text(&self) -> String {
         let stripped = self.current_stripped();
         if self.expect_pos >= stripped.len() {
@@ -374,6 +533,14 @@ impl Session {
 
     fn is_done(&self) -> bool {
         self.state.lock().unwrap().done
+    }
+
+    fn raw_len(&self) -> usize {
+        self.state.lock().unwrap().raw.len()
+    }
+
+    fn screen_has_content(visible: &str) -> bool {
+        visible.lines().any(|line| !line.trim().is_empty())
     }
 }
 

@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::Path;
+use std::process::Command;
 
 use scenario::{Error, Project, Scenario};
 
@@ -88,6 +89,234 @@ fn empty_project_with_nested_file() {
 fn empty_project_with_dir() {
     let project = Project::empty().dir("empty-dir").build().unwrap();
     assert!(project.path().join("empty-dir").is_dir());
+}
+
+#[test]
+fn setup_git_initializes_a_repository() {
+    let project = Project::empty().setup_git().build().unwrap();
+
+    assert!(project.path().join(".git").is_dir());
+
+    let status = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "rev-parse",
+            "--is-inside-work-tree",
+        ])
+        .output()
+        .unwrap();
+    assert!(status.status.success());
+    assert_eq!(String::from_utf8(status.stdout).unwrap().trim(), "true");
+}
+
+#[test]
+fn initial_commit_creates_head_commit() {
+    let project = Project::empty()
+        .file("README.md", "hello\n")
+        .initial_commit("initial commit")
+        .build()
+        .unwrap();
+
+    let head = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "rev-parse",
+            "--verify",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(head.status.success());
+    assert_eq!(String::from_utf8(head.stdout).unwrap().trim().len(), 40);
+
+    let message = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "log",
+            "-1",
+            "--format=%s",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(message.status.success());
+    assert_eq!(
+        String::from_utf8(message.stdout).unwrap().trim(),
+        "initial commit"
+    );
+
+    let author = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "log",
+            "-1",
+            "--format=%an <%ae>",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(author.status.success());
+    assert_eq!(
+        String::from_utf8(author.stdout).unwrap().trim(),
+        "Scenario Test <scenario@example.com>"
+    );
+}
+
+#[test]
+fn git_setup_actions_are_order_independent() {
+    let project = Project::empty()
+        .file("README.md", "hello\n")
+        .initial_commit("out of order")
+        .git_user("Ordered User", "ordered@example.com")
+        .setup_git()
+        .build()
+        .unwrap();
+
+    let head = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "rev-parse",
+            "--verify",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(head.status.success());
+
+    let author = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "log",
+            "-1",
+            "--format=%an <%ae>",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(author.status.success());
+    assert_eq!(
+        String::from_utf8(author.stdout).unwrap().trim(),
+        "Ordered User <ordered@example.com>"
+    );
+}
+
+#[test]
+fn build_in_initial_commit_only_tracks_builder_created_content() {
+    let target = tempfile::tempdir().unwrap();
+    fs::write(target.path().join("preexisting.txt"), "leave me alone\n").unwrap();
+
+    let project = Project::empty()
+        .file("managed.txt", "tracked\n")
+        .initial_commit("scoped commit")
+        .build_in(target.path())
+        .unwrap();
+
+    let tracked = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "ls-tree",
+            "--name-only",
+            "-r",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(tracked.status.success());
+    let tracked = String::from_utf8(tracked.stdout).unwrap();
+    assert!(tracked.lines().any(|line| line == "managed.txt"));
+    assert!(!tracked.lines().any(|line| line == "preexisting.txt"));
+
+    let status = Command::new("git")
+        .args(["-C", project.path().to_str().unwrap(), "status", "--short"])
+        .output()
+        .unwrap();
+    assert!(status.status.success());
+    let status = String::from_utf8(status.stdout).unwrap();
+    assert!(status.lines().any(|line| line == "?? preexisting.txt"));
+    assert!(!status.lines().any(|line| line.contains("managed.txt")));
+}
+
+#[test]
+fn build_in_initial_commit_does_not_stage_preexisting_nested_files_under_builder_dirs() {
+    let target = tempfile::tempdir().unwrap();
+    fs::create_dir_all(target.path().join("managed")).unwrap();
+    fs::write(
+        target.path().join("managed/preexisting.txt"),
+        "leave nested alone\n",
+    )
+    .unwrap();
+
+    let project = Project::empty()
+        .dir("managed")
+        .file("managed/created.txt", "tracked\n")
+        .initial_commit("nested scope")
+        .build_in(target.path())
+        .unwrap();
+
+    let tracked = Command::new("git")
+        .args([
+            "-C",
+            project.path().to_str().unwrap(),
+            "ls-tree",
+            "--name-only",
+            "-r",
+            "HEAD",
+        ])
+        .output()
+        .unwrap();
+    assert!(tracked.status.success());
+    let tracked = String::from_utf8(tracked.stdout).unwrap();
+    assert!(tracked.lines().any(|line| line == "managed/created.txt"));
+    assert!(
+        !tracked
+            .lines()
+            .any(|line| line == "managed/preexisting.txt")
+    );
+
+    let status = Command::new("git")
+        .args(["-C", project.path().to_str().unwrap(), "status", "--short"])
+        .output()
+        .unwrap();
+    assert!(status.status.success());
+    let status = String::from_utf8(status.stdout).unwrap();
+    assert!(
+        status
+            .lines()
+            .any(|line| line == "?? managed/preexisting.txt")
+    );
+    assert!(
+        !status
+            .lines()
+            .any(|line| line.contains("managed/created.txt"))
+    );
+}
+
+#[test]
+fn project_setup_failure_is_reported() {
+    let result = Project::empty()
+        .setup_git()
+        .initial_commit("initial commit")
+        .build();
+
+    match result {
+        Err(Error::ProjectSetup { step, source }) => {
+            assert_eq!(step, "initial_commit");
+            let message = source.to_string();
+            assert!(message.starts_with("git ["));
+            assert!(
+                message.contains("git [\"add\", \"--\"]")
+                    || message.contains("git [\"commit\", \"-m\", \"initial commit\"]")
+            );
+        }
+        other => panic!("expected ProjectSetup error, got: {other:?}"),
+    }
 }
 
 #[test]

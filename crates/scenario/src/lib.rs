@@ -49,6 +49,6 @@ pub use error::Error;
 pub use key::Key;
 pub use output::Output;
 pub use project::{Project, ProjectBuilder};
-pub use scenario::{Scenario, Terminal};
+pub use scenario::{Scenario, SessionConfig, Terminal};
 pub use screen::ScreenBuffer;
 pub use session::Session;
