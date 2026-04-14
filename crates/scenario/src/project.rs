@@ -1,9 +1,12 @@
 //! Project fixture builder for setting up test directory structures.
 
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use crate::Error;
+use crate::error::ProjectSetupError;
 use crate::manifest::TemplateManifest;
 
 /// A materialized project directory, ready for use in a [`Scenario`](crate::Scenario).
@@ -43,6 +46,9 @@ impl Project {
             overrides: HashMap::new(),
             extra_files: Vec::new(),
             extra_dirs: Vec::new(),
+            git_requested: false,
+            git_user: None,
+            initial_commit_message: None,
         }
     }
 
@@ -56,6 +62,9 @@ impl Project {
             overrides: HashMap::new(),
             extra_files: Vec::new(),
             extra_dirs: Vec::new(),
+            git_requested: false,
+            git_user: None,
+            initial_commit_message: None,
         }
     }
 }
@@ -74,7 +83,18 @@ pub struct ProjectBuilder {
     overrides: HashMap<String, String>,
     extra_files: Vec<(String, String)>,
     extra_dirs: Vec<String>,
+    git_requested: bool,
+    git_user: Option<GitUser>,
+    initial_commit_message: Option<String>,
 }
+
+struct GitUser {
+    name: String,
+    email: String,
+}
+
+const DEFAULT_GIT_USER_NAME: &str = "Scenario Test";
+const DEFAULT_GIT_USER_EMAIL: &str = "scenario@example.com";
 
 impl ProjectBuilder {
     pub fn var(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
@@ -119,6 +139,24 @@ impl ProjectBuilder {
         self
     }
 
+    pub fn setup_git(mut self) -> Self {
+        self.git_requested = true;
+        self
+    }
+
+    pub fn git_user(mut self, name: &str, email: &str) -> Self {
+        self.git_user = Some(GitUser {
+            name: name.to_string(),
+            email: email.to_string(),
+        });
+        self
+    }
+
+    pub fn initial_commit(mut self, message: &str) -> Self {
+        self.initial_commit_message = Some(message.to_string());
+        self
+    }
+
     pub fn build(self) -> Result<Project, Error> {
         let tmp = tempfile::tempdir()?;
         self.build_into(tmp.path())?;
@@ -136,6 +174,8 @@ impl ProjectBuilder {
     }
 
     fn build_into(self, target: &Path) -> Result<(), Error> {
+        let mut tracked_paths = BTreeSet::new();
+
         if let BuilderSource::Template(ref template_dir) = self.source {
             let template_dir = template_dir.clone();
             if !template_dir.exists() {
@@ -225,6 +265,7 @@ impl ProjectBuilder {
                     std::fs::create_dir_all(parent)?;
                 }
                 std::fs::write(&dest, content_rendered)?;
+                tracked_paths.insert(dest_rendered);
             }
 
             // Create symlinks
@@ -262,6 +303,7 @@ impl ProjectBuilder {
                         std::os::windows::fs::symlink_file(&target_rendered, &link_path)?;
                     }
                 }
+                tracked_paths.insert(link_rendered);
             }
         }
 
@@ -272,11 +314,65 @@ impl ProjectBuilder {
                 std::fs::create_dir_all(parent)?;
             }
             std::fs::write(&dest, content)?;
+            tracked_paths.insert(path.clone());
         }
 
         // Create extra dirs
         for dir in &self.extra_dirs {
             std::fs::create_dir_all(target.join(dir))?;
+        }
+
+        self.run_setup_actions(target, &tracked_paths)?;
+
+        Ok(())
+    }
+
+    fn run_setup_actions(
+        &self,
+        target: &Path,
+        tracked_paths: &BTreeSet<String>,
+    ) -> Result<(), Error> {
+        let needs_git =
+            self.git_requested || self.git_user.is_some() || self.initial_commit_message.is_some();
+        if !needs_git {
+            return Ok(());
+        }
+
+        run_git(target, "setup_git", ["init"].as_slice())?;
+
+        if let Some(user) = self.git_user.as_ref() {
+            run_git(
+                target,
+                "git_user",
+                ["config", "user.name", user.name.as_str()].as_slice(),
+            )?;
+            run_git(
+                target,
+                "git_user",
+                ["config", "user.email", user.email.as_str()].as_slice(),
+            )?;
+        } else if self.initial_commit_message.is_some() {
+            run_git(
+                target,
+                "git_user",
+                ["config", "user.name", DEFAULT_GIT_USER_NAME].as_slice(),
+            )?;
+            run_git(
+                target,
+                "git_user",
+                ["config", "user.email", DEFAULT_GIT_USER_EMAIL].as_slice(),
+            )?;
+        }
+
+        if let Some(message) = &self.initial_commit_message {
+            let mut add_args = vec!["add", "--"];
+            add_args.extend(tracked_paths.iter().map(String::as_str));
+            run_git(target, "initial_commit", &add_args)?;
+            run_git(
+                target,
+                "initial_commit",
+                ["commit", "-m", message.as_str()].as_slice(),
+            )?;
         }
 
         Ok(())
@@ -335,6 +431,71 @@ impl ProjectBuilder {
         }
 
         Ok(result)
+    }
+}
+
+fn run_git(target: &Path, step: &str, args: &[&str]) -> Result<(), Error> {
+    run_git_program("git", target, step, args)
+}
+
+fn run_git_program(program: &str, target: &Path, step: &str, args: &[&str]) -> Result<(), Error> {
+    let output = Command::new(program)
+        .arg("-C")
+        .arg(target)
+        .args(args)
+        .output()
+        .map_err(|source| Error::ProjectSetup {
+            step: step.to_string(),
+            source: ProjectSetupError::new(format!(
+                "{} {:?} failed to start: {}",
+                program, args, source
+            )),
+        })?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let source = if stderr.is_empty() {
+        format!("{} {:?} exited with {}", program, args, output.status)
+    } else {
+        format!(
+            "{} {:?} exited with {}: {}",
+            program, args, output.status, stderr
+        )
+    };
+
+    Err(Error::ProjectSetup {
+        step: step.to_string(),
+        source: ProjectSetupError::new(source),
+    })
+}
+
+#[cfg(test)]
+#[allow(clippy::items_after_test_module)]
+mod tests {
+    use super::run_git_program;
+    use crate::Error;
+
+    #[test]
+    fn run_git_spawn_failure_includes_command_context() {
+        let target = tempfile::tempdir().unwrap();
+        let result = run_git_program(
+            "__scenario_missing_git__",
+            target.path(),
+            "setup_git",
+            ["init"].as_slice(),
+        );
+
+        match result {
+            Err(Error::ProjectSetup { step, source }) => {
+                assert_eq!(step, "setup_git");
+                let message = source.to_string();
+                assert!(message.contains("__scenario_missing_git__ [\"init\"] failed to start"));
+            }
+            other => panic!("expected ProjectSetup error, got: {other:?}"),
+        }
     }
 }
 

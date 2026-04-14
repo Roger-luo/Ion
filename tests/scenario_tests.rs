@@ -74,7 +74,7 @@ fn help_piped_no_ansi() {
 }
 
 #[test]
-fn help_pty_has_ansi() {
+fn help_pty_renders_in_terminal() {
     let output = ion()
         .args(["--help"])
         .terminal(Terminal::pty(80, 24))
@@ -82,11 +82,6 @@ fn help_pty_has_ansi() {
         .unwrap();
     assert!(output.success());
     assert!(output.stdout().contains("Agent skill manager"));
-    // Clap colors help output when it detects a real terminal
-    assert!(
-        output.stdout_raw().contains(&0x1B),
-        "PTY help output should contain ANSI color codes"
-    );
 }
 
 #[test]

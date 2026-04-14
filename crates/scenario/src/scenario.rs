@@ -31,6 +31,29 @@ impl Terminal {
     }
 }
 
+/// Reusable session settings for interactive scenarios.
+#[derive(Debug, Clone)]
+pub struct SessionConfig {
+    terminal: Terminal,
+    timeout: Duration,
+}
+
+impl SessionConfig {
+    /// Create a PTY session profile with the given column and row count.
+    pub fn pty(cols: u16, rows: u16) -> Self {
+        SessionConfig {
+            terminal: Terminal::pty(cols, rows),
+            timeout: Duration::from_secs(30),
+        }
+    }
+
+    /// Set the timeout for this session profile.
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+}
+
 /// Builder for defining a CLI scenario.
 ///
 /// A scenario describes how to run a CLI command under specific terminal
@@ -130,6 +153,13 @@ impl Scenario {
     /// Set the terminal conditions.
     pub fn terminal(mut self, terminal: Terminal) -> Self {
         self.terminal = terminal;
+        self
+    }
+
+    /// Apply a reusable session profile.
+    pub fn session_config(mut self, config: &SessionConfig) -> Self {
+        self.terminal = config.terminal.clone();
+        self.timeout = config.timeout;
         self
     }
 
