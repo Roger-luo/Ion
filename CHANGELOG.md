@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add cli flow testing helpers (41a3f01)
+
+### Added
+
 - Show skill descriptions in search results list ([#128](https://github.com/Roger-luo/Ion/pull/128)) (abad0f6)
 - Add visible_screen() to get terminal display state ([#127](https://github.com/Roger-luo/Ion/pull/127)) (73aebf3)
 - Add built-in AGENTS.md templates for common project types ([#112](https://github.com/Roger-luo/Ion/pull/112)) (728bf3e)
