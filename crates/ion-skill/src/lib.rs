@@ -14,6 +14,7 @@ pub mod search;
 pub mod skill;
 pub mod source;
 pub mod templates;
+pub mod tool_permission;
 pub mod update;
 pub mod validate;
 pub mod workspace;
