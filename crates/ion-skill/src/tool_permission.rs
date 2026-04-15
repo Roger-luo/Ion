@@ -1,5 +1,5 @@
 /// A permission granted to an agent for a specific tool.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ToolPermission {
     /// Allow the named tool globally (e.g. `Allow("Bash")`).
     Allow(String),
