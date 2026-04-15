@@ -836,3 +836,162 @@ fn display_format_error() {
     assert!(display.contains("exit_code: 1\n"));
     assert!(display.contains("----- stderr -----\n"));
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// run command: <request-tool> approval / denial
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/// Set up a project with a mock agent binary that outputs `<request-tool>Bash</request-tool>`,
+/// reads the response from stdin, records it to `ION_MOCK_STATE`, and exits.
+///
+/// Returns `(project_dir, data_dir, _guards...)` where `_guards` keep temp dirs alive.
+fn project_with_mock_agent() -> (
+    std::path::PathBuf,
+    std::path::PathBuf,
+    tempfile::TempDir,
+    tempfile::TempDir,
+) {
+    let project_tmp = tempfile::tempdir().unwrap();
+    let data_tmp = tempfile::tempdir().unwrap();
+    let dir = project_tmp.path();
+    let data_dir = data_tmp.path();
+
+    // Ion.toml with a binary skill entry
+    std::fs::write(
+        dir.join("Ion.toml"),
+        r#"[skills]
+mock-agent = { type = "binary", source = "test/mock-agent", binary = "mock-agent" }
+"#,
+    )
+    .unwrap();
+
+    // Ion.lock with the mock-agent locked
+    std::fs::write(
+        dir.join("Ion.lock"),
+        r#"[[skill]]
+name = "mock-agent"
+source = "test/mock-agent"
+kind = "binary"
+binary_name = "mock-agent"
+binary_version = "1.0.0"
+"#,
+    )
+    .unwrap();
+
+    // Create the mock agent script at the expected binary path
+    let bin_dir = data_dir
+        .join("ion")
+        .join("bin")
+        .join("mock-agent")
+        .join("1.0.0");
+    std::fs::create_dir_all(&bin_dir).unwrap();
+    let script_path = bin_dir.join("mock-agent");
+    std::fs::write(
+        &script_path,
+        r#"#!/bin/sh
+echo "<request-tool>Bash</request-tool>"
+read -r response
+echo "$response" > "$ION_MOCK_STATE"
+echo "Done"
+"#,
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    (
+        dir.to_path_buf(),
+        data_dir.to_path_buf(),
+        project_tmp,
+        data_tmp,
+    )
+}
+
+#[test]
+fn scenario_run_request_tool_prompts_user_for_denial() {
+    let (dir, data_dir, _proj_tmp, _data_tmp) = project_with_mock_agent();
+    let mock_state = dir.join("mock_state.txt");
+    let session_state = dir.join("session_state.json");
+
+    let mut session = ion()
+        .args(["run", "mock-agent"])
+        .env("XDG_DATA_HOME", data_dir.to_str().unwrap())
+        .env("ION_MOCK_STATE", mock_state.to_str().unwrap())
+        .env("ION_SESSION_STATE", session_state.to_str().unwrap())
+        .current_dir(&dir)
+        .terminal(Terminal::pty(80, 24))
+        .timeout(Duration::from_secs(15))
+        .spawn()
+        .unwrap();
+
+    // ion should intercept <request-tool> and prompt the user
+    session.expect("Allow?").unwrap();
+    session.send_line("n").unwrap();
+
+    let output = session.wait().unwrap();
+
+    // The mock should have received the denial
+    let mock_recorded = std::fs::read_to_string(&mock_state).unwrap();
+    assert!(
+        mock_recorded.contains("TOOL_DENIED:Bash"),
+        "Mock should record TOOL_DENIED:Bash, got: {mock_recorded}"
+    );
+
+    // Session state should show no allowed tools
+    let state_json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&session_state).unwrap()).unwrap();
+    let tools = state_json["allowed_tools"].as_array().unwrap();
+    assert!(
+        tools.is_empty(),
+        "No tools should be granted after denial: {state_json}"
+    );
+
+    // Process should exit (mock exits after printing "Done")
+    assert_eq!(output.exit_code(), 0);
+}
+
+#[test]
+fn scenario_run_request_tool_approve() {
+    let (dir, data_dir, _proj_tmp, _data_tmp) = project_with_mock_agent();
+    let mock_state = dir.join("mock_state.txt");
+    let session_state = dir.join("session_state.json");
+
+    let mut session = ion()
+        .args(["run", "mock-agent"])
+        .env("XDG_DATA_HOME", data_dir.to_str().unwrap())
+        .env("ION_MOCK_STATE", mock_state.to_str().unwrap())
+        .env("ION_SESSION_STATE", session_state.to_str().unwrap())
+        .current_dir(&dir)
+        .terminal(Terminal::pty(80, 24))
+        .timeout(Duration::from_secs(15))
+        .spawn()
+        .unwrap();
+
+    // ion should intercept <request-tool> and prompt the user
+    session.expect("Allow?").unwrap();
+    session.send_line("y").unwrap();
+
+    let output = session.wait().unwrap();
+
+    // The mock should have received the grant
+    let mock_recorded = std::fs::read_to_string(&mock_state).unwrap();
+    assert!(
+        mock_recorded.contains("TOOL_GRANTED:Bash"),
+        "Mock should record TOOL_GRANTED:Bash, got: {mock_recorded}"
+    );
+
+    // Session state should include Bash in allowed_tools
+    let state_json: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&session_state).unwrap()).unwrap();
+    let tools = state_json["allowed_tools"].as_array().unwrap();
+    assert!(
+        tools.iter().any(|t| t.as_str() == Some("Bash")),
+        "Bash should be in allowed_tools after approval: {state_json}"
+    );
+
+    // Process should exit successfully
+    assert_eq!(output.exit_code(), 0);
+}
