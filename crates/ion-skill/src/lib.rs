@@ -1,4 +1,5 @@
 pub mod agents;
+pub mod autotune_plan;
 pub mod binary;
 pub mod config;
 pub mod error;
