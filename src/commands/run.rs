@@ -95,8 +95,7 @@ pub fn run(
         }
     }
 
-    run_with_session(&bin_path, args)?;
-    unreachable!()
+    run_with_session(&bin_path, args)
 }
 
 /// Run a dev-mode binary skill by forwarding to `cargo run` in the project directory.
