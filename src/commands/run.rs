@@ -1,3 +1,7 @@
+use std::io::{BufRead, BufReader, Write};
+use std::path::Path;
+use std::process::Stdio;
+
 use anyhow::bail;
 use ion_skill::binary;
 
@@ -91,12 +95,8 @@ pub fn run(
         }
     }
 
-    let status = std::process::Command::new(&bin_path)
-        .args(args)
-        .status()
-        .map_err(|e| anyhow::anyhow!("Failed to execute {}: {}", bin_path.display(), e))?;
-
-    std::process::exit(status.code().unwrap_or(1));
+    run_with_session(&bin_path, args)?;
+    unreachable!()
 }
 
 /// Run a dev-mode binary skill by forwarding to `cargo run` in the project directory.
@@ -158,4 +158,116 @@ fn run_dev(
         return Err(e.into());
     }
     std::process::exit(0);
+}
+
+// ---------------------------------------------------------------------------
+// Session-aware runner — intercepts <request-tool> tags and prompts the user
+// ---------------------------------------------------------------------------
+
+/// Parse a `<request-tool>ToolName</request-tool>` tag from a line of output.
+fn parse_request_tool(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    let inner = trimmed
+        .strip_prefix("<request-tool>")
+        .and_then(|rest| rest.strip_suffix("</request-tool>"))?;
+    let tool = inner.trim();
+    if tool.is_empty() {
+        return None;
+    }
+    Some(tool.to_string())
+}
+
+/// Run a binary skill with session management.
+///
+/// Spawns the binary with piped stdout/stdin, reads its output line-by-line,
+/// and intercepts `<request-tool>` tags. When a tag is detected the user is
+/// prompted to approve or deny the tool. Approved tools are communicated
+/// back to the child on stdin as `TOOL_GRANTED:<name>` and recorded in the
+/// session's allowed-tools set.
+///
+/// If the `ION_SESSION_STATE` environment variable is set, the final session
+/// state (including all granted tools) is written to that path as JSON on exit.
+fn run_with_session(bin_path: &Path, args: &[String]) -> anyhow::Result<()> {
+    let mut child = std::process::Command::new(bin_path)
+        .args(args)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("Failed to execute {}: {}", bin_path.display(), e))?;
+
+    let child_stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to capture child stdout"))?;
+    let mut child_stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to capture child stdin"))?;
+
+    let reader = BufReader::new(child_stdout);
+    let mut allowed_tools: Vec<String> = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        if let Some(tool) = parse_request_tool(&line) {
+            eprint!("Tool '{}' requested. Allow? [y/N] ", tool);
+            std::io::stderr().flush()?;
+
+            let mut response = String::new();
+            std::io::stdin().read_line(&mut response)?;
+
+            if response.trim().eq_ignore_ascii_case("y") {
+                allowed_tools.push(tool.clone());
+                writeln!(child_stdin, "TOOL_GRANTED:{tool}")?;
+                child_stdin.flush()?;
+            } else {
+                writeln!(child_stdin, "TOOL_DENIED:{tool}")?;
+                child_stdin.flush()?;
+            }
+        } else {
+            println!("{line}");
+        }
+    }
+
+    // Persist session state when ION_SESSION_STATE is set
+    if let Ok(state_path) = std::env::var("ION_SESSION_STATE") {
+        let state = serde_json::json!({ "allowed_tools": allowed_tools });
+        std::fs::write(&state_path, serde_json::to_string_pretty(&state)?)?;
+    }
+
+    let status = child.wait()?;
+    std::process::exit(status.code().unwrap_or(1));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_request_tool_basic() {
+        assert_eq!(
+            parse_request_tool("<request-tool>Bash</request-tool>"),
+            Some("Bash".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_request_tool_with_whitespace() {
+        assert_eq!(
+            parse_request_tool("  <request-tool> Read </request-tool>  "),
+            Some("Read".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_request_tool_empty() {
+        assert_eq!(parse_request_tool("<request-tool></request-tool>"), None);
+    }
+
+    #[test]
+    fn parse_request_tool_not_a_tag() {
+        assert_eq!(parse_request_tool("hello world"), None);
+        assert_eq!(parse_request_tool("<plan>do stuff</plan>"), None);
+    }
 }
