@@ -33,7 +33,7 @@ minijinja = "2"
 serde_json.workspace = true
 
 [workspace]
-members = [".", "crates/ion-skill", "crates/ionem", "crates/scenario"]
+members = [".", "crates/autotune-agent", "crates/ion-skill", "crates/ionem", "crates/scenario"]
 
 [workspace.dependencies]
 ionem = { path = "crates/ionem", default-features = false }
