@@ -60,8 +60,8 @@ fn extract_element(xml: &str, tag: &str) -> Option<String> {
 /// Returns [`ParseError`] when the input is malformed or a required
 /// element is missing.
 pub fn parse_tool_request(xml: &str) -> Result<ToolRequest, ParseError> {
-    // Ensure the wrapper element is present.
-    if !xml.contains("<request-tool>") {
+    // Ensure the wrapper element is present (both open and close).
+    if !xml.contains("<request-tool>") || !xml.contains("</request-tool>") {
         return Err(ParseError::MissingRequestTool);
     }
 
@@ -134,6 +134,13 @@ mod tests {
     #[test]
     fn missing_wrapper_returns_error() {
         let xml = "<tool>Bash</tool><reason>Need it</reason>";
+        let err = parse_tool_request(xml).unwrap_err();
+        assert_eq!(err, ParseError::MissingRequestTool);
+    }
+
+    #[test]
+    fn unclosed_wrapper_returns_error() {
+        let xml = "<request-tool><tool>Bash</tool><reason>Need it</reason>";
         let err = parse_tool_request(xml).unwrap_err();
         assert_eq!(err, ParseError::MissingRequestTool);
     }
