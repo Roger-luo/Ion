@@ -6,14 +6,22 @@
 
 use std::collections::HashSet;
 use std::io::{BufRead, Write};
+use std::sync::OnceLock;
 
 use regex::Regex;
 
+fn tool_request_regex() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        Regex::new(r"<request-tool>\s*(\S+)\s*</request-tool>")
+            .expect("request-tool regex must compile")
+    })
+}
+
 /// Extract tool names from `<request-tool>TOOL</request-tool>` fragments.
 pub fn parse_tool_requests(text: &str) -> Vec<String> {
-    let re = Regex::new(r"<request-tool>\s*(\S+)\s*</request-tool>")
-        .expect("request-tool regex must compile");
-    re.captures_iter(text)
+    tool_request_regex()
+        .captures_iter(text)
         .map(|cap| cap[1].to_string())
         .collect()
 }
