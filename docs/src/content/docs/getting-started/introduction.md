@@ -33,7 +33,7 @@ Skills can come from multiple sources:
 | GitHub | `github:owner/repo` |
 | Git | `git:https://example.com/repo.git` |
 | HTTP | `https://example.com/skill.tar.gz` |
-| Local | Created with `ion skill new` |
+| Local | Created with `ion new` |
 
 ## Next steps
 

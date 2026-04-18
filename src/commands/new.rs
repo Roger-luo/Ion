@@ -409,13 +409,17 @@ pub fn run(
 
         let cwd = std::env::current_dir()?;
         let manifest_path = cwd.join("Ion.toml");
-        if manifest_path.exists() {
-            // Record the path relative to the project root so install can find it
-            // even when it differs from skills-dir
-            let rel_path = target_dir
-                .strip_prefix(&cwd)
-                .ok()
-                .map(|p| p.display().to_string());
+        // Canonicalize both paths before strip_prefix so that symlinks (e.g. macOS
+        // /var → /private/var in tempfile dirs) don't cause false mismatches.
+        let cwd_canon = cwd.canonicalize().unwrap_or_else(|_| cwd.clone());
+        let target_canon = target_dir
+            .canonicalize()
+            .unwrap_or_else(|_| target_dir.clone());
+        let rel_path = target_canon
+            .strip_prefix(&cwd_canon)
+            .ok()
+            .map(|p| p.display().to_string());
+        if manifest_path.exists() && rel_path.is_some() {
             let mut source = SkillSource::local();
             source.path = rel_path;
             manifest_writer::add_skill(&manifest_path, &name, &source)?;

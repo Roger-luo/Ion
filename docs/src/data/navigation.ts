@@ -22,6 +22,7 @@ export const mainNavigation: NavSection[] = [
   {
     title: 'Guides',
     items: [
+      { title: 'Typical Workflows', slug: 'guides/workflows' },
       { title: 'Adding Skills', slug: 'guides/adding-skills' },
       { title: 'Configuration', slug: 'guides/configuration' },
     ],

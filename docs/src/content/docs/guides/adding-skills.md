@@ -47,7 +47,13 @@ ion add https://example.com/my-skill.tar.gz
 Create skills that live in your project's repository:
 
 ```bash
-ion skill new my-custom-skill
+ion new
+```
+
+Ion prompts for a name and creates a `SKILL.md` in your skills directory with the proper frontmatter template. To create at a specific path:
+
+```bash
+ion new --path .agents/skills/my-custom-skill
 ```
 
 Local skills are tracked in `Ion.toml` as `{ type = "local" }` and managed by your project's version control directly — they skip the fetch, validate, and gitignore steps that remote skills go through.
@@ -67,7 +73,7 @@ This copies the skill files into your local skills directory and updates the man
 List installed skills:
 
 ```bash
-ion skill list
+ion list
 ```
 
 Remove a skill:

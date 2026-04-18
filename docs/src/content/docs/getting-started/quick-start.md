@@ -13,10 +13,10 @@ This guide walks through the basics of using Ion to manage skills in a project.
 Start by creating an `Ion.toml` manifest in your project:
 
 ```bash
-ion project init
+ion init
 ```
 
-This creates an empty `Ion.toml` with a default target configuration for your detected AI tool.
+This prompts you to select which AI agent targets to configure (Claude, Cursor, Windsurf, etc.) and — if Ion detects your project language — offers to set up an `AGENTS.md` context file inline.
 
 > [!TIP]
 > If you're already in a project with an existing `Ion.toml`, you can skip this step and go straight to adding skills.
@@ -26,7 +26,7 @@ This creates an empty `Ion.toml` with a default target configuration for your de
 Add a skill from GitHub:
 
 ```bash
-ion add github:owner/skill-name
+ion add owner/repo/skill-name
 ```
 
 Ion will:
@@ -44,30 +44,36 @@ If you already have an `Ion.toml` with skills listed, install everything:
 ion add
 ```
 
-This reads the manifest and installs all declared skills, using the lockfile for exact versions.
+This reads the manifest and installs all declared skills, using the lockfile for exact versions. Run this after cloning a project.
 
 ## Create a local skill
 
 Create a skill that lives in your project:
 
 ```bash
-ion skill new my-skill
+ion new
 ```
 
-This creates a `SKILL.md` in your skills directory (`.agents/skills/my-skill/` by default) with the proper frontmatter template.
+Ion prompts for a name and creates a `SKILL.md` in your skills directory (`.agents/skills/<name>/` by default) with the proper frontmatter template. Validation runs automatically after creation.
+
+To create at a specific path without a name prompt:
+
+```bash
+ion new --path .agents/skills/my-skill
+```
 
 ## Check skill quality
 
 Validate a skill against Ion's built-in checks:
 
 ```bash
-ion skill validate path/to/skill
+ion validate path/to/skill
 ```
 
-The validator checks for security issues, structural problems, and adherence to the skill format specification.
+The validator checks for security issues, structural problems, and adherence to the skill format.
 
 > [!NOTE]
-> Validation runs automatically when adding remote skills. Use `ion skill validate` for manual checks on local skills.
+> Validation runs automatically when adding remote skills and when creating skills with `ion new`. Use `ion validate` to re-check local skills after editing.
 
 ## Search for skills
 
@@ -77,8 +83,4 @@ Find skills across configured sources:
 ion search "code review"
 ```
 
-Add `--interactive` for a TUI-based search experience:
-
-```bash
-ion search -i
-```
+An interactive TUI picker lets you browse results and install directly.

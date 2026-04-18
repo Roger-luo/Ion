@@ -54,7 +54,7 @@ cargo nextest run                                        # 3. Test
 
 **Search system** (`ion-skill/src/search/`): Multiple backends (GitHub API, skills.sh registry, configured agent command). Interactive search uses a TUI built with ratatui/crossterm (`src/tui/`).
 
-**Local skills:** `SourceType::Local` for project-specific skills. Created via `ion skill new` (with optional `--dir` flag), or ejected from remote via `ion skill eject`. Tracked in Ion.toml as `{ type = "local" }` with optional `forked-from`. Local skills skip fetch/validation/gitignore — they're managed by git directly. Config: `skills-dir` in `[options]` (default `.agents/skills`). Skills live at `{skills-dir}/{name}/`.
+**Local skills:** `SourceType::Local` for project-specific skills. Created via `ion new` (with optional `--dir` flag), or ejected from remote via `ion skill eject`. Tracked in Ion.toml as `{ type = "local" }` with optional `forked-from`. Local skills skip fetch/validation/gitignore — they're managed by git directly. Config: `skills-dir` in `[options]` (default `.agents/skills`). Skills live at `{skills-dir}/{name}/`.
 
 **Self-update system** (`src/commands/self_cmd.rs`): `ion self update` downloads pre-built binaries from GitHub Releases for the `Roger-luo/Ion` repo, using the same `binary.rs` infrastructure as skill binary installs. `ion self check` compares versions. `ion self info` shows version, build target, and exe path. Build target triple embedded via `build.rs`.
 
@@ -62,8 +62,8 @@ cargo nextest run                                        # 3. Test
 
 ## Command Structure
 
-Top-level: `add`, `remove`, `search`, `update`, `run`
-Subcommand groups: `skill` (new, validate, info, list, link, eject), `project` (init, migrate), `cache` (gc), `config`, `self` (update, check, info)
+Top-level: `init`, `add`, `remove`, `search`, `update`, `run`, `new`, `list`, `validate`, `ci`, `migrate`
+Subcommand groups: `skill` (info, link, eject — plus hidden compat aliases new/list/validate), `agents` (init, update, diff), `workspace` (add, remove, list, status), `cache` (list, gc), `config`, `self` (update, check, info, skill, uninstall)
 
 `ion add` with no args runs install-all from Ion.toml. With a source arg, adds a single skill.
 

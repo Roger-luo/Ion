@@ -1,6 +1,6 @@
 ---
 name: ion-cli
-description: "Use when creating new skills, installing or removing skills, searching for skills, validating skill structure, or managing skill lifecycle. MUST be used instead of manually creating SKILL.md files — use `ion skill new` for creation. Also triggers on Ion.toml management, skill updates, and project initialization."
+description: "Use when creating new skills, installing or removing skills, searching for skills, validating skill structure, or managing skill lifecycle. MUST be used instead of manually creating SKILL.md files — use `ion new` for creation. Also triggers on Ion.toml management, skill updates, and project initialization."
 allowed-tools: Bash(ion *)
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Bash(ion *)
 
 Operate the Ion skill manager programmatically using the `--json` flag.
 
-**Creating a new skill?** Use `ion skill new --path <skills-dir>/<skill-name>` — do NOT manually create SKILL.md files.
+**Creating a new skill?** Use `ion new --path <skills-dir>/<skill-name>` — do NOT manually create SKILL.md files.
 
 ## JSON Interface
 
@@ -29,7 +29,7 @@ All commands support `ion --json <command>`. The `--json` flag outputs structure
 ### Initialize a project
 
 ```bash
-$ ion --json project init --target claude --target cursor
+$ ion --json init --target claude --target cursor
 ```
 ```json
 {{ example_init }}
@@ -82,7 +82,7 @@ Without `--yes`, returns exit 2 for confirmation.
 ### List installed skills
 
 ```bash
-$ ion --json skill list
+$ ion --json list
 ```
 ```json
 {{ example_skill_list }}
@@ -111,7 +111,7 @@ Update a single skill: `ion --json update code-review`
 ### Validate skills
 
 ```bash
-$ ion --json skill validate
+$ ion --json validate
 ```
 ```json
 {{ example_validate }}
@@ -131,6 +131,7 @@ $ ion --json config set targets.claude .claude/commands  # set one
 ### Cache management
 
 ```bash
+$ ion --json cache list      # show cached repos
 $ ion --json cache gc --dry-run
 ```
 ```json
@@ -152,10 +153,10 @@ $ ion --json self update   # update to latest
 
 ```bash
 # With --path (standalone, no Ion.toml tracking)
-$ ion skill new --path .agents/skills/my-skill
+$ ion new --path .agents/skills/my-skill
 
 # In an Ion project (interactive, registers in Ion.toml)
-$ ion skill new
+$ ion --json new --path .agents/skills/my-skill
 ```
 
 The path convention is `{skills-dir}/{name}/`, where `skills-dir` defaults to `.agents/skills`.
@@ -248,6 +249,7 @@ $ ion run mytool [args...]      # runs the compiled binary
 | `--allow-warnings` | `add` | Proceed despite validation warnings |
 | `--skills a,b,c` | `add` | Select specific skills from a collection |
 | `--yes` / `-y` | `remove` | Skip removal confirmation |
-| `--target name` | `project init` | Specify targets non-interactively |
-| `--path <dir>` | `skill new` | Target directory for new skill |
-| `--force` | `project init`, `skill new` | Overwrite existing files |
+| `--target name` | `init` | Specify targets non-interactively |
+| `--path <dir>` | `new` | Target directory for new skill |
+| `--builtin <name>` | `agents init` | Use a built-in AGENTS.md template (rust, python, julia, rust+python) |
+| `--force` | `init`, `new` | Overwrite existing files |
