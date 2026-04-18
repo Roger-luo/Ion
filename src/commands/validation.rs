@@ -181,15 +181,11 @@ fn run_select_loop(
                 KeyCode::Esc | KeyCode::Char('q') => {
                     return Ok(false);
                 }
-                KeyCode::Up | KeyCode::Char('k') => {
-                    if *cursor_pos > 0 {
-                        *cursor_pos -= 1;
-                    }
+                KeyCode::Up | KeyCode::Char('k') if *cursor_pos > 0 => {
+                    *cursor_pos -= 1;
                 }
-                KeyCode::Down | KeyCode::Char('j') => {
-                    if *cursor_pos + 1 < skills.len() {
-                        *cursor_pos += 1;
-                    }
+                KeyCode::Down | KeyCode::Char('j') if *cursor_pos + 1 < skills.len() => {
+                    *cursor_pos += 1;
                 }
                 KeyCode::Char(' ') => {
                     selected[*cursor_pos] = !selected[*cursor_pos];

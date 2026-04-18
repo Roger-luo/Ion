@@ -131,33 +131,27 @@ fn handle_key(app: &mut InitSelect, key: KeyEvent) {
             KeyCode::Up => app.move_up(),
             KeyCode::Esc => app.should_quit = true,
             KeyCode::Enter => app.should_confirm = true,
-            KeyCode::Left => {
-                if app.input_cursor > 0 {
-                    // Step back to previous char boundary
-                    app.input_cursor = app.custom_input[..app.input_cursor]
-                        .char_indices()
-                        .next_back()
-                        .map_or(0, |(i, _)| i);
-                }
+            KeyCode::Left if app.input_cursor > 0 => {
+                // Step back to previous char boundary
+                app.input_cursor = app.custom_input[..app.input_cursor]
+                    .char_indices()
+                    .next_back()
+                    .map_or(0, |(i, _)| i);
             }
-            KeyCode::Right => {
-                if app.input_cursor < app.custom_input.len() {
-                    // Step forward past current char
-                    app.input_cursor += app.custom_input[app.input_cursor..]
-                        .chars()
-                        .next()
-                        .map_or(0, |c| c.len_utf8());
-                }
+            KeyCode::Right if app.input_cursor < app.custom_input.len() => {
+                // Step forward past current char
+                app.input_cursor += app.custom_input[app.input_cursor..]
+                    .chars()
+                    .next()
+                    .map_or(0, |c| c.len_utf8());
             }
-            KeyCode::Backspace | KeyCode::Delete => {
-                if app.input_cursor > 0 {
-                    let prev = app.custom_input[..app.input_cursor]
-                        .char_indices()
-                        .next_back()
-                        .map_or(0, |(i, _)| i);
-                    app.custom_input.drain(prev..app.input_cursor);
-                    app.input_cursor = prev;
-                }
+            KeyCode::Backspace | KeyCode::Delete if app.input_cursor > 0 => {
+                let prev = app.custom_input[..app.input_cursor]
+                    .char_indices()
+                    .next_back()
+                    .map_or(0, |(i, _)| i);
+                app.custom_input.drain(prev..app.input_cursor);
+                app.input_cursor = prev;
             }
             KeyCode::Char(c) => {
                 app.custom_input.insert(app.input_cursor, c);

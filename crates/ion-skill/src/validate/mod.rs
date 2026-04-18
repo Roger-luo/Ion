@@ -142,7 +142,7 @@ pub fn run_all_checkers(skill_dir: &Path, meta: &SkillMetadata, body: &str) -> V
         .collect();
 
     // Sort by severity descending (Error first, then Warning, then Info).
-    findings.sort_by(|a, b| b.severity.cmp(&a.severity));
+    findings.sort_by_key(|f| std::cmp::Reverse(f.severity));
     findings
 }
 

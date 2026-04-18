@@ -70,10 +70,8 @@ fn handle_normal(app: &mut App, key: KeyEvent) -> anyhow::Result<()> {
             app.input_buffer.clear();
             app.input_mode = InputMode::AddingKey;
         }
-        KeyCode::Char('d') => {
-            if app.total_entries() > 0 {
-                app.input_mode = InputMode::ConfirmDelete;
-            }
+        KeyCode::Char('d') if app.total_entries() > 0 => {
+            app.input_mode = InputMode::ConfirmDelete;
         }
         KeyCode::Char('s') => {
             if app.dirty {
