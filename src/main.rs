@@ -117,7 +117,7 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    /// Create, inspect, and validate skills
+    /// Inspect, link, and eject skills
     Skill {
         #[command(subcommand)]
         action: SkillCommands,
@@ -138,6 +138,29 @@ enum Commands {
     Workspace {
         #[command(subcommand)]
         action: WorkspaceCommands,
+    },
+    /// Create a new local skill
+    New {
+        /// Target directory (default: current directory)
+        #[arg(long)]
+        path: Option<String>,
+        /// Set the project skills directory (persisted to Ion.toml)
+        #[arg(long)]
+        dir: Option<String>,
+        /// Create a multi-skill collection with a skills/ directory
+        #[arg(long)]
+        collection: bool,
+        /// Overwrite existing files
+        #[arg(long)]
+        force: bool,
+    },
+    /// List installed skills
+    #[command(alias = "ls")]
+    List,
+    /// Validate local skill definitions
+    Validate {
+        /// Optional path to a SKILL.md file or skill/workspace directory
+        path: Option<String>,
     },
     /// Manage the skill cache
     Cache {
@@ -171,33 +194,11 @@ Setup:
 
 #[derive(Subcommand)]
 enum SkillCommands {
-    /// Create a new skill or skill collection
-    New {
-        /// Target directory (default: current directory)
-        #[arg(long)]
-        path: Option<String>,
-        /// Set the project skills directory (persisted to Ion.toml)
-        #[arg(long)]
-        dir: Option<String>,
-        /// Create a multi-skill collection with a skills/ directory
-        #[arg(long)]
-        collection: bool,
-        /// Overwrite existing files
-        #[arg(long)]
-        force: bool,
-    },
-    /// Validate local skill definitions
-    Validate {
-        /// Optional path to a SKILL.md file or skill/workspace directory
-        path: Option<String>,
-    },
     /// Show detailed info about a skill
     Info {
         /// Skill source or name
         skill: String,
     },
-    /// List installed skills
-    List,
     /// Link a local skill directory into the project
     Link {
         /// Path to the local skill directory containing SKILL.md
@@ -208,6 +209,22 @@ enum SkillCommands {
         /// Name of the skill to eject
         name: String,
     },
+    // Kept for backward compatibility — use the top-level `ion new/list/validate` instead
+    #[command(hide = true)]
+    New {
+        #[arg(long)]
+        path: Option<String>,
+        #[arg(long)]
+        dir: Option<String>,
+        #[arg(long)]
+        collection: bool,
+        #[arg(long)]
+        force: bool,
+    },
+    #[command(hide = true)]
+    List,
+    #[command(hide = true)]
+    Validate { path: Option<String> },
 }
 
 #[derive(Subcommand)]
@@ -234,6 +251,8 @@ enum SelfCommands {
 
 #[derive(Subcommand)]
 enum CacheCommands {
+    /// Show cached skill repositories
+    List,
     /// Garbage collect stale skill repos from global storage
     Gc {
         /// Show what would be cleaned without deleting
@@ -264,8 +283,11 @@ enum WorkspaceCommands {
 enum AgentsCommands {
     /// Set up AGENTS.md from a built-in template or remote repository
     Init {
-        /// Template source: builtin:<name> (rust, python, julia, rust+python), org/repo, git URL, or local path
-        source: String,
+        /// Template source: org/repo, git URL, or local path (use --builtin for built-in templates)
+        source: Option<String>,
+        /// Use a built-in template by name: rust, python, julia, rust+python
+        #[arg(long)]
+        builtin: Option<String>,
         /// Pin to a specific git ref (branch, tag, or commit SHA)
         #[arg(long)]
         rev: Option<String>,
@@ -351,14 +373,40 @@ fn main() {
             commands::search::run(&query, agent, json, source.as_deref(), limit)
         }
         Commands::Update { name } => commands::update::run(name.as_deref(), json, &project_flags),
+        Commands::New {
+            path,
+            dir,
+            collection,
+            force,
+        } => commands::new::run(path.as_deref(), dir.as_deref(), collection, force, json),
+        Commands::List => commands::list::run(json, &project_flags),
+        Commands::Validate { path } => commands::validate::run(path.as_deref(), json),
         Commands::Agents { action } => match action {
-            AgentsCommands::Init { source, rev, path } => commands::agents::init(
-                &source,
-                rev.as_deref(),
-                path.as_deref(),
-                json,
-                &project_flags,
-            ),
+            AgentsCommands::Init {
+                source,
+                builtin,
+                rev,
+                path,
+            } => {
+                let effective_source = match (builtin, source) {
+                    (Some(b), _) => Ok(format!("builtin:{b}")),
+                    (None, Some(s)) => Ok(s),
+                    (None, None) => Err(anyhow::anyhow!(
+                        "specify a source or use --builtin <name>\n\
+                         Built-in templates: rust, python, julia, rust+python\n\
+                         Example: ion agents init --builtin rust"
+                    )),
+                };
+                effective_source.and_then(|src| {
+                    commands::agents::init(
+                        &src,
+                        rev.as_deref(),
+                        path.as_deref(),
+                        json,
+                        &project_flags,
+                    )
+                })
+            }
             AgentsCommands::Update => commands::agents::update(json, &project_flags),
             AgentsCommands::Diff => commands::agents::diff(&project_flags),
         },
@@ -386,6 +434,7 @@ fn main() {
             WorkspaceCommands::Status => commands::workspace::status(json),
         },
         Commands::Cache { action } => match action {
+            CacheCommands::List => commands::gc::list(json),
             CacheCommands::Gc { dry_run } => commands::gc::run(dry_run, json),
         },
         Commands::Config { action } => commands::config::run(action, json, &project_flags),

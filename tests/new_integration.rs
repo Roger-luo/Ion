@@ -6,10 +6,10 @@ fn ion_cmd() -> Command {
 
 #[test]
 fn new_help_is_exposed() {
-    let output = ion_cmd().args(["skill", "new", "--help"]).output().unwrap();
+    let output = ion_cmd().args(["new", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
-    assert!(stdout.contains("Create a new skill"));
+    assert!(stdout.contains("Create a new local skill"));
 }
 
 #[test]

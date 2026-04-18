@@ -1,9 +1,11 @@
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
 use ion_skill::manifest::Manifest;
 use ion_skill::manifest_writer;
+use ion_skill::skill::SkillMetadata;
 use ion_skill::source::SkillSource;
+use ion_skill::validate::validate_skill_dir;
 
 fn slugify(name: &str) -> String {
     let slug: String = name
@@ -325,6 +327,20 @@ pub fn run_bin(path: Option<&str>, ci: bool, force: bool, json: bool) -> anyhow:
     scaffold_bin_project(&target_dir, &name)?;
     write_skill_md(&target_dir, &name, true, force)?;
 
+    // Prompt for CI setup when running interactively and --ci was not passed
+    let ci = if ci {
+        true
+    } else if !json && std::io::stdin().is_terminal() {
+        print!("Set up GitHub Actions CI/CD? [Y/n] ");
+        std::io::stdout().flush()?;
+        let mut line = String::new();
+        std::io::stdin().read_line(&mut line)?;
+        let answer = line.trim();
+        answer.is_empty() || answer.eq_ignore_ascii_case("y")
+    } else {
+        false
+    };
+
     let ci_files = if ci {
         Some(super::ci::setup_ci(&target_dir, &name, force)?)
     } else {
@@ -389,6 +405,7 @@ pub fn run(
         };
 
         write_skill_md(&target_dir, &name, false, force)?;
+        validate_and_report(&target_dir);
 
         let cwd = std::env::current_dir()?;
         let manifest_path = cwd.join("Ion.toml");
@@ -473,6 +490,7 @@ pub fn run(
 
     // Write SKILL.md.
     write_skill_md(&skill_dir, &name, false, force)?;
+    validate_and_report(&skill_dir);
 
     // Register the skill in Ion.toml as a local skill.
     let source = SkillSource::local();
@@ -482,6 +500,24 @@ pub fn run(
     println!("Registered '{}' in Ion.toml as local skill", name);
 
     Ok(())
+}
+
+/// Validate a freshly-created skill and print a one-line result. Non-fatal.
+fn validate_and_report(skill_dir: &Path) {
+    let skill_md = skill_dir.join("SKILL.md");
+    match SkillMetadata::from_file(&skill_md) {
+        Ok((meta, body)) => {
+            let report = validate_skill_dir(skill_dir, &meta, &body);
+            if report.error_count == 0 && report.warning_count == 0 {
+                // Valid template — no noise needed
+            } else {
+                for finding in &report.findings {
+                    eprintln!("  [{:?}] {}", finding.severity, finding.message);
+                }
+            }
+        }
+        Err(e) => eprintln!("  warn: could not validate skill: {e}"),
+    }
 }
 
 fn resolve_path(p: &str) -> anyhow::Result<PathBuf> {
@@ -509,6 +545,7 @@ fn run_explicit_path(target_dir: &Path, force: bool, json: bool) -> anyhow::Resu
     };
 
     write_skill_md(target_dir, &name, false, force)?;
+    validate_and_report(target_dir);
 
     if json {
         crate::json::print_success(serde_json::json!({

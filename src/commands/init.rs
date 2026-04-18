@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::{IsTerminal, Write};
 use std::path::Path;
 
 use crate::context::WorkspaceContext;
@@ -103,6 +104,46 @@ pub fn print_no_targets_hint(
             "        To also install to .claude/skills/ or other tools, run: {}",
             p.bold("ion init")
         );
+    }
+}
+
+/// Detect likely built-in AGENTS.md template from project files.
+fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
+    let has_cargo = dir.join("Cargo.toml").exists();
+    let has_python = dir.join("pyproject.toml").exists()
+        || dir.join("setup.py").exists()
+        || dir.join("requirements.txt").exists();
+    let has_julia = dir.join("Project.toml").exists();
+    match (has_cargo, has_python, has_julia) {
+        (true, true, _) => Some("rust+python"),
+        (true, false, _) => Some("rust"),
+        (false, true, _) => Some("python"),
+        (false, false, true) => Some("julia"),
+        _ => None,
+    }
+}
+
+/// Prompt the user to set up an AGENTS.md template. Returns the chosen template
+/// name, or `None` if the user declined or the prompt was skipped.
+fn prompt_agents_template(dir: &Path) -> anyhow::Result<Option<String>> {
+    if !std::io::stdin().is_terminal() {
+        return Ok(None);
+    }
+    let detected = detect_builtin_template(dir);
+    match detected {
+        Some(name) => {
+            print!("  Set up AGENTS.md? [Y/n] (template: {name}) ");
+            std::io::stdout().flush()?;
+            let mut line = String::new();
+            std::io::stdin().read_line(&mut line)?;
+            let answer = line.trim();
+            if answer.is_empty() || answer.eq_ignore_ascii_case("y") {
+                Ok(Some(name.to_string()))
+            } else {
+                Ok(None)
+            }
+        }
+        None => Ok(None),
     }
 }
 
@@ -214,10 +255,35 @@ pub fn run(
         }
     }
 
+    // Offer inline AGENTS.md setup on fresh init (non-json, interactive, no existing AGENTS.md)
+    let agents_template_used = if !json && !manifest_existed {
+        let agents_md_path = project.dir.join("AGENTS.md");
+        if !agents_md_path.exists() {
+            match prompt_agents_template(&project.dir)? {
+                Some(name) => {
+                    let source = format!("builtin:{name}");
+                    match crate::commands::agents::init(&source, None, None, false, project_flags) {
+                        Ok(()) => Some(name),
+                        Err(e) => {
+                            eprintln!("  warning: AGENTS.md setup failed: {e}");
+                            None
+                        }
+                    }
+                }
+                None => None,
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     if json {
         crate::json::print_success(serde_json::json!({
             "targets": resolved,
             "manifest": "Ion.toml",
+            "agents_template": agents_template_used,
         }));
         return Ok(());
     }

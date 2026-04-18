@@ -15,10 +15,7 @@ fn write_skill(path: &std::path::Path, name: &str, body: &str) {
 
 #[test]
 fn validate_help_is_exposed() {
-    let output = ion_cmd()
-        .args(["skill", "validate", "--help"])
-        .output()
-        .unwrap();
+    let output = ion_cmd().args(["validate", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
     assert!(stdout.contains("Validate local skill definitions"));

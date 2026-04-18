@@ -212,7 +212,7 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
             "skipped": all_json_skipped,
         }));
     } else if !projects.iter().any(|p| p.has_manifest()) {
-        println!("No Ion.toml found in current directory");
+        println!("No Ion.toml found. Run `ion init` to set up a project.");
     }
 
     Ok(())
