@@ -1,0 +1,178 @@
+---
+interface Props {
+  manual: string;
+  prompt: string;
+}
+const { manual, prompt } = Astro.props;
+const id = Math.random().toString(36).slice(2, 8);
+---
+
+<div class="workflow-tabs" data-tabs-id={id}>
+  <div class="workflow-tabs-header" role="tablist">
+    <button
+      class="workflow-tab active"
+      role="tab"
+      aria-selected="true"
+      data-tab="manual"
+    >
+      Terminal commands
+    </button>
+    <button
+      class="workflow-tab"
+      role="tab"
+      aria-selected="false"
+      data-tab="prompt"
+    >
+      Agent prompt
+    </button>
+  </div>
+
+  <div class="workflow-tab-panel" data-panel="manual">
+    <slot name="manual" />
+  </div>
+
+  <div class="workflow-tab-panel" data-panel="prompt" hidden>
+    <div class="prompt-panel">
+      <p class="prompt-panel-text" set:text={prompt} />
+      <button class="prompt-panel-copy" aria-label="Copy prompt" data-prompt={prompt}>
+        <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+        <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        <span class="copy-label">Copy prompt</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .workflow-tabs {
+    margin: 1.5rem 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .workflow-tabs-header {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--code-bg);
+  }
+
+  .workflow-tab {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    cursor: pointer;
+  }
+
+  .workflow-tab:hover {
+    color: var(--text-secondary);
+  }
+
+  .workflow-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .workflow-tab-panel {
+    /* code blocks rendered inside should have no outer border-radius */
+  }
+
+  .workflow-tab-panel :global(pre) {
+    border-radius: 0;
+    margin: 0;
+    border: none;
+  }
+
+  /* Prompt panel */
+  .prompt-panel {
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .prompt-panel-text {
+    flex: 1;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    font-style: italic;
+  }
+
+  .prompt-panel-copy {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    color: var(--text-tertiary);
+    background: transparent;
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .prompt-panel-copy:hover {
+    color: var(--text);
+    border-color: var(--text-secondary);
+  }
+
+  .copy-label {
+    font-size: 0.72rem;
+  }
+</style>
+
+<script>
+  function initWorkflowTabs() {
+    document.querySelectorAll<HTMLElement>('.workflow-tabs').forEach((tabs) => {
+      const btns = tabs.querySelectorAll<HTMLButtonElement>('.workflow-tab');
+      const panels = tabs.querySelectorAll<HTMLElement>('.workflow-tab-panel');
+
+      btns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.tab!;
+          btns.forEach((b) => {
+            b.classList.toggle('active', b.dataset.tab === target);
+            b.setAttribute('aria-selected', String(b.dataset.tab === target));
+          });
+          panels.forEach((p) => {
+            p.hidden = p.dataset.panel !== target;
+          });
+        });
+      });
+
+      const copyBtn = tabs.querySelector<HTMLButtonElement>('.prompt-panel-copy');
+      if (copyBtn) {
+        const prompt = copyBtn.dataset.prompt ?? '';
+        const copyIcon = copyBtn.querySelector<SVGElement>('.copy-icon')!;
+        const checkIcon = copyBtn.querySelector<SVGElement>('.check-icon')!;
+        copyBtn.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(prompt);
+          copyIcon.style.display = 'none';
+          checkIcon.style.display = 'block';
+          setTimeout(() => {
+            copyIcon.style.display = 'block';
+            checkIcon.style.display = 'none';
+          }, 2000);
+        });
+      }
+    });
+  }
+
+  initWorkflowTabs();
+  document.addEventListener('astro:after-swap', initWorkflowTabs);
+</script>

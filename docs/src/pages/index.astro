@@ -87,6 +87,93 @@ import Footer from '../components/Footer.astro';
       </div>
     </section>
 
+    <section class="prompts">
+      <hr class="section-rule" />
+      <div class="prompts-header">
+        <h2 class="prompts-title">Or let your agent do it</h2>
+        <p class="prompts-subtitle">
+          Paste these prompts into Claude Code, Cursor, or any agent — in order or as needed.
+        </p>
+      </div>
+      <div class="prompts-list">
+
+        <div class="prompt-card">
+          <div class="prompt-meta">
+            <span class="prompt-step">1</span>
+            <div class="prompt-meta-text">
+              <span class="prompt-label">Install Ion</span>
+              <p class="prompt-desc">Have your agent run the official installer and verify it worked.</p>
+            </div>
+          </div>
+          <div class="prompt-box" data-prompt="Install Ion on my machine by running the official installer: curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh — then verify it's working with `ion self info`.">
+            <p class="prompt-text">Install Ion on my machine by running the official installer: <code>curl -fsSL https://raw.githubusercontent.com/Roger-luo/Ion/main/install.sh | sh</code> — then verify it's working with <code>ion self info</code>.</p>
+            <button class="prompt-copy" aria-label="Copy prompt">
+              <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="20 6 9 17 4 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="prompt-connector" aria-hidden="true"></div>
+
+        <div class="prompt-card">
+          <div class="prompt-meta">
+            <span class="prompt-step">2</span>
+            <div class="prompt-meta-text">
+              <span class="prompt-label">Set up a project</span>
+              <p class="prompt-desc">Initialize Ion, detect the language stack, and scaffold an AGENTS.md.</p>
+            </div>
+          </div>
+          <div class="prompt-box" data-prompt="Set up Ion in this project: run `ion init` to create Ion.toml, detect whether I'm using Rust, Python, or Julia and initialize an AGENTS.md with the right builtin template, then commit the result.">
+            <p class="prompt-text">Set up Ion in this project: run <code>ion init</code> to create Ion.toml, detect whether I'm using Rust, Python, or Julia and initialize an AGENTS.md with the right builtin template, then commit the result.</p>
+            <button class="prompt-copy" aria-label="Copy prompt">
+              <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="20 6 9 17 4 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="prompt-connector" aria-hidden="true"></div>
+
+        <div class="prompt-card">
+          <div class="prompt-meta">
+            <span class="prompt-step">3</span>
+            <div class="prompt-meta-text">
+              <span class="prompt-label">Find &amp; add a skill</span>
+              <p class="prompt-desc">Search the registry for skills relevant to your workflow and install one.</p>
+            </div>
+          </div>
+          <div class="prompt-box" data-prompt="Use `ion search` to find skills relevant to this project's main workflow, show me the options, then add the best match with `ion add`.">
+            <p class="prompt-text">Use <code>ion search</code> to find skills relevant to this project's main workflow, show me the options, then add the best match with <code>ion add</code>.</p>
+            <button class="prompt-copy" aria-label="Copy prompt">
+              <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="20 6 9 17 4 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="prompt-connector" aria-hidden="true"></div>
+
+        <div class="prompt-card">
+          <div class="prompt-meta">
+            <span class="prompt-step">4</span>
+            <div class="prompt-meta-text">
+              <span class="prompt-label">Write a local skill</span>
+              <p class="prompt-desc">Scaffold and author a skill tailored to this project's workflow.</p>
+            </div>
+          </div>
+          <div class="prompt-box" data-prompt="Create a new local skill for this project's main recurring workflow: use `ion new` to scaffold it, then write a SKILL.md with clear instructions for when to use it and what steps to follow.">
+            <p class="prompt-text">Create a new local skill for this project's main recurring workflow: use <code>ion new</code> to scaffold it, then write a SKILL.md with clear instructions for when to use it and what steps to follow.</p>
+            <button class="prompt-copy" aria-label="Copy prompt">
+              <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+              <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polyline points="20 6 9 17 4 12" /></svg>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <Footer />
   </main>
 </BaseLayout>
@@ -112,8 +199,32 @@ import Footer from '../components/Footer.astro';
     });
   }
 
+  function initPromptCopies() {
+    document.querySelectorAll('.prompt-card').forEach((card) => {
+      const box = card.querySelector('.prompt-box') as HTMLElement;
+      const btn = card.querySelector('.prompt-copy') as HTMLButtonElement;
+      if (!box || !btn) return;
+      const prompt = box.dataset.prompt ?? '';
+      const copyIcon = btn.querySelector('.copy-icon') as SVGElement;
+      const checkIcon = btn.querySelector('.check-icon') as SVGElement;
+      btn.addEventListener('click', async () => {
+        await navigator.clipboard.writeText(prompt);
+        copyIcon.style.display = 'none';
+        checkIcon.style.display = 'block';
+        setTimeout(() => {
+          copyIcon.style.display = 'block';
+          checkIcon.style.display = 'none';
+        }, 2000);
+      });
+    });
+  }
+
   initCopy();
-  document.addEventListener('astro:after-swap', initCopy);
+  initPromptCopies();
+  document.addEventListener('astro:after-swap', () => {
+    initCopy();
+    initPromptCopies();
+  });
 </script>
 
 <style>
@@ -263,7 +374,7 @@ import Footer from '../components/Footer.astro';
   .features {
     max-width: 620px;
     margin: 0 auto;
-    padding: 0 1.5rem 6rem;
+    padding: 0 1.5rem 3rem;
   }
 
   .section-rule {
@@ -293,6 +404,138 @@ import Footer from '../components/Footer.astro';
     font-size: 0.88rem;
     color: var(--text-tertiary);
     line-height: 1.7;
+  }
+
+  /* ===== Prompts ===== */
+  .prompts {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+  }
+
+  .prompts-header {
+    margin-bottom: 2rem;
+  }
+
+  .prompts-title {
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 500;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.04em;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+  }
+
+  .prompts-subtitle {
+    font-size: 0.88rem;
+    color: var(--text-tertiary);
+    line-height: 1.7;
+  }
+
+  .prompts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .prompt-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .prompt-connector {
+    width: 1px;
+    height: 1rem;
+    background: var(--border);
+    margin-left: calc(1rem + 13px); /* align with center of step badge */
+  }
+
+  .prompt-meta {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .prompt-step {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .prompt-meta-text {
+    flex: 1;
+  }
+
+  .prompt-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .prompt-desc {
+    font-size: 0.82rem;
+    color: var(--text-tertiary);
+    line-height: 1.6;
+    margin-top: 0.2rem;
+  }
+
+  .prompt-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: var(--code-bg);
+  }
+
+  .prompt-text {
+    flex: 1;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+  }
+
+  .prompt-text code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text);
+    background: color-mix(in srgb, var(--border) 60%, transparent);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+  }
+
+  .prompt-copy {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-top: 1px;
+    border-radius: 3px;
+    color: var(--text-tertiary);
+    transition: color var(--transition-fast);
+  }
+
+  .prompt-copy:hover {
+    color: var(--text);
   }
 
   @media (max-width: 540px) {

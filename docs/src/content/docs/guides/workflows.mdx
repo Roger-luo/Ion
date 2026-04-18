@@ -4,13 +4,20 @@ description: Step-by-step walkthroughs of the most common Ion workflows.
 order: 9
 ---
 
+import WorkflowTabs from '../../../components/WorkflowTabs.astro';
+
 # Typical Workflows
 
 This page walks through the workflows you'll use most often with Ion, from setting up a new project to collaborating with a team.
 
+Each section has two tabs — **Terminal commands** for running Ion yourself, and **Agent prompt** to paste directly into Claude Code, Cursor, or any agent.
+
 ## New project setup
 
 You have a codebase and want to make it agent-ready.
+
+<WorkflowTabs prompt="Set up Ion in this project: run `ion init` to create Ion.toml, detect whether I'm using Rust, Python, or Julia and initialize an AGENTS.md with the right builtin template, then commit the result.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion init
@@ -30,9 +37,15 @@ $ git add Ion.toml AGENTS.md .gitignore
 $ git commit -m "chore: set up ion"
 ```
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Finding and adding a skill
 
 Search across registries and GitHub, then install from the interactive picker:
+
+<WorkflowTabs prompt="Use `ion search` to find skills relevant to this project's main workflow, show me the options, then add the best match with `ion add`.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion search brainstorm
@@ -53,9 +66,15 @@ $ ion add obra/superpowers/brainstorming
 ✓ Updated Ion.toml and Ion.lock
 ```
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Cloning a project that already uses Ion
 
 Skills are gitignored and tracked in `Ion.toml`. After cloning, one command restores everything:
+
+<WorkflowTabs prompt="This project uses Ion for skill management. Run `ion add` with no arguments to install all skills declared in Ion.toml at the pinned versions from Ion.lock.">
+  <Fragment slot="manual">
 
 ```bash
 $ git clone git@github.com:acme/my-project && cd my-project
@@ -70,9 +89,15 @@ Done!
 
 `ion add` with no arguments reads `Ion.toml` and installs all declared skills at the pinned versions from `Ion.lock`.
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Writing a local skill
 
 Local skills live in your project and are tracked by git directly.
+
+<WorkflowTabs prompt="Create a new local skill for this project's main recurring workflow: use `ion new` to scaffold it, then write a SKILL.md with clear instructions for when to use it and what steps to follow. Run `ion validate` on the result.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion new
@@ -88,9 +113,15 @@ $ ion validate .agents/skills/deploy-staging/
 ✓ deploy-staging  no issues
 ```
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Customizing a remote skill
 
 Eject a remote skill into an editable local copy:
+
+<WorkflowTabs prompt="Eject the skill I want to customize: run `ion list` to see what's installed, then `ion skill eject <name>` to copy it locally. The skill will be tracked in git with a forked-from reference.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion list
@@ -105,7 +136,13 @@ $ ion skill eject brainstorming
 
 The skill is now tracked in git and fully yours to edit. The `forked-from` metadata records where it came from.
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Keeping skills up to date
+
+<WorkflowTabs prompt="Check for outdated skills with `ion update` and apply any available updates. Local and pinned skills will be skipped automatically. Show me a summary of what changed.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion update
@@ -122,9 +159,15 @@ Local and pinned skills are skipped automatically. To update a single skill:
 $ ion update brainstorming
 ```
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Merging upstream AGENTS.md changes
 
 When your template source publishes updates, `ion update` flags it and stages the new content:
+
+<WorkflowTabs prompt="Run `ion update` to check for AGENTS.md template updates. If there's a new upstream version, run `ion agents diff` to see what changed, then help me merge the upstream changes into my local AGENTS.md.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion update
@@ -147,9 +190,15 @@ $ ion agents diff
 
 Ask your agent: *"Merge the upstream AGENTS.md changes into my local version."*
 
+  </Fragment>
+</WorkflowTabs>
+
 ## Building a binary skill
 
 Binary skills are compiled CLI tools invoked via `ion run`. Scaffold a new one:
+
+<WorkflowTabs prompt="Scaffold a new binary skill project with `ion init --bin <name>`. Set up GitHub Actions CI/CD when prompted, then help me implement the core logic and write the SKILL.md so agents know when and how to invoke it.">
+  <Fragment slot="manual">
 
 ```bash
 $ ion init --bin my-linter
@@ -177,23 +226,8 @@ Once ready to publish, push to GitHub. The release workflow builds binaries for 
 $ ion add your-org/my-linter
 ```
 
-## Workspace — monorepo with per-project skills
-
-```bash
-$ ion workspace list
-  . (root)      3 skills
-  apps/api      2 skills
-  apps/web      1 skill
-
-# Add a skill to one sub-project
-$ ion add obra/superpowers/writing-plans --project apps/api
-
-# Install all skills across all projects
-$ ion add
-  . (root)   Installing 3 skill(s)...  Done!
-  apps/api   Installing 3 skill(s)...  Done!
-  apps/web   Installing 1 skill(s)...  Done!
-```
+  </Fragment>
+</WorkflowTabs>
 
 ## Quick reference
 

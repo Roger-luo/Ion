@@ -14,7 +14,8 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { Content, headings } = await render(entry);
 const { prev, next } = getPrevNext(entry.id);
-const editUrl = `https://github.com/Roger-luo/Ion/edit/main/docs/src/content/docs/${entry.id}.md`;
+const ext = entry.filePath?.endsWith('.mdx') ? 'mdx' : 'md';
+  const editUrl = `https://github.com/Roger-luo/Ion/edit/main/docs/src/content/docs/${entry.id}.${ext}`;
 ---
 
 <DocsLayout
