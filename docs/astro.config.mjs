@@ -4,7 +4,7 @@ import remarkSidenotes from './src/plugins/remark-sidenotes.mjs';
 import rustdocWatcher from './src/integrations/rustdoc-watcher.ts';
 
 export default defineConfig({
-  site: 'https://ion.dev',
+  site: 'https://ion.rogerluo.dev',
   integrations: [rustdocWatcher()],
   markdown: {
     remarkPlugins: [remarkCallouts, remarkSidenotes],
