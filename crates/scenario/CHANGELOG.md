@@ -18,6 +18,21 @@ All notable changes to this project will be documented in this file.
 ### Testing
 
 - Add integration coverage for session helpers (dc62357)
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+### Added
+
+- Add cli flow testing helpers (41a3f01)
+
+### Fixed
+
+- Collapse backspace match arm to fix collapsible_match clippy lint (e3079a6)
+
+### Testing
+
+- Add integration coverage for session helpers (dc62357)
 
 ## 0.1.2
 

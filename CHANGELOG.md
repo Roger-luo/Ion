@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add agent-prompt tabs to workflows page and landing prompts (93a0d66)
+- Streamline CLI with top-level shortcuts and inline prompts (286a34f)
+- Add <request-tool> session handling to ion run and PTY scenario tests (3d04c0f)
+
+### CI
+
+- Switch docs deploy to gh-pages branch via peaceiris/actions-gh-pages (1b5567b)
+- Add GitHub Pages deployment workflow for ion.rogerluo.dev (cd78664)
+
+### Documentation
+
+- Add descriptions to all blank API reference pages (6ffd6ed)
+- Use cargo add instead of git source for ionem and scenario (ad20c5e)
+- Add Testing with scenario section to binary skills guide (187b65e)
+- Add dedicated Binary Skills guide (73d0156)
+- Update docs and skills template to new top-level CLI interface (2313fda)
+- Separate API reference from guides with independent sidebar and header nav (a9bcad0)
+
+### Fixed
+
+- Downgrade @astrojs/mdx to v4 for Astro 5 compatibility (0539678)
+- Resolve clippy lints after updating to Rust 1.95 (516d3d8)
+- Remove unreachable!() after run_with_session call (3d16fdb)
+- Revert unintended Ion.toml changes (e914611)
+
+### Added
+
 - Add cli flow testing helpers (41a3f01)
 
 ### Added
