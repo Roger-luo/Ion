@@ -41,10 +41,14 @@ pub fn find_binary_in_dir(dir: &Path, binary_name: &str) -> crate::Result<PathBu
 }
 
 pub fn bin_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("ion")
-        .join("bin")
+    // Respect XDG_DATA_HOME on all platforms (dirs::data_dir ignores it on macOS).
+    // This also allows tests to redirect the binary store via env("XDG_DATA_HOME", ...).
+    let base = if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+        PathBuf::from(xdg)
+    } else {
+        dirs::data_dir().unwrap_or_else(|| PathBuf::from("."))
+    };
+    base.join("ion").join("bin")
 }
 
 pub fn binary_path(name: &str, version: &str) -> PathBuf {

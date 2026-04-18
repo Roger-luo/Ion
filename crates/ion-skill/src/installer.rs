@@ -10,20 +10,25 @@ use crate::validate;
 use crate::validate::discovery::discover_skill_files;
 use crate::{Error, Result, git};
 
+/// Resolve the platform data directory, respecting `XDG_DATA_HOME` on all platforms.
+///
+/// `dirs::data_dir()` ignores `XDG_DATA_HOME` on macOS. Checking it explicitly
+/// makes the data path overridable in tests via `env("XDG_DATA_HOME", ...)`.
+fn platform_data_dir() -> PathBuf {
+    if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+        return PathBuf::from(xdg);
+    }
+    dirs::data_dir().unwrap_or_else(|| PathBuf::from("."))
+}
+
 /// Where ion stores built-in skills that ship with the binary.
 pub fn builtin_skills_dir() -> PathBuf {
-    dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("ion")
-        .join("builtin")
+    platform_data_dir().join("ion").join("builtin")
 }
 
 /// Where ion stores cloned repositories persistently.
 pub fn data_dir() -> PathBuf {
-    let dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("ion")
-        .join("repos");
+    let dir = platform_data_dir().join("ion").join("repos");
 
     // One-time migration from old cache location
     if !dir.exists()
