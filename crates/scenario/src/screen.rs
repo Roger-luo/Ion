@@ -114,11 +114,10 @@ impl Perform for ScreenBuffer {
     fn execute(&mut self, byte: u8) {
         match byte {
             // Backspace
-            0x08 => {
-                if self.cursor_col > 0 {
-                    self.cursor_col -= 1;
-                }
+            0x08 if self.cursor_col > 0 => {
+                self.cursor_col -= 1;
             }
+            0x08 => {}
             // Tab
             0x09 => {
                 let next_tab = (self.cursor_col / 8 + 1) * 8;
