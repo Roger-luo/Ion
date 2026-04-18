@@ -87,14 +87,11 @@ binary = "my-linter"   # optional, defaults to Cargo.toml package name
 
 All Ion binary skills are expected to implement a standard `self` subcommand interface. The `ionem` crate provides this out of the box.
 
-Add it to `Cargo.toml`:
+Add it to your project:
 
-```toml
-[dependencies]
-ionem = { version = "0.2" }
-
-[build-dependencies]
-ionem = { version = "0.2", default-features = false }
+```bash
+cargo add ionem
+cargo add --build ionem --no-default-features
 ```
 
 Wire it up in `build.rs`:
@@ -209,9 +206,8 @@ The [`scenario`](/docs/api-reference/scenario) crate is the standard test harnes
 
 Add it to your `[dev-dependencies]`:
 
-```toml
-[dev-dependencies]
-scenario = { git = "https://github.com/Roger-luo/Ion" }
+```bash
+cargo add --dev scenario
 ```
 
 ### Non-interactive tests
