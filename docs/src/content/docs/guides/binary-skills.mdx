@@ -1,0 +1,220 @@
+---
+title: Binary Skills
+description: Compiled CLI tools that agents invoke via ion run — when and how to build them.
+order: 8
+---
+
+import WorkflowTabs from '../../../components/WorkflowTabs.astro';
+
+# Binary Skills
+
+A **binary skill** is a compiled CLI tool that agents invoke via `ion run`. Unlike a plain skill — which is a static `SKILL.md` file with instructions — a binary skill is an executable that can perform actions, query external services, process data, and produce structured output.
+
+Use a binary skill when the task requires more than instructions:
+
+| Plain skill | Binary skill |
+|---|---|
+| Instructions the agent follows | A tool the agent runs |
+| Pure text, no dependencies | Can call APIs, read files, shell out |
+| Distributed as a `SKILL.md` | Distributed as compiled binary + `SKILL.md` |
+| Always available | Requires `ion run` to invoke |
+
+The `SKILL.md` of a binary skill tells the agent *when* and *how* to invoke the executable — the executable does the actual work.
+
+## Installing and running
+
+Install from GitHub (Ion downloads the pre-built binary from the repo's releases):
+
+```bash
+ion add owner/mytool
+```
+
+Run it:
+
+```bash
+ion run mytool [subcommand] [args...]
+```
+
+To override the inferred skill name:
+
+```bash
+ion add owner/mytool --name custom-name
+ion run custom-name [args...]
+```
+
+## Creating a binary skill
+
+Scaffold a new binary skill project with a single command:
+
+<WorkflowTabs prompt="Scaffold a new binary skill project with `ion init --bin <name>`. Accept the CI/CD setup prompt, then help me implement the core subcommands and write the SKILL.md so agents know when and how to invoke it.">
+  <Fragment slot="manual">
+
+```bash
+$ ion init --bin my-linter
+✓ Cargo project scaffolded
+✓ SKILL.md created
+Set up GitHub Actions CI/CD? [Y/n]
+✓ .github/workflows/ci.yml
+✓ .github/workflows/release.yml
+✓ .github/workflows/release-plz.yml
+```
+
+This creates a Cargo crate with `src/main.rs` (clap CLI with `self` subcommands pre-wired), `build.rs` (embeds the build target and copies `SKILL.md`), a starter `SKILL.md`, and GitHub Actions workflows for CI, releases, and automated version bumps.
+
+  </Fragment>
+</WorkflowTabs>
+
+### Project structure
+
+```
+my-linter/
+├── Cargo.toml          # declares ionem as a dependency
+├── build.rs            # embeds target triple and SKILL.md
+├── SKILL.md            # static skill description (bundled into binary)
+└── src/
+    └── main.rs         # clap CLI with self subcommands
+```
+
+Declare the project as a binary skill in `Ion.toml`:
+
+```toml
+[project]
+type = "binary"
+binary = "my-linter"   # optional, defaults to Cargo.toml package name
+```
+
+## The `ionem` library
+
+All Ion binary skills are expected to implement a standard `self` subcommand interface. The `ionem` crate provides this out of the box.
+
+Add it to `Cargo.toml`:
+
+```toml
+[dependencies]
+ionem = { version = "0.2" }
+
+[build-dependencies]
+ionem = { version = "0.2", default-features = false }
+```
+
+Wire it up in `build.rs`:
+
+```rust
+fn main() {
+    ionem::build::emit_target();   // embeds TARGET env var
+    ionem::build::copy_skill_md(); // copies SKILL.md into OUT_DIR
+}
+```
+
+And in `src/main.rs`:
+
+```rust
+use ionem::self_update::SelfManager;
+
+fn manager() -> SelfManager {
+    SelfManager::new(
+        "owner/my-linter", // GitHub repo
+        "my-linter",       // binary name
+        "v",               // tag prefix
+        env!("CARGO_PKG_VERSION"),
+        env!("TARGET"),    // injected by build.rs
+    )
+}
+```
+
+### The `self` subcommand convention
+
+Every binary skill must expose these subcommands:
+
+```bash
+ion run my-linter self skill    # prints SKILL.md to stdout (used by ion during install)
+ion run my-linter self info     # version, target, path
+ion run my-linter self check    # check for newer release on GitHub
+ion run my-linter self update   # download and install latest release
+```
+
+`ionem::SelfManager` implements all four. Wire them in your `match` block and the skill is fully Ion-compatible.
+
+## Development workflow
+
+<WorkflowTabs prompt="I'm developing a binary skill locally. Run `ion add --dev .` to register it in dev mode so `ion run` forwards to `cargo run`. Help me test and iterate without a release build.">
+  <Fragment slot="manual">
+
+Register your local checkout in dev mode — no release build needed:
+
+```bash
+# From your consumer project
+$ ion add --dev ../my-linter
+✓ Registered 'my-linter' (dev mode) — ion run forwards to cargo run
+```
+
+Every `ion run my-linter [args]` now calls `cargo run -- [args]` in the source directory, picking up your latest changes immediately.
+
+Switch back to the published release:
+
+```bash
+$ ion add owner/my-linter --bin
+```
+
+  </Fragment>
+</WorkflowTabs>
+
+## Publishing a release
+
+<WorkflowTabs prompt="Help me publish a new release of this binary skill. Tag the version, verify the release workflow builds binaries for all targets, and confirm the asset naming follows the ion convention.">
+  <Fragment slot="manual">
+
+Tag a release — the scaffolded GitHub Actions workflow takes it from there:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release workflow builds and attaches binaries for four targets:
+
+| Target | File |
+|--------|------|
+| `aarch64-apple-darwin` | `my-linter-1.0.0-aarch64-apple-darwin.tar.gz` |
+| `x86_64-apple-darwin` | `my-linter-1.0.0-x86_64-apple-darwin.tar.gz` |
+| `aarch64-unknown-linux-musl` | `my-linter-1.0.0-aarch64-unknown-linux-musl.tar.gz` |
+| `x86_64-unknown-linux-musl` | `my-linter-1.0.0-x86_64-unknown-linux-musl.tar.gz` |
+
+Ion detects the user's platform and downloads the matching asset automatically.
+
+Users install with:
+
+```bash
+ion add owner/my-linter
+```
+
+  </Fragment>
+</WorkflowTabs>
+
+### Asset naming convention
+
+Release tarballs must follow this pattern for Ion to detect them:
+
+```
+{binary}-{version}-{target}.tar.gz
+```
+
+For example: `my-linter-1.0.0-aarch64-apple-darwin.tar.gz`
+
+Each tarball should contain the binary at its root (not nested in a subdirectory).
+
+## Ion.toml reference
+
+When users install your binary skill, it appears in their `Ion.toml` like this:
+
+```toml
+[skills]
+my-linter = { type = "binary", source = "owner/my-linter", binary = "my-linter" }
+```
+
+In dev mode:
+
+```toml
+[skills]
+my-linter = { type = "binary", source = "owner/my-linter", binary = "my-linter", dev = "../my-linter" }
+```
