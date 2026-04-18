@@ -203,6 +203,186 @@ For example: `my-linter-1.0.0-aarch64-apple-darwin.tar.gz`
 
 Each tarball should contain the binary at its root (not nested in a subdirectory).
 
+## Testing with `scenario`
+
+The [`scenario`](/docs/api-reference/scenario) crate is the standard test harness for Ion binary skills. It runs your CLI under controlled terminal conditions — with or without a TTY, at specific dimensions, with isolated env and working directories — so you can test both piped output and interactive behavior.
+
+Add it to your `[dev-dependencies]`:
+
+```toml
+[dev-dependencies]
+scenario = { git = "https://github.com/Roger-luo/Ion" }
+```
+
+### Non-interactive tests
+
+Use `Scenario::new` to build a run and `.run()` to execute it. The default terminal is piped (`is_terminal()` returns `false` in the child).
+
+```rust
+use scenario::Scenario;
+
+const MY_LINTER: &str = env!("CARGO_BIN_EXE_my-linter");
+
+#[test]
+fn help_exits_successfully() {
+    let output = Scenario::new(MY_LINTER)
+        .args(["--help"])
+        .run()
+        .unwrap();
+
+    assert!(output.success());
+    assert!(output.stdout().contains("Usage:"));
+}
+
+#[test]
+fn check_command_fails_on_bad_input() {
+    let output = Scenario::new(MY_LINTER)
+        .args(["check", "--strict"])
+        .current_dir("/tmp/bad-project")
+        .run()
+        .unwrap();
+
+    assert!(!output.success());
+    assert!(output.stderr().contains("error:"));
+}
+```
+
+`Output` provides:
+
+| Method | Description |
+|--------|-------------|
+| `.success()` | `true` if exit code is 0 |
+| `.exit_code()` | numeric exit code |
+| `.stdout()` | ANSI-stripped stdout |
+| `.stderr()` | ANSI-stripped stderr (empty in PTY mode) |
+
+### PTY mode — testing TTY-aware output
+
+Pass `Terminal::pty(cols, rows)` to run the child in a real pseudo-terminal. The child process sees `is_terminal() == true`, so color output, spinners, and TTY-gated prompts activate.
+
+```rust
+use scenario::{Scenario, Terminal};
+
+#[test]
+fn pty_output_has_color() {
+    let output = Scenario::new(MY_LINTER)
+        .args(["check"])
+        .terminal(Terminal::pty(80, 24))
+        .run()
+        .unwrap();
+
+    // PTY merges stdout + stderr into stdout
+    assert!(output.stdout().contains("✓") || output.stdout().contains("error"));
+}
+```
+
+### Project fixtures
+
+`Project` creates an isolated temp directory for each test — no shared state between runs.
+
+```rust
+use scenario::{Project, Scenario};
+
+#[test]
+fn check_passes_on_clean_project() {
+    // Empty temp directory
+    let project = Project::empty()
+        .file("src/main.rs", "fn main() {}")
+        .build()
+        .unwrap();
+
+    let output = Scenario::new(MY_LINTER)
+        .args(["check"])
+        .project(&project)   // sets current_dir to project.path()
+        .run()
+        .unwrap();
+
+    assert!(output.success());
+}
+```
+
+For repeatable fixtures, save template directories under `tests/fixtures/` and instantiate them with `Project::from_template`:
+
+```
+tests/
+└── fixtures/
+    └── my-fixture/
+        ├── template.toml       # declares variables (optional)
+        ├── src/
+        │   └── main.rs
+        └── Cargo.toml
+```
+
+```rust
+#[test]
+fn check_on_fixture() {
+    let project = Project::from_template("tests/fixtures/my-fixture")
+        .build()
+        .unwrap();
+
+    let output = Scenario::new(MY_LINTER)
+        .project(&project)
+        .run()
+        .unwrap();
+
+    assert!(output.success());
+}
+```
+
+Template files support [Jinja2 variables](https://jinja.palletsprojects.com/en/stable/templates/). Declare them in `template.toml`:
+
+```toml
+[variables]
+name = { description = "Package name", default = "my-package" }
+```
+
+Then pass values at build time: `.var("name", "custom-name")`.
+
+### Interactive sessions
+
+For commands with prompts or TUI menus, use `.spawn()` to get a `Session`. This requires `Terminal::Pty`.
+
+```rust
+use scenario::{Scenario, Terminal};
+
+#[test]
+fn interactive_init_accepts_defaults() {
+    let project = Project::empty().build().unwrap();
+
+    let mut session = Scenario::new(MY_LINTER)
+        .args(["init"])
+        .terminal(Terminal::pty(80, 24))
+        .project(&project)
+        .spawn()
+        .unwrap();
+
+    session.expect("Choose a preset:").unwrap();
+    session.send_line("default").unwrap();
+
+    session.expect("Created").unwrap();
+
+    let output = session.wait().unwrap();
+    assert!(output.success());
+}
+```
+
+Key `Session` methods:
+
+| Method | Description |
+|--------|-------------|
+| `.expect(pattern)` | Wait until output contains the string |
+| `.expect_regex(pattern)` | Wait until output matches a regex |
+| `.expect_not(pattern)` | Assert the pattern does NOT appear (500ms window) |
+| `.send_line(text)` | Type text and press Enter |
+| `.send_key(Key::Down)` | Send arrow keys, Ctrl+C, etc. |
+| `.visible_screen()` | Current terminal screen as a grid of lines |
+| `.visible_text()` | Current screen as newline-delimited text |
+| `.wait()` | Close stdin, wait for exit, return `Output` |
+
+`expect` and `expect_regex` advance a cursor — each call only searches output that appeared *after* the previous match, so they naturally sequence into a script.
+
+For TUI tools that redraw the screen in place (rather than streaming lines), use `.expect_screen()` / `.visible_text()` to inspect what's actually visible rather than the raw output stream.
+
 ## Ion.toml reference
 
 When users install your binary skill, it appears in their `Ion.toml` like this:
