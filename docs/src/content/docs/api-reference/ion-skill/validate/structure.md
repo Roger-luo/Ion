@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::validate::structure"
-description: ""
+description: "Structural checkers for SKILL.md — verify reference integrity and tool declaration consistency."
 order: 999
 ---
 

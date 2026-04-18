@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::update"
-description: ""
+description: "Skill update infrastructure — check for newer versions and apply updates across Git and binary sources."
 order: 999
 ---
 

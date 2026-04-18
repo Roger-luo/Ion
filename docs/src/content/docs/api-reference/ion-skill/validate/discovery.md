@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::validate::discovery"
-description: ""
+description: "Discover SKILL.md files recursively within a project directory."
 order: 999
 ---
 

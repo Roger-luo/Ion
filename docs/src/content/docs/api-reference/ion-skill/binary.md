@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::binary"
-description: ""
+description: "Binary skill installation — download from GitHub Releases, extract, and verify platform-specific executables."
 order: 999
 ---
 

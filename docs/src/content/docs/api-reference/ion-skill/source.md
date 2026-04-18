@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::source"
-description: ""
+description: "Skill source abstraction — represent and resolve GitHub, Git, HTTP, path, binary, and local skill origins."
 order: 999
 ---
 

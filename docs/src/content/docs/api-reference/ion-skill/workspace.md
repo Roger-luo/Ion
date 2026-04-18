@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::workspace"
-description: ""
+description: "Project workspace context — load manifest and lockfile, resolve effective options and skill paths for a project."
 order: 999
 ---
 

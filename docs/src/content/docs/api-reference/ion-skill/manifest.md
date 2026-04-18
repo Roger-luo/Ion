@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::manifest"
-description: ""
+description: "Ion.toml types — project skill configuration with targets, skill entries, and per-project options."
 order: 999
 ---
 

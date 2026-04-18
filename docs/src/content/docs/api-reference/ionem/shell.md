@@ -1,6 +1,6 @@
 ---
 title: "ionem::shell"
-description: ""
+description: "CLI tool descriptors and error types for shell command wrappers (git, cargo, gh)."
 order: 999
 ---
 

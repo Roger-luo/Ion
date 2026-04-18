@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::validate::codeblock"
-description: ""
+description: "Validate syntax of fenced code blocks in SKILL.md files using tree-sitter."
 order: 999
 ---
 

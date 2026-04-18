@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::git"
-description: ""
+description: "Git operations for skill management — clone, fetch, checkout, and compute directory checksums."
 order: 999
 ---
 

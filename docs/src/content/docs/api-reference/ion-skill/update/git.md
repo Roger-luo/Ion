@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::update::git"
-description: ""
+description: "Updater for Git-sourced skills — fetch the latest commit from the default branch and redeploy."
 order: 999
 ---
 

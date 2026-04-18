@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::skill"
-description: ""
+description: "SKILL.md parsing — read and validate skill metadata from frontmatter."
 order: 999
 ---
 

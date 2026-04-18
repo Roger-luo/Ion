@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::validate::markdown"
-description: ""
+description: "Markdown parsing utilities — extract code blocks, local links, and tool mentions from SKILL.md content."
 order: 999
 ---
 

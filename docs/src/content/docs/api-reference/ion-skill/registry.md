@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::registry"
-description: ""
+description: "Global registry of skill repositories — tracks which projects use which remote repos and cleans up stale entries."
 order: 999
 ---
 

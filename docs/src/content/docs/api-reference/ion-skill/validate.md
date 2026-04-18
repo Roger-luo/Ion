@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::validate"
-description: ""
+description: "Skill validation framework — run checkers against SKILL.md files and aggregate findings by severity."
 order: 999
 ---
 

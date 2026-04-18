@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::migrate"
-description: ""
+description: "Migrate skills from legacy Ion formats to the current manifest and lockfile layout."
 order: 999
 ---
 

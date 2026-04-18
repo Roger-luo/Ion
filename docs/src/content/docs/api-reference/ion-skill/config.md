@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::config"
-description: ""
+description: "Global user configuration — cache settings, registry sources, and agent target defaults stored in ~/.config/ion/config.toml."
 order: 999
 ---
 

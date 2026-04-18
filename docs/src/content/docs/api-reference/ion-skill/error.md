@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::error"
-description: ""
+description: "Error types for the ion-skill library, covering IO, parsing, Git, HTTP, validation, and manifest failures."
 order: 999
 ---
 

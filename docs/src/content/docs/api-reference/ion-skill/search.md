@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::search"
-description: ""
+description: "Skill search results and multi-backend search runners — GitHub, registry, and agent sources with relevance sorting."
 order: 999
 ---
 

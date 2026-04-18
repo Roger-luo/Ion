@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::manifest_writer"
-description: ""
+description: "Programmatic Ion.toml editing — add/remove skills, write targets, and set configuration options in place."
 order: 999
 ---
 

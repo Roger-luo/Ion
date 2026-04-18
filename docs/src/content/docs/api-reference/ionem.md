@@ -45,10 +45,10 @@ See [`build`] for SKILL.md preparation and [`self_update::SelfManager`] for the 
 | Module | Description |
 |--------|-------------|
 | [build](/docs/api-reference/ionem/build) | Build-script helpers for binary skills. |
-| [error](/docs/api-reference/ionem/error) |  |
+| [error](/docs/api-reference/ionem/error) | Error types for binary skill operations. |
 | [release](/docs/api-reference/ionem/release) | GitHub release fetching and platform detection for binary skills. |
 | [self_update](/docs/api-reference/ionem/self-update) | Reusable self-management infrastructure for binary skills. |
-| [shell](/docs/api-reference/ionem/shell) |  |
+| [shell](/docs/api-reference/ionem/shell) | CLI tool descriptors and wrappers for git, cargo, and gh. |
 
 ## Re-exports
 

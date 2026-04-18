@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::update::binary"
-description: ""
+description: "Updater for binary skills — check and download newer releases from GitHub."
 order: 999
 ---
 

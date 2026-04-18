@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::agents"
-description: ""
+description: "AGENTS.md template management — fetch, render, and keep agent context files up to date."
 order: 999
 ---
 

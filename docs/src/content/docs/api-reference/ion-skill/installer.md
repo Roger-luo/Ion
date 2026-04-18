@@ -1,6 +1,6 @@
 ---
 title: "ion-skill::installer"
-description: ""
+description: "Skill installation pipeline — resolve, fetch, validate, deploy to target directories, and write manifest/lockfile."
 order: 999
 ---
 

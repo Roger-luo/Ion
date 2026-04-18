@@ -1,6 +1,6 @@
 ---
 title: "ion-skill"
-description: ""
+description: "Core library for Ion skill management — installation, validation, search, and configuration."
 order: 100
 ---
 
@@ -10,23 +10,23 @@ order: 100
 
 | Module | Description |
 |--------|-------------|
-| [agents](/docs/api-reference/ion-skill/agents) |  |
-| [binary](/docs/api-reference/ion-skill/binary) |  |
-| [config](/docs/api-reference/ion-skill/config) |  |
-| [error](/docs/api-reference/ion-skill/error) |  |
-| [git](/docs/api-reference/ion-skill/git) |  |
-| [gitignore](/docs/api-reference/ion-skill/gitignore) |  |
-| [installer](/docs/api-reference/ion-skill/installer) |  |
-| [lockfile](/docs/api-reference/ion-skill/lockfile) |  |
-| [manifest](/docs/api-reference/ion-skill/manifest) |  |
-| [manifest_writer](/docs/api-reference/ion-skill/manifest-writer) |  |
-| [migrate](/docs/api-reference/ion-skill/migrate) |  |
-| [registry](/docs/api-reference/ion-skill/registry) |  |
-| [search](/docs/api-reference/ion-skill/search) |  |
-| [skill](/docs/api-reference/ion-skill/skill) |  |
-| [source](/docs/api-reference/ion-skill/source) |  |
-| [update](/docs/api-reference/ion-skill/update) |  |
-| [validate](/docs/api-reference/ion-skill/validate) |  |
+| [agents](/docs/api-reference/ion-skill/agents) | AGENTS.md template management |
+| [binary](/docs/api-reference/ion-skill/binary) | Binary skill installation from GitHub Releases |
+| [config](/docs/api-reference/ion-skill/config) | Global user configuration |
+| [error](/docs/api-reference/ion-skill/error) | Error types |
+| [git](/docs/api-reference/ion-skill/git) | Git operations for skill management |
+| [gitignore](/docs/api-reference/ion-skill/gitignore) | Manage .gitignore entries for skills |
+| [installer](/docs/api-reference/ion-skill/installer) | Skill installation pipeline |
+| [lockfile](/docs/api-reference/ion-skill/lockfile) | Ion.lock types for pinned skill versions |
+| [manifest](/docs/api-reference/ion-skill/manifest) | Ion.toml project configuration types |
+| [manifest_writer](/docs/api-reference/ion-skill/manifest-writer) | Programmatic Ion.toml editing |
+| [migrate](/docs/api-reference/ion-skill/migrate) | Migrate skills from legacy formats |
+| [registry](/docs/api-reference/ion-skill/registry) | Global registry of skill repositories |
+| [search](/docs/api-reference/ion-skill/search) | Skill search results and multi-backend runners |
+| [skill](/docs/api-reference/ion-skill/skill) | SKILL.md parsing and metadata |
+| [source](/docs/api-reference/ion-skill/source) | Skill source abstraction |
+| [update](/docs/api-reference/ion-skill/update) | Check and apply skill updates |
+| [validate](/docs/api-reference/ion-skill/validate) | Skill validation framework |
 
 ## Re-exports
 
