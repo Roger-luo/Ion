@@ -1,3 +1,5 @@
+//! Global user configuration — cache settings, registry sources, and agent target defaults stored in `~/.config/ion/config.toml`.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

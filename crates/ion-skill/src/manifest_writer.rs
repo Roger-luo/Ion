@@ -1,3 +1,5 @@
+//! Programmatic Ion.toml editing — add/remove skills, write targets, and set configuration options in place.
+
 use std::path::Path;
 
 use toml_edit::{DocumentMut, Item, Table, value};

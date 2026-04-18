@@ -1,3 +1,5 @@
+//! Skill source abstraction — represent and resolve GitHub, Git, HTTP, path, binary, and local skill origins.
+
 use serde::{Deserialize, Serialize};
 
 use crate::{Error, Result};

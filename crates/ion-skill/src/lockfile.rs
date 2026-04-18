@@ -1,3 +1,5 @@
+//! Ion.lock types — track installed skills with pinned versions and checksums across Git, binary, and local sources.
+
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,5 @@
+//! Git operations for skill management — clone, fetch, checkout, and compute directory checksums.
+
 use std::path::{Path, PathBuf};
 
 use crate::{Error, Result};

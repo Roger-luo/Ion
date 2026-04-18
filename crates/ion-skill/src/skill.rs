@@ -1,3 +1,5 @@
+//! SKILL.md parsing — read and validate skill metadata from frontmatter.
+
 use std::collections::HashMap;
 use std::path::Path;
 

@@ -1,3 +1,5 @@
+//! Skill validation framework — run checkers against SKILL.md files and aggregate findings by severity.
+
 use std::fmt;
 use std::path::Path;
 

@@ -1,3 +1,5 @@
+//! Updater for binary skills — check and download newer releases from GitHub.
+
 use crate::binary;
 use crate::installer::SkillInstaller;
 use crate::lockfile::LockedSkill;

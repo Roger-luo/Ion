@@ -1,3 +1,5 @@
+//! Updater for Git-sourced skills — fetch the latest commit from the default branch and redeploy.
+
 use crate::installer::{SkillInstaller, data_dir, hash_simple, resolve_skill_dir};
 use crate::lockfile::LockedSkill;
 use crate::skill::SkillMetadata;

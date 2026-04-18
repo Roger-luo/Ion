@@ -1,3 +1,5 @@
+//! Global registry of skill repositories — tracks which projects use which remote repos and cleans up stale entries.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

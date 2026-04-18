@@ -1,3 +1,5 @@
+//! Security checkers for SKILL.md — detect prompt injection patterns, dangerous commands, and suspicious file references.
+
 use std::path::Path;
 
 use regex::Regex;

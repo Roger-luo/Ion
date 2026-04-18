@@ -1,3 +1,5 @@
+//! Binary skill installation — download from GitHub Releases, extract, and verify platform-specific executables.
+
 use std::fs;
 use std::path::{Path, PathBuf};
 

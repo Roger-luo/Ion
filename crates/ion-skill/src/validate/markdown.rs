@@ -1,3 +1,5 @@
+//! Markdown parsing utilities — extract code blocks, local links, and tool mentions from SKILL.md content.
+
 use std::collections::BTreeSet;
 
 use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};

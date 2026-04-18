@@ -1,3 +1,5 @@
+//! Validate syntax of fenced code blocks in SKILL.md files using tree-sitter.
+
 use std::path::Path;
 
 use crate::skill::SkillMetadata;

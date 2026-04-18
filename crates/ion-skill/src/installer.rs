@@ -1,3 +1,5 @@
+//! Skill installation pipeline — resolve, fetch, validate, deploy to target directories, and write manifest/lockfile.
+
 use std::path::{Path, PathBuf};
 
 use crate::lockfile::LockedSkill;

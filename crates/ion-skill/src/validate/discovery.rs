@@ -1,3 +1,5 @@
+//! Discover SKILL.md files recursively within a project directory.
+
 use std::path::{Path, PathBuf};
 
 use crate::Result;

@@ -1,3 +1,5 @@
+//! Project workspace context — load manifest and lockfile, resolve effective options and skill paths for a project.
+
 use std::path::PathBuf;
 
 use crate::lockfile::Lockfile;

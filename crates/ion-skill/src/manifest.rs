@@ -1,3 +1,5 @@
+//! Ion.toml types — project skill configuration with targets, skill entries, and per-project options.
+
 use std::collections::BTreeMap;
 use std::path::Path;
 

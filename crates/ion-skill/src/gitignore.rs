@@ -1,3 +1,5 @@
+//! Manage `.gitignore` entries for installed skills and agent directories.
+
 use std::path::Path;
 
 use crate::{Error, Result};

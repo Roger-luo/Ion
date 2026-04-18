@@ -1,3 +1,5 @@
+//! Core library for Ion skill management — installation, validation, search, and configuration.
+
 pub mod agents;
 pub mod binary;
 pub mod config;

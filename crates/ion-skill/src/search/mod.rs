@@ -1,3 +1,5 @@
+//! Skill search results and multi-backend search runners — GitHub, registry, and agent sources with relevance sorting.
+
 mod agent;
 mod cache;
 mod github;

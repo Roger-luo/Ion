@@ -1,3 +1,5 @@
+//! Migrate skills from legacy Ion formats to the current manifest and lockfile layout.
+
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 

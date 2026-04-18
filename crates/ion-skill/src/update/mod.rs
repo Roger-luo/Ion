@@ -1,3 +1,5 @@
+//! Skill update infrastructure — check for newer versions and apply updates across Git and binary sources.
+
 pub mod binary;
 pub mod git;
 

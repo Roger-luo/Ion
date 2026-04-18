@@ -1,3 +1,5 @@
+//! AGENTS.md template management — fetch, render, and keep agent context files up to date.
+
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 

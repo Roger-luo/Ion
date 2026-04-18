@@ -1,3 +1,5 @@
+//! Structural checkers for SKILL.md — verify reference integrity and tool declaration consistency.
+
 use std::path::Path;
 
 use crate::skill::SkillMetadata;
