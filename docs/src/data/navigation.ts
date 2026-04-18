@@ -10,7 +10,7 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export const navigation: NavSection[] = [
+export const mainNavigation: NavSection[] = [
   {
     title: 'Getting Started',
     items: [
@@ -26,20 +26,32 @@ export const navigation: NavSection[] = [
       { title: 'Configuration', slug: 'guides/configuration' },
     ],
   },
-  ...apiNav,
 ];
 
-/** Flatten all navigation sections into a single ordered list of NavItems. */
-export function getFlatNavItems(): NavItem[] {
-  return navigation.flatMap((section) => section.items);
+export const apiNavigation: NavSection[] = apiNav;
+
+/** All navigation sections combined (used for search/sitemap). */
+export const navigation: NavSection[] = [...mainNavigation, ...apiNavigation];
+
+/** Return the navigation sections relevant to a given slug. */
+export function getNavigationForSlug(slug: string): NavSection[] {
+  return slug.startsWith('api-reference/') ? apiNavigation : mainNavigation;
 }
 
-/** Return the previous and next NavItems relative to the given slug. */
+function flatItems(sections: NavSection[]): NavItem[] {
+  return sections.flatMap((s) => s.items);
+}
+
+export function getFlatNavItems(): NavItem[] {
+  return flatItems(navigation);
+}
+
+/** Return prev/next within the same section (docs or API). */
 export function getPrevNext(currentSlug: string): {
   prev: NavItem | null;
   next: NavItem | null;
 } {
-  const flat = getFlatNavItems();
+  const flat = flatItems(getNavigationForSlug(currentSlug));
   const index = flat.findIndex((item) => item.slug === currentSlug);
 
   if (index === -1) {

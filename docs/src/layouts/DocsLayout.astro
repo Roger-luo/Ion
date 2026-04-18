@@ -6,6 +6,7 @@ import TableOfContents from '../components/TableOfContents.astro';
 import PrevNextNav from '../components/PrevNextNav.astro';
 import CopyCodeButton from '../components/CopyCodeButton.astro';
 import Footer from '../components/Footer.astro';
+import { getNavigationForSlug } from '../data/navigation';
 
 interface Heading {
   depth: number;
@@ -30,11 +31,13 @@ interface Props {
 
 const { title, description, currentSlug, headings, prev, next, editUrl } =
   Astro.props;
+const sidebarNav = getNavigationForSlug(currentSlug);
+const activeSection = currentSlug.startsWith('api-reference/') ? 'api' : 'docs';
 ---
 
 <BaseLayout title={`${title} — Ion`} description={description}>
-  <Header showMenuButton={true} />
-  <Sidebar currentSlug={currentSlug} />
+  <Header showMenuButton={true} activeSection={activeSection} />
+  <Sidebar currentSlug={currentSlug} navigation={sidebarNav} />
 
   <div class="docs-layout">
     <main class="docs-main">

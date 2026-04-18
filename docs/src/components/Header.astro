@@ -3,9 +3,10 @@ import ThemeToggle from './ThemeToggle.astro';
 
 interface Props {
   showMenuButton?: boolean;
+  activeSection?: 'docs' | 'api';
 }
 
-const { showMenuButton = false } = Astro.props;
+const { showMenuButton = false, activeSection } = Astro.props;
 ---
 
 <header class="header">
@@ -26,7 +27,8 @@ const { showMenuButton = false } = Astro.props;
     </div>
 
     <nav class="header-nav">
-      <a href="/docs/getting-started/introduction" class="nav-link">Docs</a>
+      <a href="/docs/getting-started/introduction" class:list={['nav-link', { 'nav-link-active': activeSection === 'docs' }]}>Docs</a>
+      <a href="/docs/api-reference/ion-skill" class:list={['nav-link', { 'nav-link-active': activeSection === 'api' }]}>API</a>
       <button class="nav-link search-btn" aria-label="Search documentation" id="search-trigger">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8" />
@@ -163,6 +165,11 @@ const { showMenuButton = false } = Astro.props;
   }
 
   .nav-link:hover {
+    color: var(--text);
+    background: var(--bg-secondary);
+  }
+
+  .nav-link-active {
     color: var(--text);
     background: var(--bg-secondary);
   }

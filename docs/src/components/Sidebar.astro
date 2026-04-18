@@ -1,11 +1,12 @@
 ---
-import { navigation } from '../data/navigation';
+import type { NavSection } from '../data/navigation';
 
 interface Props {
   currentSlug?: string;
+  navigation: NavSection[];
 }
 
-const { currentSlug } = Astro.props;
+const { currentSlug, navigation } = Astro.props;
 ---
 
 <aside class="sidebar" id="sidebar">
