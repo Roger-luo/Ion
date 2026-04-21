@@ -8,7 +8,7 @@
 /* ===== CSS Variables ===== */
 :root {
   /* Typography */
-  --font-display: 'Playfair Display', Georgia, serif;
+  --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'Source Serif 4', Georgia, serif;
   --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
 
@@ -155,15 +155,17 @@ button {
 .prose h5,
 .prose h6 {
   font-family: var(--font-display);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.35;
   color: var(--text);
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
 }
 
 .prose h1 {
   font-size: 2rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-variation-settings: 'opsz' 36;
   margin-top: 0;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
@@ -172,6 +174,7 @@ button {
 .prose h2 {
   font-size: 1.45rem;
   font-weight: 600;
+  font-variation-settings: 'opsz' 24;
   margin-top: 2.5em;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border-subtle);
@@ -180,15 +183,17 @@ button {
 .prose h3 {
   font-size: 1.15rem;
   font-weight: 600;
+  font-variation-settings: 'opsz' 18;
   margin-top: 2em;
 }
 
 .prose h4 {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variation-settings: 'opsz' 14;
   margin-top: 1.5em;
-  font-variant-caps: all-small-caps;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .prose p {

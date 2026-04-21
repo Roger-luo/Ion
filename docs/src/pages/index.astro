@@ -250,8 +250,8 @@ import Footer from '../components/Footer.astro';
   .hero-title {
     font-family: var(--font-display);
     font-size: clamp(3rem, 8vw, 4.5rem);
-    font-weight: 400;
-    font-variation-settings: 'opsz' 48;
+    font-weight: 500;
+    font-variation-settings: 'opsz' 72, 'SOFT' 100;
     line-height: 1.1;
     letter-spacing: -0.02em;
     color: var(--text);
@@ -260,8 +260,10 @@ import Footer from '../components/Footer.astro';
 
   .hero-tagline {
     font-family: var(--font-display);
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     font-style: italic;
+    font-weight: 400;
+    font-variation-settings: 'opsz' 18;
     color: var(--text-secondary);
     margin-bottom: 1.5rem;
   }
@@ -392,18 +394,18 @@ import Footer from '../components/Footer.astro';
 
   .feature h3 {
     font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 500;
-    font-variant-caps: all-small-caps;
-    letter-spacing: 0.04em;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-variation-settings: 'opsz' 18;
+    letter-spacing: -0.01em;
     color: var(--text);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
 
   .feature p {
-    font-size: 0.88rem;
-    color: var(--text-tertiary);
-    line-height: 1.7;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
   }
 
   /* ===== Prompts ===== */
@@ -419,18 +421,18 @@ import Footer from '../components/Footer.astro';
 
   .prompts-title {
     font-family: var(--font-display);
-    font-size: 1.05rem;
-    font-weight: 500;
-    font-variant-caps: all-small-caps;
-    letter-spacing: 0.04em;
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-variation-settings: 'opsz' 18;
+    letter-spacing: -0.01em;
     color: var(--text);
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
 
   .prompts-subtitle {
-    font-size: 0.88rem;
-    color: var(--text-tertiary);
-    line-height: 1.7;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.75;
   }
 
   .prompts-list {
