@@ -7,9 +7,9 @@
 
 /* ===== CSS Variables ===== */
 :root {
-  /* Typography — one serif throughout */
-  --font-display: 'EB Garamond', Georgia, serif;
-  --font-body: 'EB Garamond', Georgia, serif;
+  /* Typography */
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Source Serif 4', Georgia, serif;
   --font-mono: 'IBM Plex Mono', 'Menlo', monospace;
 
   /* Layout */
@@ -85,10 +85,11 @@ html {
 
 body {
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: 17px;
   background: var(--bg);
   color: var(--text);
   line-height: 1.75;
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition:
@@ -137,9 +138,10 @@ button {
 /* ===== Prose (Markdown Content) ===== */
 .prose {
   max-width: var(--content-max-width);
-  font-size: 17px;
+  font-size: 18px;
   line-height: 1.8;
   color: var(--text);
+  font-optical-sizing: auto;
 }
 
 .prose > * + * {
@@ -160,24 +162,23 @@ button {
 }
 
 .prose h1 {
-  font-size: 1.85rem;
-  font-weight: 400;
-  font-variation-settings: 'opsz' 36;
+  font-size: 2rem;
+  font-weight: 500;
   margin-top: 0;
   padding-bottom: 0.6rem;
   border-bottom: 1px solid var(--border);
 }
 
 .prose h2 {
-  font-size: 1.35rem;
-  font-weight: 500;
+  font-size: 1.45rem;
+  font-weight: 600;
   margin-top: 2.5em;
   padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .prose h3 {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 600;
   margin-top: 2em;
 }
