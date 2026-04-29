@@ -36,8 +36,16 @@ pub fn run(
         )
     })?;
 
-    // Dev mode: forward to `cargo run` in the local project
+    // Dev mode: refresh skill from last-built debug binary, then forward to `cargo run`.
+    // The refresh runs before `cargo run` (which calls std::process::exit) using the binary
+    // from the previous build. This means skill updates lag one invocation, which is fine
+    // for a dev workflow: build → first run uses stale skill, second run uses fresh skill.
     if locked.is_dev() {
+        let project = ws.single_project()?;
+        let options = ws.merged_options_for(project)?;
+        let installer = ws.installer_for(project, &options);
+        let skill_md_path = installer.skill_dir(name).join("SKILL.md");
+        try_refresh_dev_skill(&locked.source, binary_name, &skill_md_path);
         return run_dev(&locked.source, binary_name, args, json);
     }
 
@@ -96,6 +104,44 @@ pub fn run(
     }
 
     run_with_session(&bin_path, args)
+}
+
+/// Refresh the skill file from the last-built dev binary if it is newer than the
+/// current SKILL.md. Best-effort: all errors are silently ignored.
+fn try_refresh_dev_skill(source_path: &str, binary_name: &str, skill_md_path: &Path) {
+    let bin_name = if cfg!(windows) {
+        format!("{binary_name}.exe")
+    } else {
+        binary_name.to_string()
+    };
+    let debug_bin = Path::new(source_path)
+        .join("target")
+        .join("debug")
+        .join(&bin_name);
+
+    if !debug_bin.exists() {
+        return;
+    }
+
+    // Skip if the skill file is already up to date (binary not newer).
+    let should_refresh = match (
+        debug_bin.metadata().and_then(|m| m.modified()),
+        skill_md_path.metadata().and_then(|m| m.modified()),
+    ) {
+        (Ok(bin_mtime), Ok(skill_mtime)) => bin_mtime > skill_mtime,
+        _ => true,
+    };
+    if !should_refresh {
+        return;
+    }
+
+    let Ok(content) = binary::generate_skill_md(&debug_bin) else {
+        return;
+    };
+    let current = std::fs::read_to_string(skill_md_path).unwrap_or_default();
+    if current != content {
+        let _ = std::fs::write(skill_md_path, content);
+    }
 }
 
 /// Run a dev-mode binary skill by forwarding to `cargo run` in the project directory.
