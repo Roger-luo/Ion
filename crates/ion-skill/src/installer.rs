@@ -92,6 +92,13 @@ impl<'a> SkillInstaller<'a> {
         _name: &str,
         source: &SkillSource,
     ) -> Result<validate::ValidationReport> {
+        // Binary sources don't have a SKILL.md to validate — the binary itself
+        // generates one at install time. They use a dedicated install pipeline
+        // (`install_binary`), so skip pre-install validation here.
+        if source.is_binary() {
+            return Ok(validate::ValidationReport::from_findings(Vec::new()));
+        }
+
         let skill_dir = self.fetch(source)?;
         let (meta, body) = self.validate_spec(&skill_dir, source)?;
         let report = validate::validate_skill_dir(&skill_dir, &meta, &body);
