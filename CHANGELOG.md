@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Refresh dev skill SKILL.md from debug binary before each run (d26be33)
+
+### Documentation
+
+- Switch display font to Fraunces for better screen readability (2a5ec10)
+- Improve font readability with screen-optimized serifs (bcfafe0)
+
+### Added
+
 - Add agent-prompt tabs to workflows page and landing prompts (93a0d66)
 - Streamline CLI with top-level shortcuts and inline prompts (286a34f)
 - Add <request-tool> session handling to ion run and PTY scenario tests (3d04c0f)
