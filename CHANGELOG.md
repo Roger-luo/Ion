@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Handle stray CLAUDE.md in ion migrate without target gate (73d4fc6)
+
+### Added
+
 - Refresh dev skill SKILL.md from debug binary before each run (d26be33)
 
 ### Documentation
