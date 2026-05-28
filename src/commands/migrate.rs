@@ -28,7 +28,7 @@ pub fn run(
 
     // ── Phase 0: AGENTS.md / CLAUDE.md conversion ────────────────────────
     let agents_md_action = if !dry_run {
-        migrate_agents_md(project_dir, &merged_options.targets, &p, json, yes)?
+        migrate_agents_md(project_dir, &p, json, yes)?
     } else {
         None
     };
@@ -45,25 +45,8 @@ pub fn run(
         }
         skills
     } else {
-        if !json {
-            println!("No skills-lock.json found, scanning directories...");
-        }
         let skills = discover_from_directories(project_dir)?;
-        if skills.is_empty() {
-            if json {
-                crate::json::print_success(serde_json::json!({
-                    "migrated": [],
-                    "matched": [],
-                    "custom": [],
-                    "skipped": [],
-                    "agents_md": agents_md_action.as_ref().map(|a| a.to_json()),
-                }));
-                return Ok(());
-            }
-            println!("No skills found in .agents/skills/ or .claude/skills/.");
-            return Ok(());
-        }
-        if !json {
+        if !skills.is_empty() && !json {
             println!("Found {} skills in skill directories.", skills.len());
         }
         skills
@@ -80,7 +63,27 @@ pub fn run(
             }));
             return Ok(());
         }
-        println!("No skills to migrate.");
+
+        use crate::commands::agents::AgentsMdAction;
+        let did_agents_work = matches!(
+            agents_md_action,
+            Some(AgentsMdAction::Symlinked) | Some(AgentsMdAction::Renamed { .. })
+        );
+
+        if did_agents_work {
+            // Phase 0 made real changes — still commit and report success.
+            if let Some(hash) = create_migration_commit(project_dir) {
+                println!();
+                println!(
+                    "  Created git commit: {}",
+                    p.info(&hash[..hash.len().min(7)])
+                );
+            }
+            println!();
+            println!("{}", p.success("Migration complete!"));
+        } else {
+            println!("Nothing to migrate.");
+        }
         return Ok(());
     }
 
@@ -610,198 +613,11 @@ fn print_skipped(skipped: &[String]) {
     }
 }
 
-/// Result of AGENTS.md/CLAUDE.md migration phase.
-#[derive(Debug)]
-enum AgentsMdAction {
-    /// Pointer file replaced or fresh symlink created
-    Symlinked,
-    /// CLAUDE.md renamed to AGENTS.md, backup created
-    Renamed { backup: Option<String> },
-    /// Both files have real content — user must resolve manually
-    Skipped { reason: String },
-}
-
-impl AgentsMdAction {
-    fn to_json(&self) -> serde_json::Value {
-        match self {
-            AgentsMdAction::Symlinked => serde_json::json!({"action": "symlinked"}),
-            AgentsMdAction::Renamed { backup } => serde_json::json!({
-                "action": "renamed",
-                "from": "CLAUDE.md",
-                "backup": backup,
-            }),
-            AgentsMdAction::Skipped { reason } => serde_json::json!({
-                "action": "skipped",
-                "reason": reason,
-            }),
-        }
-    }
-}
-
 fn migrate_agents_md(
     project_dir: &std::path::Path,
-    targets: &std::collections::BTreeMap<String, String>,
     p: &Paint,
     json: bool,
     yes: bool,
-) -> anyhow::Result<Option<AgentsMdAction>> {
-    // Only handle CLAUDE.md if claude is a configured target
-    if !targets.contains_key("claude") {
-        return Ok(None);
-    }
-
-    let agents_path = project_dir.join("AGENTS.md");
-    let claude_path = project_dir.join("CLAUDE.md");
-
-    let agents_exists = agents_path.exists();
-
-    // Check CLAUDE.md — skip symlinks (already managed)
-    let claude_meta = std::fs::symlink_metadata(&claude_path).ok();
-    let claude_is_symlink = claude_meta.as_ref().is_some_and(|m| m.is_symlink());
-    let claude_is_file = claude_meta.as_ref().is_some_and(|m| m.is_file());
-
-    if claude_is_symlink || !claude_is_file {
-        // No CLAUDE.md regular file to migrate — let ensure_agent_symlinks handle it
-        return Ok(None);
-    }
-
-    // CLAUDE.md is a regular file — read content and classify
-    let claude_content = std::fs::read_to_string(&claude_path)?;
-    let is_pointer = ion_skill::agents::is_agents_pointer(&claude_content);
-
-    match (agents_exists, is_pointer) {
-        // AGENTS.md exists + CLAUDE.md is a pointer → delete and symlink
-        (true, true) => {
-            if !json {
-                println!(
-                    "  {} is a pointer to AGENTS.md — replacing with symlink",
-                    p.dim("CLAUDE.md")
-                );
-            }
-            std::fs::remove_file(&claude_path)?;
-            #[cfg(unix)]
-            std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
-            ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
-            Ok(Some(AgentsMdAction::Symlinked))
-        }
-
-        // AGENTS.md exists + CLAUDE.md has real content → conflict
-        (true, false) => {
-            if yes || json {
-                let reason =
-                    "Both AGENTS.md and CLAUDE.md have content — run without --yes to choose which to keep".to_string();
-                if !json {
-                    println!("  {}", p.dim(&reason));
-                }
-                return Ok(Some(AgentsMdAction::Skipped { reason }));
-            }
-
-            println!();
-            println!("Both AGENTS.md and CLAUDE.md exist with content.");
-            println!("  (1) Keep AGENTS.md (backup CLAUDE.md to CLAUDE.md.bak)");
-            println!("  (2) Keep CLAUDE.md as AGENTS.md (backup AGENTS.md to AGENTS.md.bak)");
-            println!("  (3) Skip — I'll handle this manually");
-            print!("> ");
-            io::stdout().flush()?;
-
-            let mut answer = String::new();
-            io::stdin().read_line(&mut answer)?;
-            let choice = answer.trim();
-
-            match choice {
-                "1" => {
-                    std::fs::rename(&claude_path, project_dir.join("CLAUDE.md.bak"))?;
-                    #[cfg(unix)]
-                    std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
-                    ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
-                    if !json {
-                        println!(
-                            "  Kept AGENTS.md, backed up CLAUDE.md to {}",
-                            p.dim("CLAUDE.md.bak")
-                        );
-                    }
-                    Ok(Some(AgentsMdAction::Renamed {
-                        backup: Some("CLAUDE.md.bak".to_string()),
-                    }))
-                }
-                "2" => {
-                    std::fs::rename(&agents_path, project_dir.join("AGENTS.md.bak"))?;
-                    std::fs::rename(&claude_path, &agents_path)?;
-                    #[cfg(unix)]
-                    std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
-                    ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
-                    if !json {
-                        println!(
-                            "  Renamed CLAUDE.md to AGENTS.md, backed up old AGENTS.md to {}",
-                            p.dim("AGENTS.md.bak")
-                        );
-                    }
-                    Ok(Some(AgentsMdAction::Renamed {
-                        backup: Some("AGENTS.md.bak".to_string()),
-                    }))
-                }
-                _ => {
-                    if !json {
-                        println!("  Skipping AGENTS.md/CLAUDE.md migration.");
-                    }
-                    Ok(Some(AgentsMdAction::Skipped {
-                        reason: "user chose to skip".to_string(),
-                    }))
-                }
-            }
-        }
-
-        // No AGENTS.md + CLAUDE.md is a pointer → warn
-        (false, true) => {
-            if !json {
-                eprintln!("Warning: CLAUDE.md references @AGENTS.md but AGENTS.md does not exist.");
-            }
-            Ok(Some(AgentsMdAction::Skipped {
-                reason: "pointer to nonexistent AGENTS.md".to_string(),
-            }))
-        }
-
-        // No AGENTS.md + CLAUDE.md has real content → rename
-        (false, false) => {
-            if yes || json {
-                let reason =
-                    "CLAUDE.md has content but no AGENTS.md — run without --yes to confirm rename"
-                        .to_string();
-                if !json {
-                    println!("  {}", p.dim(&reason));
-                }
-                return Ok(Some(AgentsMdAction::Skipped { reason }));
-            }
-
-            println!();
-            println!("Found CLAUDE.md but no AGENTS.md.");
-            print!("  Rename CLAUDE.md to AGENTS.md and create symlink? [Y/n] ");
-            io::stdout().flush()?;
-
-            let mut answer = String::new();
-            io::stdin().read_line(&mut answer)?;
-            let answer = answer.trim();
-
-            if answer.is_empty()
-                || answer.eq_ignore_ascii_case("y")
-                || answer.eq_ignore_ascii_case("yes")
-            {
-                std::fs::rename(&claude_path, &agents_path)?;
-                #[cfg(unix)]
-                std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
-                ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
-                if !json {
-                    println!("  Renamed CLAUDE.md to AGENTS.md, created symlink.");
-                }
-                Ok(Some(AgentsMdAction::Renamed { backup: None }))
-            } else {
-                if !json {
-                    println!("  Skipping AGENTS.md/CLAUDE.md migration.");
-                }
-                Ok(Some(AgentsMdAction::Skipped {
-                    reason: "user chose to skip".to_string(),
-                }))
-            }
-        }
-    }
+) -> anyhow::Result<Option<crate::commands::agents::AgentsMdAction>> {
+    crate::commands::agents::migrate_claude_md(project_dir, p, json, yes)
 }

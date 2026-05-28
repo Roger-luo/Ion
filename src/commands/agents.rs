@@ -1,3 +1,5 @@
+use std::io::{self, Write};
+
 use crate::context::WorkspaceContext;
 use crate::style::Paint;
 use ion_skill::config::GlobalConfig;
@@ -443,6 +445,200 @@ pub fn diff(project_flags: &[String]) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Result of an AGENTS.md ↔ CLAUDE.md migration step.
+#[derive(Debug)]
+pub(crate) enum AgentsMdAction {
+    /// Pointer file replaced or fresh symlink created.
+    Symlinked,
+    /// CLAUDE.md renamed to AGENTS.md, optional backup created.
+    Renamed { backup: Option<String> },
+    /// Both files have real content — user must resolve manually.
+    Skipped { reason: String },
+}
+
+impl AgentsMdAction {
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        match self {
+            AgentsMdAction::Symlinked => serde_json::json!({"action": "symlinked"}),
+            AgentsMdAction::Renamed { backup } => serde_json::json!({
+                "action": "renamed",
+                "from": "CLAUDE.md",
+                "backup": backup,
+            }),
+            AgentsMdAction::Skipped { reason } => serde_json::json!({
+                "action": "skipped",
+                "reason": reason,
+            }),
+        }
+    }
+}
+
+/// Convert a regular CLAUDE.md file into a symlink pointing at AGENTS.md.
+///
+/// Returns `Ok(None)` when there is nothing to do (no regular CLAUDE.md file
+/// to migrate). The caller is responsible for gating on whether `claude` is
+/// a configured target if that matters for the surrounding command.
+pub(crate) fn migrate_claude_md(
+    project_dir: &std::path::Path,
+    p: &Paint,
+    json: bool,
+    yes: bool,
+) -> anyhow::Result<Option<AgentsMdAction>> {
+    let agents_path = project_dir.join("AGENTS.md");
+    let claude_path = project_dir.join("CLAUDE.md");
+
+    let agents_exists = agents_path.exists();
+
+    let claude_meta = std::fs::symlink_metadata(&claude_path).ok();
+    let claude_is_symlink = claude_meta.as_ref().is_some_and(|m| m.is_symlink());
+    let claude_is_file = claude_meta.as_ref().is_some_and(|m| m.is_file());
+
+    if claude_is_symlink || !claude_is_file {
+        // No regular CLAUDE.md file to migrate — caller can run
+        // `ensure_agent_symlinks` if it wants to create one from scratch.
+        return Ok(None);
+    }
+
+    let claude_content = std::fs::read_to_string(&claude_path)?;
+    let is_pointer = ion_skill::agents::is_agents_pointer(&claude_content);
+
+    match (agents_exists, is_pointer) {
+        // AGENTS.md exists + CLAUDE.md is a pointer → replace with symlink.
+        (true, true) => {
+            if !json {
+                println!(
+                    "  {} is a pointer to AGENTS.md — replacing with symlink",
+                    p.dim("CLAUDE.md")
+                );
+            }
+            std::fs::remove_file(&claude_path)?;
+            #[cfg(unix)]
+            std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
+            ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
+            Ok(Some(AgentsMdAction::Symlinked))
+        }
+
+        // AGENTS.md exists + CLAUDE.md has real content → conflict.
+        (true, false) => {
+            if yes || json {
+                let reason =
+                    "Both AGENTS.md and CLAUDE.md have content — run without --yes to choose which to keep".to_string();
+                if !json {
+                    println!("  {}", p.dim(&reason));
+                }
+                return Ok(Some(AgentsMdAction::Skipped { reason }));
+            }
+
+            println!();
+            println!("Both AGENTS.md and CLAUDE.md exist with content.");
+            println!("  (1) Keep AGENTS.md (backup CLAUDE.md to CLAUDE.md.bak)");
+            println!("  (2) Keep CLAUDE.md as AGENTS.md (backup AGENTS.md to AGENTS.md.bak)");
+            println!("  (3) Skip — I'll handle this manually");
+            print!("> ");
+            io::stdout().flush()?;
+
+            let mut answer = String::new();
+            io::stdin().read_line(&mut answer)?;
+            let choice = answer.trim();
+
+            match choice {
+                "1" => {
+                    std::fs::rename(&claude_path, project_dir.join("CLAUDE.md.bak"))?;
+                    #[cfg(unix)]
+                    std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
+                    ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
+                    if !json {
+                        println!(
+                            "  Kept AGENTS.md, backed up CLAUDE.md to {}",
+                            p.dim("CLAUDE.md.bak")
+                        );
+                    }
+                    Ok(Some(AgentsMdAction::Renamed {
+                        backup: Some("CLAUDE.md.bak".to_string()),
+                    }))
+                }
+                "2" => {
+                    std::fs::rename(&agents_path, project_dir.join("AGENTS.md.bak"))?;
+                    std::fs::rename(&claude_path, &agents_path)?;
+                    #[cfg(unix)]
+                    std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
+                    ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
+                    if !json {
+                        println!(
+                            "  Renamed CLAUDE.md to AGENTS.md, backed up old AGENTS.md to {}",
+                            p.dim("AGENTS.md.bak")
+                        );
+                    }
+                    Ok(Some(AgentsMdAction::Renamed {
+                        backup: Some("AGENTS.md.bak".to_string()),
+                    }))
+                }
+                _ => {
+                    if !json {
+                        println!("  Skipping AGENTS.md/CLAUDE.md migration.");
+                    }
+                    Ok(Some(AgentsMdAction::Skipped {
+                        reason: "user chose to skip".to_string(),
+                    }))
+                }
+            }
+        }
+
+        // No AGENTS.md + CLAUDE.md is a pointer → broken pointer, warn.
+        (false, true) => {
+            if !json {
+                eprintln!("Warning: CLAUDE.md references @AGENTS.md but AGENTS.md does not exist.");
+            }
+            Ok(Some(AgentsMdAction::Skipped {
+                reason: "pointer to nonexistent AGENTS.md".to_string(),
+            }))
+        }
+
+        // No AGENTS.md + CLAUDE.md has real content → rename.
+        (false, false) => {
+            if yes || json {
+                let reason =
+                    "CLAUDE.md has content but no AGENTS.md — run without --yes to confirm rename"
+                        .to_string();
+                if !json {
+                    println!("  {}", p.dim(&reason));
+                }
+                return Ok(Some(AgentsMdAction::Skipped { reason }));
+            }
+
+            println!();
+            println!("Found CLAUDE.md but no AGENTS.md.");
+            print!("  Rename CLAUDE.md to AGENTS.md and create symlink? [Y/n] ");
+            io::stdout().flush()?;
+
+            let mut answer = String::new();
+            io::stdin().read_line(&mut answer)?;
+            let answer = answer.trim();
+
+            if answer.is_empty()
+                || answer.eq_ignore_ascii_case("y")
+                || answer.eq_ignore_ascii_case("yes")
+            {
+                std::fs::rename(&claude_path, &agents_path)?;
+                #[cfg(unix)]
+                std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
+                ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
+                if !json {
+                    println!("  Renamed CLAUDE.md to AGENTS.md, created symlink.");
+                }
+                Ok(Some(AgentsMdAction::Renamed { backup: None }))
+            } else {
+                if !json {
+                    println!("  Skipping AGENTS.md/CLAUDE.md migration.");
+                }
+                Ok(Some(AgentsMdAction::Skipped {
+                    reason: "user chose to skip".to_string(),
+                }))
+            }
+        }
+    }
 }
 
 /// Human-readable label for a project within a workspace.
