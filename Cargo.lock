@@ -1225,7 +1225,7 @@ dependencies = [
 
 [[package]]
 name = "ion"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "clap",
