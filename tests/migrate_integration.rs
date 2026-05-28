@@ -103,7 +103,6 @@ fn migrate_from_directory_scan_dry_run() {
         output.status.success(),
         "migrate --dry-run failed: stdout={stdout}\nstderr={stderr}"
     );
-    assert!(stdout.contains("scanning directories"));
     assert!(stdout.contains("1 skills"));
 }
 
@@ -119,7 +118,10 @@ fn migrate_no_skills_found() {
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success());
-    assert!(stdout.contains("No skills found"));
+    assert!(
+        stdout.contains("Nothing to migrate"),
+        "expected 'Nothing to migrate' when there's nothing to do: {stdout}"
+    );
 }
 
 #[test]
@@ -618,14 +620,12 @@ fn migrate_replaces_pointer_claude_md_with_symlink() {
 }
 
 #[test]
-fn migrate_skips_claude_md_when_not_target() {
+fn migrate_handles_claude_md_even_without_claude_target() {
     let project = tempfile::tempdir().unwrap();
 
-    // Create AGENTS.md and a pointer CLAUDE.md
+    // Pointer CLAUDE.md + AGENTS.md, but no claude target configured.
     std::fs::write(project.path().join("AGENTS.md"), "# My Project\n").unwrap();
     std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md").unwrap();
-
-    // Create Ion.toml with cursor target only (no claude)
     std::fs::write(
         project.path().join("Ion.toml"),
         "[options.targets]\ncursor = \".cursor/skills\"\n",
@@ -637,12 +637,52 @@ fn migrate_skips_claude_md_when_not_target() {
         .current_dir(project.path())
         .output()
         .unwrap();
-
     assert!(output.status.success());
 
-    // CLAUDE.md should still be a regular file (untouched)
+    // The existence of CLAUDE.md is now signal enough — convert to symlink
+    // regardless of which targets are configured.
     let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
-    assert!(!meta.is_symlink(), "CLAUDE.md should not be touched");
+    assert!(meta.is_symlink(), "CLAUDE.md should be a symlink");
+}
+
+#[test]
+fn migrate_with_only_claude_md_and_no_skills_reports_success() {
+    let project = tempfile::tempdir().unwrap();
+
+    // Only CLAUDE.md to migrate. No skills, no skills-lock.json.
+    std::fs::write(project.path().join("AGENTS.md"), "# A\n").unwrap();
+    std::fs::write(project.path().join("CLAUDE.md"), "@AGENTS.md").unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[options.targets]\nclaude = \".claude/skills\"\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["migrate", "--yes"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "migrate failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // CLAUDE.md was migrated to a symlink.
+    let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+    assert!(meta.is_symlink());
+
+    // We should NOT see the "No skills found" noise — Phase 0 did real work.
+    assert!(
+        !stdout.contains("No skills found"),
+        "expected no 'No skills found' noise when AGENTS.md migration ran: {stdout}"
+    );
+    assert!(
+        stdout.contains("Migration complete"),
+        "expected success message: {stdout}"
+    );
 }
 
 #[test]
