@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add built-in TypeScript AGENTS.md template (723d0a5)
+
+### Added
+
 - Handle stray CLAUDE.md in ion migrate without target gate (73d4fc6)
 
 ### Added
