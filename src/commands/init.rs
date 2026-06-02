@@ -114,11 +114,17 @@ fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
         || dir.join("setup.py").exists()
         || dir.join("requirements.txt").exists();
     let has_julia = dir.join("Project.toml").exists();
-    match (has_cargo, has_python, has_julia) {
-        (true, true, _) => Some("rust+python"),
-        (true, false, _) => Some("rust"),
-        (false, true, _) => Some("python"),
-        (false, false, true) => Some("julia"),
+    let has_typescript = dir.join("tsconfig.json").exists()
+        || (dir.join("package.json").exists()
+            && (dir.join("tsconfig.json").exists()
+                || dir.join("src").join("index.ts").exists()
+                || dir.join("index.ts").exists()));
+    match (has_cargo, has_python, has_julia, has_typescript) {
+        (true, true, _, _) => Some("rust+python"),
+        (true, false, _, _) => Some("rust"),
+        (false, true, _, _) => Some("python"),
+        (false, false, true, _) => Some("julia"),
+        (false, false, false, true) => Some("typescript"),
         _ => None,
     }
 }
@@ -357,5 +363,30 @@ mod tests {
         let (name, path) = parse_target_flag("codex:custom/path").unwrap();
         assert_eq!(name, "codex");
         assert_eq!(path, "custom/path");
+    }
+
+    #[test]
+    fn detect_typescript_via_tsconfig() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("tsconfig.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        assert_eq!(detect_builtin_template(dir.path()), Some("typescript"));
+    }
+
+    #[test]
+    fn detect_typescript_via_index_ts() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::create_dir(dir.path().join("src")).unwrap();
+        std::fs::write(dir.path().join("src").join("index.ts"), "").unwrap();
+        assert_eq!(detect_builtin_template(dir.path()), Some("typescript"));
+    }
+
+    #[test]
+    fn detect_rust_takes_priority_over_typescript() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "").unwrap();
+        std::fs::write(dir.path().join("tsconfig.json"), "{}").unwrap();
+        assert_eq!(detect_builtin_template(dir.path()), Some("rust"));
     }
 }

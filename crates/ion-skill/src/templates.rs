@@ -8,7 +8,7 @@
 pub const BUILTIN_PREFIX: &str = "builtin:";
 
 /// List of available built-in template names.
-pub const AVAILABLE: &[&str] = &["rust", "python", "julia", "rust+python"];
+pub const AVAILABLE: &[&str] = &["rust", "python", "julia", "typescript", "rust+python"];
 
 /// Return the embedded template content for a given name, or `None` if unknown.
 pub fn get(name: &str) -> Option<&'static str> {
@@ -16,6 +16,7 @@ pub fn get(name: &str) -> Option<&'static str> {
         "rust" => Some(include_str!("templates/rust.md")),
         "python" => Some(include_str!("templates/python.md")),
         "julia" => Some(include_str!("templates/julia.md")),
+        "typescript" | "ts" => Some(include_str!("templates/typescript.md")),
         "rust+python" | "rust-python" => Some(include_str!("templates/rust-python.md")),
         _ => None,
     }
@@ -45,6 +46,8 @@ mod tests {
         assert!(get("rust").is_some());
         assert!(get("python").is_some());
         assert!(get("julia").is_some());
+        assert!(get("typescript").is_some());
+        assert!(get("ts").is_some()); // alias
         assert!(get("rust+python").is_some());
         assert!(get("rust-python").is_some()); // alias
     }
@@ -60,6 +63,8 @@ mod tests {
         assert_eq!(parse_builtin_name("builtin:rust"), Some("rust"));
         assert_eq!(parse_builtin_name("builtin:python"), Some("python"));
         assert_eq!(parse_builtin_name("builtin:julia"), Some("julia"));
+        assert_eq!(parse_builtin_name("builtin:typescript"), Some("typescript"));
+        assert_eq!(parse_builtin_name("builtin:ts"), Some("ts"));
         assert_eq!(
             parse_builtin_name("builtin:rust+python"),
             Some("rust+python")
