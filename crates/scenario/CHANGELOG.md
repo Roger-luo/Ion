@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add ScreenBuffer::occupied_rows() for flood assertions ([#163](https://github.com/Roger-luo/Ion/pull/163)) (970ff4c)
 - Add expect_not() to assert text absence ([#126](https://github.com/Roger-luo/Ion/pull/126)) (1258498)
 - Add visible_screen() to get terminal display state ([#127](https://github.com/Roger-luo/Ion/pull/127)) (73aebf3)
 - Add send_key() helper for common terminal keys ([#125](https://github.com/Roger-luo/Ion/pull/125)) (c84d62d)
