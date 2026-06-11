@@ -30,6 +30,17 @@ impl ScreenBuffer {
         parser.advance(self, raw_bytes);
     }
 
+    /// Number of screen rows that contain at least one non-space character.
+    ///
+    /// Useful for asserting that transient output (a status line, a progress
+    /// tail) stays bounded and doesn't flood the screen.
+    pub fn occupied_rows(&self) -> usize {
+        self.grid
+            .iter()
+            .filter(|row| row.iter().any(|&c| c != ' '))
+            .count()
+    }
+
     /// Return the current screen content, one `String` per row,
     /// with trailing spaces trimmed.
     pub fn lines(&self) -> Vec<String> {
@@ -326,5 +337,34 @@ mod tests {
         let lines = screen.lines();
         assert_eq!(lines[0], "ABCDE");
         assert_eq!(lines[1], "FGH");
+    }
+
+    #[test]
+    fn occupied_rows_counts_nonblank_rows() {
+        let mut screen = ScreenBuffer::new(5, 20);
+        screen.process(b"Line 1\r\nLine 2");
+        assert_eq!(screen.occupied_rows(), 2);
+    }
+
+    #[test]
+    fn occupied_rows_is_zero_for_blank_screen() {
+        let screen = ScreenBuffer::new(5, 20);
+        assert_eq!(screen.occupied_rows(), 0);
+    }
+
+    #[test]
+    fn occupied_rows_ignores_rows_cleared_by_erase() {
+        // Print three lines, then erase the whole display: nothing remains.
+        let mut screen = ScreenBuffer::new(5, 20);
+        screen.process(b"a\r\nb\r\nc\x1b[2J");
+        assert_eq!(screen.occupied_rows(), 0);
+    }
+
+    #[test]
+    fn occupied_rows_counts_only_rows_with_content() {
+        // Write to row 0 and row 3, leaving 1, 2, 4 blank.
+        let mut screen = ScreenBuffer::new(5, 20);
+        screen.process(b"top\x1b[4;1Hbottom");
+        assert_eq!(screen.occupied_rows(), 2);
     }
 }
