@@ -4,6 +4,8 @@ description: "Discover SKILL.md files recursively within a project directory."
 order: 999
 ---
 
+Discover SKILL.md files recursively within a project directory.
+
 ## discover_skill_files
 
 ```rust

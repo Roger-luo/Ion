@@ -4,6 +4,8 @@ description: "Skill installation pipeline — resolve, fetch, validate, deploy t
 order: 999
 ---
 
+Skill installation pipeline — resolve, fetch, validate, deploy to target directories, and write manifest/lockfile.
+
 ## SkillInstaller
 
 Manages skill installation and uninstallation for a project.
@@ -76,6 +78,15 @@ Used for multi-skill collection repos that have no root SKILL.md.
 ```rust
 pub fn uninstall(&self, name: &str) -> Result<()>
 ```
+
+#### `is_deployed`
+
+```rust
+pub fn is_deployed(&self, name: &str) -> bool
+```
+
+Check whether a skill is fully deployed: its canonical directory exists
+and all configured target symlinks are in place and resolve to valid paths.
 
 #### `deploy`
 

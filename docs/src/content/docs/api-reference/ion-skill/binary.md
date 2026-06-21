@@ -4,6 +4,8 @@ description: "Binary skill installation — download from GitHub Releases, extra
 order: 999
 ---
 
+Binary skill installation — download from GitHub Releases, extract, and verify platform-specific executables.
+
 ## BinaryValidation
 
 Result of validating an installed binary.
@@ -246,8 +248,9 @@ pub fn cargo_project_info(project_path: &Path) -> Result<CargoProject>
 
 Run `cargo metadata` to extract binary name and version from a Cargo project.
 
-Finds the first `[[bin]]` target in the package. Errors if no binary target is found
-or if the path doesn't contain a valid Cargo project.
+Finds the first `[[bin]]` target in the package. For workspaces, scans all member
+packages if the root package has no binary targets. Errors if no binary target is
+found or if the path doesn't contain a valid Cargo project.
 
 ---
 

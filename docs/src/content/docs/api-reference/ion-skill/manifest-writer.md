@@ -4,6 +4,8 @@ description: "Programmatic Ion.toml editing — add/remove skills, write targets
 order: 999
 ---
 
+Programmatic Ion.toml editing — add/remove skills, write targets, and set configuration options in place.
+
 ## add_skill
 
 ```rust
@@ -84,4 +86,25 @@ Delete a value from the [options] section of Ion.toml.
 
 For `targets.<key>`, removes the key from `[options.targets]`.
 For `options.<key>`, removes the key from `[options]`.
+
+---
+
+## add_workspace_member
+
+```rust
+pub fn add_workspace_member(manifest_path: &Path, member: &str) -> Result<String>
+```
+
+Add a member to [workspace].members in an Ion.toml file.
+Creates the [workspace] section if it doesn't exist.
+
+---
+
+## remove_workspace_member
+
+```rust
+pub fn remove_workspace_member(manifest_path: &Path, member: &str) -> Result<String>
+```
+
+Remove a member from [workspace].members in an Ion.toml file.
 

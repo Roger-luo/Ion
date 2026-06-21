@@ -4,6 +4,8 @@ description: "Git operations for skill management — clone, fetch, checkout, an
 order: 999
 ---
 
+Git operations for skill management — clone, fetch, checkout, and compute directory checksums.
+
 ## clone_or_fetch
 
 ```rust

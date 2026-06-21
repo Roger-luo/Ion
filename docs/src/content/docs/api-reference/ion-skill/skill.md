@@ -4,6 +4,8 @@ description: "SKILL.md parsing — read and validate skill metadata from frontma
 order: 999
 ---
 
+SKILL.md parsing — read and validate skill metadata from frontmatter.
+
 ## SkillMetadata
 
 Parsed SKILL.md frontmatter.

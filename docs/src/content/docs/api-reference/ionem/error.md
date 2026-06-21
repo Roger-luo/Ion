@@ -1,6 +1,6 @@
 ---
 title: "ionem::error"
-description: "Error types for the ionem library — IO, HTTP, and general errors from binary skill operations."
+description: ""
 order: 999
 ---
 

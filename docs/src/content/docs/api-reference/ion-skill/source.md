@@ -4,6 +4,8 @@ description: "Skill source abstraction — represent and resolve GitHub, Git, HT
 order: 999
 ---
 
+Skill source abstraction — represent and resolve GitHub, Git, HTTP, path, binary, and local skill origins.
+
 ## SkillSource
 
 A fully resolved skill source.

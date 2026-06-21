@@ -156,6 +156,39 @@ $ ion add owner/my-linter --bin
   </Fragment>
 </WorkflowTabs>
 
+## Setting up CI
+
+`ion init --bin` prompts to set up CI during scaffolding. For an existing Cargo project, run it directly from the project root:
+
+```bash
+ion ci
+```
+
+This reads the package name from `Cargo.toml` and writes four files:
+
+| File | Purpose |
+|------|---------|
+| `.github/workflows/ci.yml` | Format check, Clippy lint, tests on Ubuntu and macOS |
+| `.github/workflows/release.yml` | Builds release binaries for 4 targets on tag push |
+| `.github/workflows/release-plz.yml` | Opens version-bump PRs on every push to `main` |
+| `release-plz.toml` | Changelog format and `publish = false` (binaries ship via GitHub Releases, not crates.io) |
+
+If any of these files already exist, `ion ci` errors. Use `--force` to overwrite:
+
+```bash
+ion ci --force
+```
+
+### What the release flow looks like
+
+Once CI is in place, the release loop is:
+
+1. Merge commits to `main` — `release-plz` opens a version-bump PR with a generated changelog
+2. Merge the version-bump PR — `release-plz` creates a tag (e.g. `v1.2.0`)
+3. The tag triggers `release.yml`, which builds binaries for all four targets and attaches them to the GitHub Release
+
+Users then install the published binary with `ion add owner/my-linter`.
+
 ## Publishing a release
 
 <WorkflowTabs prompt="Help me publish a new release of this binary skill. Tag the version, verify the release workflow builds binaries for all targets, and confirm the asset naming follows the ion convention.">

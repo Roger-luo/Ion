@@ -124,6 +124,17 @@ Verify `cargo` is installed and return a handle to run commands.
 
 ---
 
+## raw_metadata
+
+```rust
+pub fn raw_metadata(manifest_path: &Path) -> Result<String>
+```
+
+Run `cargo metadata --no-deps` and return the raw JSON string.
+Useful when callers need to inspect all workspace packages directly.
+
+---
+
 ## metadata
 
 ```rust

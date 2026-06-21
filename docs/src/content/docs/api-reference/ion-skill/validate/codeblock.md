@@ -4,5 +4,7 @@ description: "Validate syntax of fenced code blocks in SKILL.md files using tree
 order: 999
 ---
 
+Validate syntax of fenced code blocks in SKILL.md files using tree-sitter.
+
 ## TreeSitterCodeBlockChecker
 
