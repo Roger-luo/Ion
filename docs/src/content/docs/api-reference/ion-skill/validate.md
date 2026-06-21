@@ -4,6 +4,8 @@ description: "Skill validation framework — run checkers against SKILL.md files
 order: 999
 ---
 
+Skill validation framework — run checkers against SKILL.md files and aggregate findings by severity.
+
 ## Finding
 
 A single validation finding produced by a checker.

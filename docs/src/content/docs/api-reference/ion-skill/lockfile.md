@@ -4,6 +4,8 @@ description: "Ion.lock types — track installed skills with pinned versions and
 order: 999
 ---
 
+Ion.lock types — track installed skills with pinned versions and checksums across Git, binary, and local sources.
+
 ## LockedSkill
 
 ### Fields

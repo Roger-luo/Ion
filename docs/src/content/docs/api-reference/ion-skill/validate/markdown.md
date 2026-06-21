@@ -4,6 +4,8 @@ description: "Markdown parsing utilities — extract code blocks, local links, a
 order: 999
 ---
 
+Markdown parsing utilities — extract code blocks, local links, and tool mentions from SKILL.md content.
+
 ## CodeBlock
 
 ### Fields

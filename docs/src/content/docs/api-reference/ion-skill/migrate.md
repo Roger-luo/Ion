@@ -4,6 +4,8 @@ description: "Migrate skills from legacy Ion formats to the current manifest and
 order: 999
 ---
 
+Migrate skills from legacy Ion formats to the current manifest and lockfile layout.
+
 ## SkillsLockFile
 
 ### Fields

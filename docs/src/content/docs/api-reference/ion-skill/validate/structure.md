@@ -4,6 +4,8 @@ description: "Structural checkers for SKILL.md — verify reference integrity an
 order: 999
 ---
 
+Structural checkers for SKILL.md — verify reference integrity and tool declaration consistency.
+
 ## ReferenceIntegrityChecker
 
 ---

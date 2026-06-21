@@ -4,6 +4,8 @@ description: "Updater for Git-sourced skills — fetch the latest commit from th
 order: 999
 ---
 
+Updater for Git-sourced skills — fetch the latest commit from the default branch and redeploy.
+
 ## GitUpdater
 
 Updater for Git and GitHub-sourced skills.

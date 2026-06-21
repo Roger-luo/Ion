@@ -4,6 +4,8 @@ description: "Skill search results and multi-backend search runners — GitHub, 
 order: 999
 ---
 
+Skill search results and multi-backend search runners — GitHub, registry, and agent sources with relevance sorting.
+
 ## SearchResult
 
 Search result from any source.
@@ -16,7 +18,8 @@ Search result from any source.
 | `description` | `String` |  |
 | `source` | `String` |  |
 | `registry` | `String` |  |
-| `stars` | `Option<u64>` |  |
+| `stars` | `Option<u64>` | GitHub stargazer count. |
+| `weekly_installs` | `Option<u64>` | skills.sh weekly install count. |
 | `skill_description` | `Option<String>` |  |
 
 ### Methods
@@ -27,13 +30,22 @@ Search result from any source.
 pub fn new(name: impl Into<String>, description: impl Into<String>, source: impl Into<String>, registry: impl Into<String>) -> Self
 ```
 
-#### `sort_by_stars`
+#### `popularity`
 
 ```rust
-pub fn sort_by_stars(results: &mut [Self])
+pub fn popularity(&self) -> u64
 ```
 
-Sort results by stars descending (missing stars treated as 0).
+The popularity value used for ranking: weekly installs for skills.sh,
+stars for everything else.
+
+#### `sort_by_popularity`
+
+```rust
+pub fn sort_by_popularity(results: &mut [Self])
+```
+
+Sort results by popularity descending.
 
 #### `sort_by_relevance`
 
@@ -42,8 +54,9 @@ pub fn sort_by_relevance(results: &mut [Self], query: &str)
 ```
 
 Sort results by relevance to the query, combining text match quality
-with popularity (stars). Exact name/source matches rank highest,
-then prefix matches, then substring matches, with stars as tiebreaker.
+with normalized popularity. Popularity (stars / installs) is normalized
+per-registry so that different scales (GitHub stars vs skills.sh weekly
+installs) become comparable.
 
 ### Trait Implementations
 

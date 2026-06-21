@@ -4,6 +4,8 @@ description: "Ion.toml types — project skill configuration with targets, skill
 order: 999
 ---
 
+Ion.toml types — project skill configuration with targets, skill entries, and per-project options.
+
 ## ManifestOptions
 
 ### Fields
@@ -39,6 +41,26 @@ pub fn list_values(&self) -> Vec<(String, String)>
 ```
 
 List all project config values as (key, value) pairs.
+
+### Trait Implementations
+
+- `Debug`
+- `Clone`
+- `Default`
+- `Serialize`
+- `Deserialize<'de>`
+
+---
+
+## WorkspaceConfig
+
+Workspace configuration for multi-project setups.
+
+### Fields
+
+| Name | Type | Description |
+|------|------|-------------|
+| `members` | `Vec<String>` |  |
 
 ### Trait Implementations
 
@@ -92,6 +114,7 @@ Returns true if this project declares itself as a binary skill.
 | Name | Type | Description |
 |------|------|-------------|
 | `project` | `Option<ProjectMeta>` |  |
+| `workspace` | `Option<WorkspaceConfig>` |  |
 | `skills` | `BTreeMap<String, SkillEntry>` |  |
 | `options` | `ManifestOptions` |  |
 | `agents` | `Option<AgentsConfig>` |  |

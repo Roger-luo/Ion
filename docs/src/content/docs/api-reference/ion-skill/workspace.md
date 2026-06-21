@@ -4,6 +4,8 @@ description: "Project workspace context — load manifest and lockfile, resolve 
 order: 999
 ---
 
+Project workspace context — load manifest and lockfile, resolve effective options and skill paths for a project.
+
 ## Project
 
 A single project within a workspace (or the root project itself).

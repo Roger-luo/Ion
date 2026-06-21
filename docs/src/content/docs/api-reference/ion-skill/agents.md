@@ -4,6 +4,8 @@ description: "AGENTS.md template management — fetch, render, and keep agent co
 order: 999
 ---
 
+AGENTS.md template management — fetch, render, and keep agent context files up to date.
+
 ## AgentsConfig
 
 Configuration for AGENTS.md template management.
@@ -107,6 +109,16 @@ Current UTC time as ISO 8601 string (e.g. "2026-03-27T12:00:00Z").
 
 ---
 
+## fetch_builtin_template
+
+```rust
+pub fn fetch_builtin_template(name: &str) -> Result<FetchedTemplate>
+```
+
+Return a `FetchedTemplate` from an embedded built-in template.
+
+---
+
 ## fetch_template
 
 ```rust
@@ -117,4 +129,6 @@ Fetch an AGENTS.md template from a source.
 
 Resolves the source using SkillSource::infer, fetches the repo/path,
 and extracts the AGENTS.md file at the specified path (default: root).
+Built-in templates (`builtin:rust`, etc.) are resolved from the binary
+without any network access.
 

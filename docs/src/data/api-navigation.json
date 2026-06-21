@@ -67,6 +67,14 @@
         "slug": "api-reference/ion-skill/source"
       },
       {
+        "title": "templates",
+        "slug": "api-reference/ion-skill/templates"
+      },
+      {
+        "title": "tool_permission",
+        "slug": "api-reference/ion-skill/tool-permission"
+      },
+      {
         "title": "update",
         "slug": "api-reference/ion-skill/update"
       },
@@ -101,6 +109,10 @@
       {
         "title": "validate::structure",
         "slug": "api-reference/ion-skill/validate/structure"
+      },
+      {
+        "title": "workspace",
+        "slug": "api-reference/ion-skill/workspace"
       }
     ]
   },
@@ -155,6 +167,10 @@
       {
         "title": "manifest",
         "slug": "api-reference/scenario/manifest"
+      },
+      {
+        "title": "screen",
+        "slug": "api-reference/scenario/screen"
       }
     ]
   }

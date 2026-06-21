@@ -4,7 +4,7 @@ description: "Define and test CLI behavior scenarios under controlled terminal c
 order: 100
 ---
 
-*Version 0.1.1*
+*Version 0.2.0*
 
 # scenario
 
@@ -49,14 +49,18 @@ let output = session.wait().unwrap();
 | Module | Description |
 |--------|-------------|
 | [manifest](/docs/api-reference/scenario/manifest) | Parsing for `template.toml` manifest files. |
+| [screen](/docs/api-reference/scenario/screen) |  |
 
 ## Re-exports
 
 - `pub use error::Error` as **Error**
+- `pub use key::Key` as **Key**
 - `pub use output::Output` as **Output**
 - `pub use project::Project` as **Project**
 - `pub use project::ProjectBuilder` as **ProjectBuilder**
 - `pub use scenario::Scenario` as **Scenario**
+- `pub use scenario::SessionConfig` as **SessionConfig**
 - `pub use scenario::Terminal` as **Terminal**
+- `pub use screen::ScreenBuffer` as **ScreenBuffer**
 - `pub use session::Session` as **Session**
 

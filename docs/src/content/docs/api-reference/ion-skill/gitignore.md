@@ -1,8 +1,10 @@
 ---
 title: "ion-skill::gitignore"
-description: "Manage .gitignore entries for installed skills and agent directories."
+description: "Manage `.gitignore` entries for installed skills and agent directories."
 order: 999
 ---
+
+Manage `.gitignore` entries for installed skills and agent directories.
 
 ## find_missing_gitignore_entries
 

@@ -4,6 +4,8 @@ description: "Skill update infrastructure — check for newer versions and apply
 order: 999
 ---
 
+Skill update infrastructure — check for newer versions and apply updates across Git and binary sources.
+
 ## UpdateInfo
 
 Information about an available update.

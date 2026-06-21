@@ -4,6 +4,8 @@ description: "Global registry of skill repositories — tracks which projects us
 order: 999
 ---
 
+Global registry of skill repositories — tracks which projects use which remote repos and cleans up stale entries.
+
 ## RepoEntry
 
 ### Fields
