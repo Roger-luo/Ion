@@ -1,6 +1,6 @@
 //! Structural validation tests for `ion --json` commands.
 //!
-//! SKILL.md is generated at build time by build.rs from templates/ion-cli.md.j2.
+//! SKILL.md is generated at build time by build.rs from skills/ion-cli/SKILL.md.j2.
 //! These tests validate that the real `ion --json` command output matches the
 //! expected structure documented in the generated SKILL.md.
 

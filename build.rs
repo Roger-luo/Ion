@@ -23,7 +23,7 @@ fn main() {
     }
     println!("cargo:rerun-if-changed=crates/ionem/Cargo.toml");
 
-    ionem::build::render_skill_md_from("templates/ion-cli.md.j2", |template_src| {
+    ionem::build::render_skill_md_from("skills/ion-cli/SKILL.md.j2", |template_src| {
         let mut env = minijinja::Environment::new();
         env.add_template("skill.md", template_src).unwrap();
         let tmpl = env.get_template("skill.md").unwrap();

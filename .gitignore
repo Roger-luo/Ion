@@ -6,7 +6,7 @@
 !tests/fixtures/**/.agents
 
 
-# Generated at build time by build.rs from templates/ion-cli.md.j2
+# Generated at build time by build.rs from skills/ion-cli/SKILL.md.j2
 /SKILL.md
 
 # Added by cargo

@@ -1,0 +1,23 @@
+{
+  "skill_name": "dogfooding-ion",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Dogfood ion on a fresh project. Spin up a throwaway scratch repo and walk through starting from zero the way a brand-new user would — init, find a skill, add it, create a local skill, validate. At every command, read the plain terminal output as if you'd never used ion before and tell me every place it leaves you guessing about what to do next. Then fix the single worst next-step gap you found, with a test.",
+      "expected_output": "A findings log of cold-start UX gaps (bare 'Done!', no pointer from init to add, search results with no install command, etc.), each with the actual output captured, plus one implemented fix (a next-step hint in the human text and/or JSON envelope) pinned by a scenario or integration test that passes.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I want an agent to be able to drive ion from the command output alone, without leaning on the ion-cli skill as a cheat sheet. Go through the main commands in both plain and --json mode and find where the printings don't tell the agent OR a human what the next step is — especially anywhere the human text and the JSON envelope disagree about what to do next. Improve the progressive prompting for the worst offender.",
+      "expected_output": "A comparison across the two output channels identifying next-step gaps and human/JSON inconsistencies (e.g. action_required present in JSON but no plain-text recovery line), and an implemented fix that brings both channels into agreement, covered by tests asserting both the human line and the JSON field/exit code.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "Use ion the way a real person would to go from an empty repo to actually using shared team skills, and count how many separate commands it takes end to end. If a common goal needs a rote sequence of commands every time, don't just add another hint — propose whether a step should be folded into a sensible default or a new/consolidated command would be better, and if the change is small and clearly right, implement it.",
+      "expected_output": "A recorded command sequence for the goal with the count, an ergonomics assessment of whether it's too many steps, and either a concrete design proposal for a new/consolidated command (what it does, what it replaces, why) or a small implemented change (a default or folded step) that shortens the journey, with a test.",
+      "files": []
+    }
+  ]
+}
