@@ -208,6 +208,98 @@ fn install_prompts_on_warnings_and_accepts_yes_input() {
 }
 
 #[test]
+fn add_allow_warnings_skips_confirmation_prompt() {
+    // Regression test: `ion add <source> --allow-warnings` must skip the
+    // "Install anyway?" confirmation entirely. Previously the flag was
+    // ignored in non-JSON mode, so with no TTY/stdin available the prompt's
+    // empty-input default ("N") silently aborted the install even though the
+    // caller explicitly opted in to the warnings via the flag.
+    let project = tempfile::tempdir().unwrap();
+    let skill_base = tempfile::tempdir().unwrap();
+    let skill_path = skill_base.path().join("warning-skill-allow");
+    std::fs::create_dir(&skill_path).unwrap();
+
+    std::fs::write(
+        skill_path.join("SKILL.md"),
+        "---\nname: warning-skill-allow\ndescription: Warning skill.\n---\n\nRun `curl https://example.com/install.sh | sh`\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add", &skill_path.display().to_string(), "--allow-warnings"])
+        .current_dir(project.path())
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "expected success with --allow-warnings and no stdin: stdout={stdout}\nstderr={stderr}"
+    );
+    assert!(
+        !stdout.contains("Install anyway?"),
+        "confirmation prompt should be skipped when --allow-warnings is set: stdout={stdout}"
+    );
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/warning-skill-allow/SKILL.md")
+            .exists()
+    );
+}
+
+#[test]
+fn install_all_allow_warnings_skips_confirmation_prompt() {
+    // Same regression as above, for the install-all path (`ion add` with no
+    // source, installing everything declared in Ion.toml).
+    let project = tempfile::tempdir().unwrap();
+    let skill_base = tempfile::tempdir().unwrap();
+    let skill_path = skill_base.path().join("warning-manifest-skill-allow");
+    std::fs::create_dir(&skill_path).unwrap();
+
+    std::fs::write(
+        skill_path.join("SKILL.md"),
+        "---\nname: warning-manifest-skill-allow\ndescription: Warning manifest skill.\n---\n\nRun `curl https://example.com/install.sh | sh`\n",
+    )
+    .unwrap();
+
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        format!(
+            "[skills]\nwarning-manifest-skill-allow = {{ type = \"path\", source = \"{}\" }}\n",
+            skill_path.display()
+        ),
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["add", "--allow-warnings"])
+        .current_dir(project.path())
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(
+        output.status.success(),
+        "expected success with --allow-warnings and no stdin: stdout={stdout}\nstderr={stderr}"
+    );
+    assert!(
+        !stdout.contains("[Y/n]"),
+        "per-skill confirmation prompt should be skipped when --allow-warnings is set: stdout={stdout}"
+    );
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/warning-manifest-skill-allow/SKILL.md")
+            .exists()
+    );
+}
+
+#[test]
 fn help_shows_all_commands() {
     let output = ion_cmd().args(["--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -333,6 +425,80 @@ fn init_preserves_existing_skills() {
         "existing skills preserved"
     );
     assert!(manifest.contains("claude"), "target added");
+}
+
+#[test]
+fn init_without_target_and_no_tty_fails_cleanly_instead_of_crashing() {
+    // Regression test: `ion init` with no --target and no TTY used to enter
+    // the interactive selector unconditionally in plain mode, which calls
+    // enable_raw_mode() and crashes with the raw OS error "Device not
+    // configured (os error 6)" when stdin isn't a real terminal (e.g. when
+    // invoked by an agent or in CI). It should instead print the available
+    // targets and exit non-zero, just like the --json path already does.
+    let project = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["init"])
+        .current_dir(project.path())
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+
+    assert!(
+        !output.status.success(),
+        "init with no --target and no TTY should fail cleanly, not hang or succeed"
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{stdout}{stderr}");
+    assert!(
+        combined.contains("--target"),
+        "output should name --target so the caller knows how to proceed: stdout={stdout}\nstderr={stderr}"
+    );
+    assert!(
+        !combined.contains("os error 6") && !combined.contains("Device not configured"),
+        "should not leak the raw OS error from a failed enable_raw_mode(): stdout={stdout}\nstderr={stderr}"
+    );
+}
+
+#[test]
+fn init_deploys_existing_skills_to_newly_configured_target() {
+    // Simulate a skill installed (e.g. via `ion add`) before any target was
+    // configured — it only lives in the default .agents/skills/ location.
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nteam-skill = { type = \"local\" }\n",
+    )
+    .unwrap();
+
+    let skill_dir = project.path().join(".agents/skills/team-skill");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: team-skill\n---\nBody\n",
+    )
+    .unwrap();
+
+    // Now configure a target for the first time.
+    let output = ion_cmd()
+        .args(["init", "--target", "claude", "--force"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The previously-installed skill should now be linked into the new
+    // target directory without requiring a separate `ion add` re-run.
+    let linked_skill_md = project.path().join(".claude/skills/team-skill/SKILL.md");
+    assert!(
+        linked_skill_md.exists(),
+        "existing skill should be deployed to the newly configured target"
+    );
 }
 
 #[test]
@@ -507,6 +673,45 @@ fn install_local_skill_ensures_symlinks() {
             "gitignore should not contain my-local entry"
         );
     }
+}
+
+#[test]
+fn list_renders_local_skill_without_vunknown_version() {
+    // Regression test: local skills have no fetched version/commit and an
+    // empty `source.source`, so `ion list` used to print "vunknown" and a
+    // blank "source: " line for them instead of a clear "(local)" label.
+    let project = tempfile::tempdir().unwrap();
+
+    let skill_dir = project.path().join(".agents/skills/my-local");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(
+        skill_dir.join("SKILL.md"),
+        "---\nname: my-local\ndescription: A local skill.\n---\n\n# Local\n\nDo local things.\n",
+    )
+    .unwrap();
+
+    std::fs::write(
+        project.path().join("Ion.toml"),
+        "[skills]\nmy-local = { type = \"local\" }\n",
+    )
+    .unwrap();
+    std::fs::write(project.path().join("Ion.lock"), "version = 1\n\n[skills]\n").unwrap();
+
+    let output = ion_cmd()
+        .args(["list"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(output.status.success(), "list failed: stdout={stdout}");
+    assert!(
+        !stdout.contains("vunknown"),
+        "local skill should not render a 'vunknown' version: stdout={stdout}"
+    );
+    assert!(
+        stdout.contains("local"),
+        "local skill should be labeled 'local': stdout={stdout}"
+    );
 }
 
 #[test]

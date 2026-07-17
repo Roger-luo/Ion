@@ -54,6 +54,27 @@ pub fn run(json: bool, project_flags: &[String]) -> anyhow::Result<()> {
                     continue;
                 }
             };
+            let installed = project
+                .dir
+                .join(merged_options.skills_dir_or_default())
+                .join(name)
+                .exists();
+            let status = if installed {
+                p.success("installed")
+            } else {
+                p.warn("not installed")
+            };
+
+            // Local skills have no version/commit to report (they're managed
+            // directly by git, not by ion's fetch pipeline) and an empty
+            // `source.source` — printing them the same way as remote skills
+            // produced a misleading "vunknown" version and a blank source line.
+            if source.is_local() {
+                println!("  {} {} [{}]", p.bold(name), p.dim("(local)"), status);
+                println!("    source: {}", p.info("local"));
+                continue;
+            }
+
             let locked = lockfile.find(name);
 
             let is_binary = locked.is_some_and(|l| l.is_binary());
@@ -74,17 +95,6 @@ pub fn run(json: bool, project_flags: &[String]) -> anyhow::Result<()> {
                     .map(|c| &c[..c.len().min(8)])
                     .unwrap_or("none");
                 format!(" {}", p.dim(&format!("({commit_str})")))
-            };
-
-            let installed = project
-                .dir
-                .join(merged_options.skills_dir_or_default())
-                .join(name)
-                .exists();
-            let status = if installed {
-                p.success("installed")
-            } else {
-                p.warn("not installed")
             };
 
             let display_version = if version_str.starts_with('v') {

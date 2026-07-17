@@ -66,6 +66,8 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
 
         // Handle local skills first (they bypass validation)
         let mut non_local_skills = Vec::new();
+        let mut json_local_installed: Vec<serde_json::Value> = Vec::new();
+        let mut json_local_skipped: Vec<serde_json::Value> = Vec::new();
         for (name, entry) in &manifest.skills {
             let source = entry.resolve()?;
 
@@ -79,15 +81,23 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
                 };
 
                 if !local_skill_dir.exists() {
-                    println!(
-                        "  {} {} — local skill directory not found, skipping",
-                        p.warn("⚠"),
-                        p.bold(name),
-                    );
+                    if !json {
+                        println!(
+                            "  {} {} — local skill directory not found, skipping",
+                            p.warn("⚠"),
+                            p.bold(name),
+                        );
+                    }
+                    json_local_skipped.push(serde_json::json!({
+                        "name": name,
+                        "reason": "local_directory_not_found",
+                    }));
                     continue;
                 }
 
-                println!("  Installing {}...", p.bold(&format!("'{name}'")));
+                if !json {
+                    println!("  Installing {}...", p.bold(&format!("'{name}'")));
+                }
                 installer.deploy(name, &local_skill_dir)?;
 
                 let mut locked_local =
@@ -96,6 +106,7 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
                     locked_local = locked_local.with_checksum(checksum);
                 }
                 lockfile.upsert(locked_local);
+                json_local_installed.push(serde_json::json!({ "name": name }));
 
                 continue;
             }
@@ -107,7 +118,7 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
         let buckets = ValidationBuckets::collect(&installer, non_local_skills)?;
 
         // Phase 2: Display validation summary
-        if !buckets.is_empty() {
+        if !json && !buckets.is_empty() {
             print_validation_summary(&p, &buckets);
         }
 
@@ -132,8 +143,12 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
                         "hint": "Re-run with --allow-warnings to install these skills",
                     }),
                 );
-            } else if json && allow_warnings {
-                // In JSON mode with allow_warnings, install all warned skills
+            } else if allow_warnings {
+                // In JSON mode, or human mode with --allow-warnings: install
+                // all warned skills without prompting. The flag must skip
+                // the interactive selection too, not just the JSON
+                // action_required — otherwise it silently does nothing for
+                // a human-driven (or non-TTY) `ion add`.
                 vec![true; buckets.warned.len()]
             } else {
                 let items: Vec<(String, usize)> = buckets
@@ -174,7 +189,7 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
         )?;
 
         // Log skipped errored skills
-        let mut json_skipped: Vec<serde_json::Value> = Vec::new();
+        let mut json_skipped: Vec<serde_json::Value> = json_local_skipped;
         for (name, _) in &buckets.errored {
             if !json {
                 println!("  Skipping '{}' (validation errors)", name);
@@ -185,11 +200,13 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
         lockfile.write_to(&project.lockfile_path)?;
 
         if json {
-            let mut json_installed: Vec<serde_json::Value> = buckets
-                .clean
-                .iter()
-                .map(|e| serde_json::json!({ "name": e.name }))
-                .collect();
+            let mut json_installed: Vec<serde_json::Value> = json_local_installed;
+            json_installed.extend(
+                buckets
+                    .clean
+                    .iter()
+                    .map(|e| serde_json::json!({ "name": e.name })),
+            );
             for (i, (entry, _)) in buckets.warned.iter().enumerate() {
                 if warned_selections.get(i).copied().unwrap_or(false) {
                     json_installed.push(serde_json::json!({ "name": entry.name }));

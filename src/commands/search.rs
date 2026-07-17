@@ -397,13 +397,7 @@ fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, colo
         let has_more = i + 1 < lines.len();
 
         let display = if is_last_allowed && has_more {
-            let limit = width.saturating_sub(3);
-            let truncated = if line.len() > limit {
-                &line[..limit]
-            } else {
-                line.as_str()
-            };
-            format!("{truncated}...")
+            truncate_for_ellipsis(line, width)
         } else {
             line.clone()
         };
@@ -414,6 +408,32 @@ fn print_wrapped(text: &str, indent: usize, width: usize, max_lines: usize, colo
             println!("{prefix}{display}");
         }
     }
+}
+
+/// Truncate `line` to fit within `width` (byte) columns and append "...".
+/// Always cuts on a UTF-8 char boundary so multi-byte characters (e.g. CJK
+/// text that shows up in skill descriptions from the registry) are never
+/// split — slicing mid-character would panic ("byte index is not a char
+/// boundary").
+fn truncate_for_ellipsis(line: &str, width: usize) -> String {
+    let limit = width.saturating_sub(3);
+    let truncated = if line.len() > limit {
+        &line[..floor_char_boundary(line, limit)]
+    } else {
+        line
+    };
+    format!("{truncated}...")
+}
+
+/// Find the largest byte index `<= index` that lies on a UTF-8 char boundary
+/// of `s`. Used so we can safely slice `s` at `index` without panicking when
+/// `index` falls inside a multi-byte character.
+fn floor_char_boundary(s: &str, index: usize) -> usize {
+    let mut i = index.min(s.len());
+    while i > 0 && !s.is_char_boundary(i) {
+        i -= 1;
+    }
+    i
 }
 
 fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
@@ -489,4 +509,61 @@ fn pick_and_install(results: &[SearchResult]) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression test for a real panic hit while dogfooding `ion search`:
+    // a skills.sh result had a CJK description whose wrap width landed the
+    // truncation index in the middle of a multi-byte character, causing
+    // "byte index N is not a char boundary" in `print_wrapped`.
+    #[test]
+    fn truncate_for_ellipsis_does_not_split_multibyte_char() {
+        // "支持四引擎的PDF..." — each CJK char is 3 bytes in UTF-8. A byte-width
+        // limit can easily fall inside one of these characters.
+        let line = "支持四引擎的PDF处理工具支持四引擎的PDF处理工具";
+        for width in 0..40 {
+            // Must not panic for any width.
+            let result = truncate_for_ellipsis(line, width);
+            assert!(result.ends_with("..."));
+        }
+    }
+
+    #[test]
+    fn truncate_for_ellipsis_ascii_truncates_and_adds_ellipsis() {
+        let result = truncate_for_ellipsis("hello world", 8);
+        // limit = 8 - 3 = 5 bytes -> "hello" + "..."
+        assert_eq!(result, "hello...");
+    }
+
+    #[test]
+    fn truncate_for_ellipsis_short_line_still_gets_ellipsis() {
+        // Mirrors print_wrapped's behavior: when this is the last allowed
+        // line and there's more content beyond it, "..." is appended even
+        // if the line itself already fits within the limit.
+        let result = truncate_for_ellipsis("hi", 80);
+        assert_eq!(result, "hi...");
+    }
+
+    #[test]
+    fn floor_char_boundary_snaps_back_from_mid_character() {
+        let s = "a支b"; // 'a' (1 byte), '支' (3 bytes), 'b' (1 byte)
+        // Index 2 and 3 both fall inside/after '支' (which spans bytes 1..4).
+        assert_eq!(floor_char_boundary(s, 0), 0);
+        assert_eq!(floor_char_boundary(s, 1), 1); // right after 'a'
+        assert_eq!(floor_char_boundary(s, 2), 1); // inside '支' -> snaps back
+        assert_eq!(floor_char_boundary(s, 3), 1); // still inside '支'
+        assert_eq!(floor_char_boundary(s, 4), 4); // right after '支'
+        assert_eq!(floor_char_boundary(s, 100), s.len()); // clamps to len
+    }
+
+    #[test]
+    fn print_wrapped_does_not_panic_on_cjk_description() {
+        // End-to-end: this is the exact call shape used by print_single_result
+        // / print_repo_group with a description that previously panicked.
+        let desc = "支持四引擎的PDF处理工具，可以提取文本和表格并转换格式的强大助手";
+        print_wrapped(desc, 4, 20, 2, false);
+    }
 }

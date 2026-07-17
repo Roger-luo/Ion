@@ -334,6 +334,19 @@ impl SkillSource {
             }
         }
 
+        // Other git remote forms: self-hosted servers (GitLab, Bitbucket, Gitea,
+        // internal git hosts) and local bare repos aren't always reachable over
+        // https://. Recognize the standard git transports and SCP-like syntax
+        // (`git@host:owner/repo.git`) so these clone correctly instead of being
+        // misparsed as a GitHub "owner/repo" shorthand.
+        if source.starts_with("ssh://")
+            || source.starts_with("git://")
+            || source.starts_with("file://")
+            || (source.starts_with("git@") && source.contains(':'))
+        {
+            return Ok(Self::git(source));
+        }
+
         // Shorthand: owner/repo or owner/repo/skill-path
         let segments: Vec<&str> = source.split('/').collect();
         match segments.len() {
@@ -454,6 +467,39 @@ mod tests {
     fn infer_single_segment_is_error() {
         let result = SkillSource::infer("brainstorming");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn infer_ssh_git_url() {
+        let s = SkillSource::infer("ssh://git@gitlab.example.com/team/skills.git").unwrap();
+        assert!(matches!(s.kind, SkillSourceKind::Git));
+        assert_eq!(
+            s.git_url().unwrap(),
+            "ssh://git@gitlab.example.com/team/skills.git"
+        );
+    }
+
+    #[test]
+    fn infer_scp_style_git_url() {
+        let s = SkillSource::infer("git@gitlab.example.com:team/skills.git").unwrap();
+        assert!(matches!(s.kind, SkillSourceKind::Git));
+        assert_eq!(
+            s.git_url().unwrap(),
+            "git@gitlab.example.com:team/skills.git"
+        );
+    }
+
+    #[test]
+    fn infer_file_url() {
+        let s = SkillSource::infer("file:///srv/git/team-skills.git").unwrap();
+        assert!(matches!(s.kind, SkillSourceKind::Git));
+        assert_eq!(s.git_url().unwrap(), "file:///srv/git/team-skills.git");
+    }
+
+    #[test]
+    fn infer_git_protocol_url() {
+        let s = SkillSource::infer("git://example.com/team/skills.git").unwrap();
+        assert!(matches!(s.kind, SkillSourceKind::Git));
     }
 
     #[test]

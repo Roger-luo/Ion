@@ -52,17 +52,19 @@ pub fn unregister_from_registry(
 }
 
 /// Install a skill, handling validation warnings interactively.
+#[allow(clippy::too_many_arguments)]
 pub fn install_with_warning_prompt(
     installer: &SkillInstaller,
     name: &str,
     source: &SkillSource,
     json: bool,
     allow_warnings: bool,
+    p: &Paint,
 ) -> anyhow::Result<LockedSkill> {
     match installer.install(name, source) {
         Ok(locked) => Ok(locked),
         Err(SkillError::ValidationWarning { report, .. }) => {
-            handle_validation_warnings(name, &report, json, allow_warnings)?;
+            handle_validation_warnings(name, &report, json, allow_warnings, p)?;
             let locked = installer.install_with_options(
                 name,
                 source,
@@ -78,27 +80,41 @@ pub fn install_with_warning_prompt(
 }
 
 /// Display validation warnings and prompt for confirmation (or exit in JSON mode).
+///
+/// `allow_warnings` (the `--allow-warnings` flag) must short-circuit both
+/// channels: in `--json` mode it skips the `action_required` exit, and in
+/// human mode it skips the confirmation prompt entirely (previously the
+/// plain-text path prompted unconditionally, silently ignoring the flag for
+/// interactive/non-TTY callers).
 pub fn handle_validation_warnings(
     name: &str,
     report: &ValidationReport,
     json: bool,
     allow_warnings: bool,
+    p: &Paint,
 ) -> anyhow::Result<()> {
-    if json && !allow_warnings {
+    if allow_warnings {
+        return Ok(());
+    }
+
+    const HINT: &str = "Re-run with --allow-warnings to install despite these warnings.";
+
+    if json {
         crate::json::print_action_required(
             "validation_warnings",
             serde_json::json!({
                 "skill": name,
                 "warnings": &report.findings,
+                "hint": HINT,
             }),
         );
         // print_action_required calls process::exit, so this is unreachable
     }
-    if !json {
-        print_validation_report(name, report);
-        if !confirm_install_on_warnings()? {
-            anyhow::bail!("Installation cancelled due to validation warnings.");
-        }
+
+    print_validation_report(name, report);
+    println!("  {}: {HINT}", p.warn("hint"));
+    if !confirm_install_on_warnings()? {
+        anyhow::bail!("Installation cancelled due to validation warnings. {HINT}");
     }
     Ok(())
 }

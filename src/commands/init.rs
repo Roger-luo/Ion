@@ -202,6 +202,22 @@ pub fn run(
                 "hint": "Re-run with --target flags to select targets",
             }),
         );
+    } else if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        // No --target flags and no interactive terminal available (e.g. piped
+        // stdin/stdout, CI, or an agent invoking `ion init` directly). The
+        // interactive selector needs a real TTY in raw mode — entering it
+        // here would crash with "Device not configured" (ENOTTY). Print the
+        // available targets instead and ask the caller to pick explicitly,
+        // mirroring the --json path's action_required above.
+        println!("No target specified and no interactive terminal available.");
+        println!();
+        println!("Available targets:");
+        for (name, _dir, path) in KNOWN_TARGETS {
+            println!("  {name} -> {path}");
+        }
+        println!();
+        println!("Re-run with --target <name> to select targets (e.g. --target claude).");
+        anyhow::bail!("no targets selected; re-run with --target <name>");
     } else {
         match select_targets_interactive(&project.dir)? {
             Some(targets) => targets,
@@ -216,6 +232,22 @@ pub fn run(
     let manifest = project.manifest_or_empty()?;
     let merged_options = ws.merged_options_for(&project)?;
     ws.ensure_builtin_skill(&project, &merged_options);
+
+    // Re-deploy already-installed skills to the (newly) configured targets.
+    // Without this, skills added via `ion add` before any target existed —
+    // or before this target was configured — would stay invisible to that
+    // agent tool until the user manually reran `ion add` for every skill.
+    // `deploy()` only creates missing symlinks, so this is a cheap no-op for
+    // skills that are already fully linked.
+    if !resolved.is_empty() {
+        let installer = ion_skill::installer::SkillInstaller::new(&project.dir, &merged_options);
+        for name in manifest.skills.keys() {
+            let skill_dir = installer.skill_dir(name);
+            if skill_dir.exists() {
+                let _ = installer.deploy(name, &skill_dir);
+            }
+        }
+    }
 
     // Create agent file symlinks (e.g. CLAUDE.md -> AGENTS.md)
     if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
