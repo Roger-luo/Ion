@@ -443,6 +443,43 @@ fn init_with_target_flag_pty() {
 }
 
 #[test]
+fn init_prints_next_step_hint() {
+    // A human finishing `init` should be told the natural next move, not left at
+    // a bare file-list confirmation.
+    let tmp = tempfile::tempdir().unwrap();
+    let output = ion()
+        .args(["init", "-t", "claude"])
+        .current_dir(tmp.path())
+        .run()
+        .unwrap();
+    assert!(output.success());
+    let stdout = output.stdout();
+    assert!(
+        stdout.contains("Next") && stdout.contains("ion add"),
+        "init should print a next-step hint naming `ion add`:\n{stdout}"
+    );
+}
+
+#[test]
+fn init_no_tty_marks_detected_targets() {
+    // In a repo that already has a `.claude/` directory, the no-TTY target list
+    // shown to a human should mark that target as detected — mirroring the
+    // `detected` flag the --json channel already exposes.
+    let tmp = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(tmp.path().join(".claude")).unwrap();
+    let output = ion().args(["init"]).current_dir(tmp.path()).run().unwrap();
+    assert!(
+        !output.success(),
+        "no target + no TTY should be a soft error"
+    );
+    let stdout = output.stdout();
+    assert!(
+        stdout.contains("claude") && stdout.contains("detected"),
+        "human target list should mark detected targets:\n{stdout}"
+    );
+}
+
+#[test]
 fn init_json_without_target_action_required() {
     let tmp = tempfile::tempdir().unwrap();
     let output = ion()

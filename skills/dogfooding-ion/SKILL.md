@@ -280,12 +280,28 @@ rather than re-deriving them.
 | `ion init` didn't link already-installed skills to a *newly*-configured target — they stayed invisible to that tool, no error | ergonomics (dead-end) | re-`deploy()` tracked skills after a target is added — `src/commands/init.rs` |
 | `ion list` rendered local skills as `vunknown` with a blank `source:` | human | show `(local)` / `source: local` — `src/commands/list.rs` |
 
-Still open from that pass (documented, not yet fixed): commands ending at a bare
-file list with no next-step line (`init`/`add`/`new` cold start), empty `ion
-list` giving no pointer to `ion init`, and `ion migrate` re-prompting for skills
-already registered as local. These are the natural next targets — the
-*progressive-prompting* core — and they want careful, general next-step logic
-(that respects actual state), not a quick hard-coded line.
+## Confirmed & fixed (second pass, 2026-07 — `ion init` journey)
+
+Driving `ion init` on a real project (a repo that already had `.claude/` and
+the built-in `ion-cli` deployed but no manifest) surfaced these and fixed them.
+
+| Symptom | Lens | Fix + where it lives |
+|---|---|---|
+| `ion init` ended at a bare "Created Ion.toml with N target(s)" file-list with **no next step** — neither the human text nor the `--json` envelope told the reader to add a skill | prompting (both channels) | state-aware next-step: fresh project → `ion add <source>` / `ion search <query>`; skills already declared → `ion add`. One source of truth (`next_steps_after_init`) rendered to human text *and* a new JSON `data.next` array — `src/commands/init.rs` |
+| No-TTY `ion init` (no `--target`) exposed a per-target `detected` flag to the agent in `--json`, but the human plain-text target list gave no such signal and the recovery example hard-coded `--target claude` | prompting (channel mismatch) | mark `(detected)` on targets whose dir already exists in the repo, and prefer a detected target in the `--target <name>` example — `src/commands/init.rs` |
+
+Note on `ion-cli = { type = "local" }`: the built-in skill is *intentionally*
+registered as `local` (see `builtin_skill::ensure_installed`) so it's skipped by
+fetch/validate/update and refreshed via `refresh_global` — not a bug. Callers
+reasoning about *user* skills should exclude `builtin_skill::SKILL_NAME` (the
+init next-step counter now does).
+
+Still open (documented, not yet fixed): `ion add`/`ion new` cold start still end
+without a next-step line (only `init` is now covered), empty `ion list` gives no
+pointer to `ion init`, and `ion migrate` re-prompts for skills already registered
+as local. These remain the natural next targets — the *progressive-prompting*
+core — and want careful, general next-step logic (that respects actual state),
+not a quick hard-coded line.
 
 ## Guidelines
 

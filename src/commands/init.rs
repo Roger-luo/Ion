@@ -107,6 +107,41 @@ pub fn print_no_targets_hint(
     }
 }
 
+/// The next-step commands to suggest after a successful `init`, tailored to
+/// whether the project already has user skills registered. Returned as plain
+/// command strings so the human text and the JSON `next` field render from a
+/// single source of truth.
+fn next_steps_after_init(real_skill_count: usize) -> Vec<&'static str> {
+    if real_skill_count > 0 {
+        // Skills are already declared in Ion.toml (e.g. a re-init, or a repo
+        // cloned with a manifest) — the next move is to install them.
+        vec!["ion add"]
+    } else {
+        // Fresh project with no user skills yet — point at discovering/adding
+        // the first one.
+        vec!["ion add <source>", "ion search <query>"]
+    }
+}
+
+/// Print the next-step guidance after a successful `init` (human channel).
+fn print_next_steps_after_init(p: &crate::style::Paint, real_skill_count: usize) {
+    println!();
+    if real_skill_count > 0 {
+        println!(
+            "  {}: install the skills declared in Ion.toml — {}",
+            p.bold("Next"),
+            p.bold("ion add")
+        );
+    } else {
+        println!(
+            "  {}: add your first skill — {} (browse skills with {})",
+            p.bold("Next"),
+            p.bold("ion add <source>"),
+            p.bold("ion search <query>")
+        );
+    }
+}
+
 /// Detect likely built-in AGENTS.md template from project files.
 fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
     let has_cargo = dir.join("Cargo.toml").exists();
@@ -212,11 +247,25 @@ pub fn run(
         println!("No target specified and no interactive terminal available.");
         println!();
         println!("Available targets:");
-        for (name, _dir, path) in KNOWN_TARGETS {
-            println!("  {name} -> {path}");
+        // Mark targets whose directory already exists in this project. This
+        // mirrors the `detected` flag the --json channel exposes, so a human
+        // reading the plain-text list gets the same signal an agent does.
+        let mut first_detected: Option<&str> = None;
+        for (name, dir, path) in KNOWN_TARGETS {
+            if project.dir.join(dir).exists() {
+                if first_detected.is_none() {
+                    first_detected = Some(name);
+                }
+                println!("  {name} -> {path} {}", p.dim("(detected)"));
+            } else {
+                println!("  {name} -> {path}");
+            }
         }
         println!();
-        println!("Re-run with --target <name> to select targets (e.g. --target claude).");
+        // Prefer a detected target in the example so the recovery command lands
+        // on the tool this repo is already set up for.
+        let example = first_detected.unwrap_or("claude");
+        println!("Re-run with --target <name> to select targets (e.g. --target {example}).");
         anyhow::bail!("no targets selected; re-run with --target <name>");
     } else {
         match select_targets_interactive(&project.dir)? {
@@ -317,11 +366,22 @@ pub fn run(
         None
     };
 
+    // Count user skills registered in the manifest (excluding the built-in
+    // ion-cli, which Ion manages itself). This decides which next step to
+    // suggest: install existing skills, or add the first one.
+    let real_skill_count = manifest
+        .skills
+        .keys()
+        .filter(|n| n.as_str() != crate::builtin_skill::SKILL_NAME)
+        .count();
+    let next = next_steps_after_init(real_skill_count);
+
     if json {
         crate::json::print_success(serde_json::json!({
             "targets": resolved,
             "manifest": "Ion.toml",
             "agents_template": agents_template_used,
+            "next": next,
         }));
         return Ok(());
     }
@@ -343,6 +403,8 @@ pub fn run(
     if resolved.keys().any(|k| k.eq_ignore_ascii_case("codex")) {
         print_codex_hint(&p);
     }
+
+    print_next_steps_after_init(&p, real_skill_count);
 
     Ok(())
 }
