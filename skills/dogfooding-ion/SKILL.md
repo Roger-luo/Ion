@@ -296,6 +296,28 @@ fetch/validate/update and refreshed via `refresh_global` — not a bug. Callers
 reasoning about *user* skills should exclude `builtin_skill::SKILL_NAME` (the
 init next-step counter now does).
 
+## Confirmed & fixed (third pass, 2026-07 — `ion init` AGENTS.md handling)
+
+`ion init` only offered AGENTS.md setup interactively (TTY-gated) *and* only
+when a language template was detected — so on a piped/agent run, or a project
+with no recognized stack, it silently created no AGENTS.md and never migrated an
+existing CLAUDE.md. Reworked so init *always* ensures an ion-managed AGENTS.md.
+
+| Symptom | Lens | Fix + where it lives |
+|---|---|---|
+| `ion init` created no AGENTS.md unless run in a TTY *and* a language template matched; agent/CI runs and generic projects got nothing | ergonomics (dead-end) | always ensure AGENTS.md in every channel; new `builtin:generic` fallback template — `crates/ion-skill/src/templates/generic.md`, `templates.rs`, `src/commands/init.rs` `ensure_agents_md` |
+| `ion init` never migrated an existing `CLAUDE.md` (only `ion migrate` did) — a repo with hand-written CLAUDE.md stayed unmanaged after init | ergonomics | init reconciles CLAUDE.md silently: rename→AGENTS.md + symlink back, or skip a genuine two-file conflict with an init-appropriate note — `ensure_agents_md` + `migrate_claude_md` gains a `rename_without_prompt` param |
+| After scaffolding from a template, nothing told the human/agent the file has placeholders to fill in | prompting (both channels) | when a template was applied, the first `next` step (human list + JSON `data.next`) is "Fill in AGENTS.md …" — `next_steps_after_init` keyed on `AgentsMdOutcome::created_from_template()` |
+| init's JSON success lacked any AGENTS.md signal for agents | agent | added `data.agents_md` = `{action: created\|migrated\|existing\|skipped\|disabled, template?}` mirroring the human summary — `src/commands/init.rs`, contract doc `skills/ion-cli/SKILL.md.j2` + `build.rs` |
+
+Design notes: `agents init`'s file-work was extracted into a non-printing
+`agents::apply_template` so both `agents init` and `ion init` share it without
+double-emitting a JSON envelope (the first-pass purity trap). An existing
+hand-written AGENTS.md is made ion-managed by symlink only — no `[agents]`
+template is attached to the user's own content (that would produce a misleading
+`ion agents diff`). `--no-agents` opts out of the whole thing. `ion migrate`'s
+conservative `--yes` behavior (skip the rename) is preserved via the new param.
+
 Still open (documented, not yet fixed): `ion add`/`ion new` cold start still end
 without a next-step line (only `init` is now covered), empty `ion list` gives no
 pointer to `ion init`, and `ion migrate` re-prompts for skills already registered

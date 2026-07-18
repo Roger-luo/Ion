@@ -619,5 +619,7 @@ fn migrate_agents_md(
     json: bool,
     yes: bool,
 ) -> anyhow::Result<Option<crate::commands::agents::AgentsMdAction>> {
-    crate::commands::agents::migrate_claude_md(project_dir, p, json, yes)
+    // `ion migrate` keeps the rename as an explicit choice: with --yes it skips
+    // the CLAUDE.md → AGENTS.md rename rather than performing it silently.
+    crate::commands::agents::migrate_claude_md(project_dir, p, json, yes, false)
 }

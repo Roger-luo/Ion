@@ -125,7 +125,7 @@ fn init_creates_claude_symlink_when_agents_md_exists() {
 }
 
 #[test]
-fn init_no_symlink_without_agents_md() {
+fn init_creates_agents_md_and_symlink_by_default() {
     let project = tempfile::tempdir().unwrap();
 
     let output = ion_cmd()
@@ -135,6 +135,32 @@ fn init_no_symlink_without_agents_md() {
         .unwrap();
     assert!(output.status.success());
 
+    // init now scaffolds an ion-managed AGENTS.md and links CLAUDE.md to it.
+    assert!(
+        project.path().join("AGENTS.md").exists(),
+        "init should create AGENTS.md by default"
+    );
+    let meta = std::fs::symlink_metadata(project.path().join("CLAUDE.md")).unwrap();
+    assert!(
+        meta.is_symlink(),
+        "CLAUDE.md should be a symlink to AGENTS.md"
+    );
+}
+
+#[test]
+fn init_no_symlink_when_agents_disabled() {
+    // Invariant: never a dangling CLAUDE.md symlink without an AGENTS.md.
+    // With --no-agents, init creates neither file.
+    let project = tempfile::tempdir().unwrap();
+
+    let output = ion_cmd()
+        .args(["init", "--target", "claude", "--no-agents"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+
+    assert!(!project.path().join("AGENTS.md").exists());
     assert!(
         !project.path().join("CLAUDE.md").exists(),
         "CLAUDE.md should not exist without AGENTS.md"

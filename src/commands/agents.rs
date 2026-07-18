@@ -89,6 +89,103 @@ pub fn deploy_agents_update_skill(
     Ok(())
 }
 
+/// Result of applying an AGENTS.md template to a project.
+pub(crate) struct TemplateSetup {
+    /// Canonical template source recorded in Ion.toml (e.g. `builtin:rust`).
+    pub template: String,
+    /// True if a fresh AGENTS.md was written; false if AGENTS.md already
+    /// existed and the template was staged as `.agents/templates/AGENTS.md.upstream`.
+    pub created: bool,
+}
+
+/// Fetch a template and apply it to the project: write (or stage) AGENTS.md,
+/// record `[agents]` config + lock entry, gitignore the upstream staging file,
+/// create agent symlinks, and deploy the agents-update skill.
+///
+/// Performs no printing so it can be reused by both `agents init` (which prints
+/// a human summary or a JSON envelope) and `ion init` (which folds the result
+/// into its own output). The caller must reject a project that already has an
+/// `[agents]` template configured.
+pub(crate) fn apply_template(
+    project: &Project,
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    global_config: &GlobalConfig,
+    source: &str,
+    rev: Option<&str>,
+    path: Option<&str>,
+) -> anyhow::Result<TemplateSetup> {
+    // Resolve built-in vs remote source and fetch the template content.
+    let (fetched, canonical_source) = if let Some(name) =
+        ion_skill::templates::parse_builtin_name(source)
+    {
+        if rev.is_some() {
+            anyhow::bail!("--rev cannot be used with built-in templates");
+        }
+        if path.is_some() {
+            anyhow::bail!("--path cannot be used with built-in templates");
+        }
+        let fetched = ion_skill::agents::fetch_builtin_template(name)?;
+        (fetched, format!("builtin:{name}"))
+    } else {
+        let resolved_source = global_config.resolve_source(source);
+        let fetched = ion_skill::agents::fetch_template(&resolved_source, rev, path, &project.dir)?;
+        (fetched, source.to_string())
+    };
+
+    let agents_md_path = project.dir.join("AGENTS.md");
+    let upstream_dir = project.dir.join(".agents/templates");
+    let upstream_path = upstream_dir.join("AGENTS.md.upstream");
+    let already_existed = agents_md_path.exists();
+
+    if already_existed {
+        // Existing AGENTS.md — stage upstream for merging rather than clobber it.
+        std::fs::create_dir_all(&upstream_dir)?;
+        std::fs::write(&upstream_path, &fetched.content)?;
+    } else {
+        std::fs::write(&agents_md_path, &fetched.content)?;
+    }
+
+    // Record [agents] config + lock entry.
+    ion_skill::manifest_writer::write_agents_config(
+        &project.manifest_path,
+        &canonical_source,
+        rev,
+        path,
+    )?;
+    let mut lockfile = project.lockfile()?;
+    lockfile.agents = Some(ion_skill::agents::AgentsLockEntry {
+        template: canonical_source.clone(),
+        rev: fetched.rev,
+        checksum: fetched.checksum,
+        updated_at: ion_skill::agents::now_iso8601(),
+    });
+    lockfile.write_to(&project.lockfile_path)?;
+
+    // Gitignore the upstream staging file.
+    let entries = [".agents/templates/AGENTS.md.upstream"];
+    let missing = ion_skill::gitignore::find_missing_gitignore_entries(&project.dir, &entries)?;
+    if !missing.is_empty() {
+        let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
+        ion_skill::gitignore::append_to_gitignore(&project.dir, &refs)?;
+    }
+
+    // Create agent symlinks (e.g. CLAUDE.md -> AGENTS.md).
+    if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
+    {
+        log::warn!("Failed to create agent symlinks: {e}");
+    }
+
+    // Deploy the agents-update built-in skill.
+    if let Err(e) = deploy_agents_update_skill(project, merged_options) {
+        log::warn!("Failed to deploy agents-update skill: {e}");
+    }
+
+    Ok(TemplateSetup {
+        template: canonical_source,
+        created: !already_existed,
+    })
+}
+
 pub fn init(
     source: &str,
     rev: Option<&str>,
@@ -110,98 +207,36 @@ pub fn init(
         );
     }
 
-    // Detect built-in templates and normalize the source name
-    let (fetched, canonical_source) = if let Some(name) =
-        ion_skill::templates::parse_builtin_name(source)
-    {
-        if rev.is_some() {
-            anyhow::bail!("--rev cannot be used with built-in templates");
-        }
-        if path.is_some() {
-            anyhow::bail!("--path cannot be used with built-in templates");
-        }
-        let fetched = ion_skill::agents::fetch_builtin_template(name)?;
-        let canonical = format!("builtin:{name}");
-        (fetched, canonical)
-    } else {
-        let resolved_source = ws.global_config.resolve_source(source);
-        let fetched = ion_skill::agents::fetch_template(&resolved_source, rev, path, &project.dir)?;
-        (fetched, source.to_string())
-    };
-
-    let agents_md_path = project.dir.join("AGENTS.md");
-    let upstream_dir = project.dir.join(".agents/templates");
-    let upstream_path = upstream_dir.join("AGENTS.md.upstream");
-    let already_existed = agents_md_path.exists();
-
-    if already_existed {
-        // Existing AGENTS.md — stage upstream for merging
-        std::fs::create_dir_all(&upstream_dir)?;
-        std::fs::write(&upstream_path, &fetched.content)?;
-        if !json {
-            println!(
-                "{} AGENTS.md already exists — upstream template staged to {}",
-                p.warn("note:"),
-                p.dim(".agents/templates/AGENTS.md.upstream")
-            );
-            println!("  Merge changes manually or ask your agent to help.");
-        }
-    } else {
-        // No existing AGENTS.md — copy as starting point
-        std::fs::write(&agents_md_path, &fetched.content)?;
-        if !json {
-            println!("{} AGENTS.md from template", p.success("Created"));
-        }
-    }
-
-    // Write [agents] to Ion.toml
-    ion_skill::manifest_writer::write_agents_config(
-        &project.manifest_path,
-        &canonical_source,
+    let agents_md_existed = project.dir.join("AGENTS.md").exists();
+    let merged_options = ws.merged_options_for(project)?;
+    let setup = apply_template(
+        project,
+        &merged_options,
+        &ws.global_config,
+        source,
         rev,
         path,
     )?;
 
-    // Write lock entry
-    let mut lockfile = project.lockfile()?;
-    lockfile.agents = Some(ion_skill::agents::AgentsLockEntry {
-        template: canonical_source.clone(),
-        rev: fetched.rev,
-        checksum: fetched.checksum,
-        updated_at: ion_skill::agents::now_iso8601(),
-    });
-    lockfile.write_to(&project.lockfile_path)?;
-
-    // Add specific gitignore entry for the upstream staging file
-    let entries = [".agents/templates/AGENTS.md.upstream"];
-    let missing = ion_skill::gitignore::find_missing_gitignore_entries(&project.dir, &entries)?;
-    if !missing.is_empty() {
-        let refs: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
-        ion_skill::gitignore::append_to_gitignore(&project.dir, &refs)?;
-    }
-
-    // Create agent symlinks (e.g. CLAUDE.md -> AGENTS.md)
-    let merged_options = ws.merged_options_for(project)?;
-    if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
-    {
-        log::warn!("Failed to create agent symlinks: {e}");
-    }
-
-    // Deploy agents-update built-in skill
-    if let Err(e) = deploy_agents_update_skill(project, &merged_options) {
-        log::warn!("Failed to deploy agents-update skill: {e}");
-    }
-
-    if !json {
-        println!("  {} Ion.toml with template source", p.success("Updated"));
-    }
-
     if json {
         crate::json::print_success(serde_json::json!({
-            "template": canonical_source,
-            "agents_md_created": !already_existed,
+            "template": setup.template,
+            "agents_md_created": setup.created,
         }));
+        return Ok(());
     }
+
+    if agents_md_existed {
+        println!(
+            "{} AGENTS.md already exists — upstream template staged to {}",
+            p.warn("note:"),
+            p.dim(".agents/templates/AGENTS.md.upstream")
+        );
+        println!("  Merge changes manually or ask your agent to help.");
+    } else {
+        println!("{} AGENTS.md from template", p.success("Created"));
+    }
+    println!("  {} Ion.toml with template source", p.success("Updated"));
 
     Ok(())
 }
@@ -485,6 +520,7 @@ pub(crate) fn migrate_claude_md(
     p: &Paint,
     json: bool,
     yes: bool,
+    rename_without_prompt: bool,
 ) -> anyhow::Result<Option<AgentsMdAction>> {
     let agents_path = project_dir.join("AGENTS.md");
     let claude_path = project_dir.join("CLAUDE.md");
@@ -599,6 +635,19 @@ pub(crate) fn migrate_claude_md(
         // No AGENTS.md + CLAUDE.md has real content → rename.
         (false, false) => {
             if yes || json {
+                // Non-interactive. When the caller opts in (e.g. `ion init`),
+                // perform the unambiguous rename directly; otherwise (e.g.
+                // `ion migrate --yes`) leave the rename as an explicit choice.
+                if rename_without_prompt {
+                    std::fs::rename(&claude_path, &agents_path)?;
+                    #[cfg(unix)]
+                    std::os::unix::fs::symlink("AGENTS.md", &claude_path)?;
+                    ion_skill::gitignore::ensure_agent_file_ignored(project_dir, "CLAUDE.md")?;
+                    if !json {
+                        println!("  Renamed CLAUDE.md to AGENTS.md, created symlink.");
+                    }
+                    return Ok(Some(AgentsMdAction::Renamed { backup: None }));
+                }
                 let reason =
                     "CLAUDE.md has content but no AGENTS.md — run without --yes to confirm rename"
                         .to_string();

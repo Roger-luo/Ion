@@ -8,11 +8,20 @@
 pub const BUILTIN_PREFIX: &str = "builtin:";
 
 /// List of available built-in template names.
-pub const AVAILABLE: &[&str] = &["rust", "python", "julia", "typescript", "rust+python"];
+pub const AVAILABLE: &[&str] = &[
+    "generic",
+    "rust",
+    "python",
+    "julia",
+    "typescript",
+    "rust+python",
+];
 
 /// Return the embedded template content for a given name, or `None` if unknown.
 pub fn get(name: &str) -> Option<&'static str> {
     match name {
+        // Fallback scaffold used when no language-specific template matches.
+        "generic" => Some(include_str!("templates/generic.md")),
         "rust" => Some(include_str!("templates/rust.md")),
         "python" => Some(include_str!("templates/python.md")),
         "julia" => Some(include_str!("templates/julia.md")),
