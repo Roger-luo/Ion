@@ -19,3 +19,4 @@ writing-plans = { source = "obra/superpowers/writing-plans" }
 writing-skills = { source = "obra/superpowers/writing-skills" }
 ion-cli = { type = "local" }
 frontend-design = { source = "anthropics/skills/frontend-design" }
+dogfooding-ion = "skills/dogfooding-ion"

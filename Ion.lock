@@ -15,6 +15,12 @@ commit = "eafe962b18f6c5dc70fb7c8cc7e83e61f4cdde06"
 checksum = "sha256:e21044ae7496fc285f1df9ff3fb518a3a20bea6f5216c1f59f4987e12c769a0a"
 
 [[skill]]
+name = "dogfooding-ion"
+source = "skills/dogfooding-ion"
+kind = "path"
+checksum = "sha256:d4244fc3d913db33f5991eae543541dff6932f97dc94ab8f8491c9d605af543c"
+
+[[skill]]
 name = "executing-plans"
 source = "https://github.com/obra/superpowers.git"
 kind = "git"
