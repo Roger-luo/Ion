@@ -72,6 +72,50 @@ fn add_and_remove_local_skill() {
 }
 
 #[test]
+fn link_local_skill_with_relative_path() {
+    // Regression: `ion skill link <relative-path>` used to fail with
+    // "Cannot compute relative path" because the path source wasn't resolved
+    // to an absolute path before computing the deploy symlink.
+    let project = tempfile::tempdir().unwrap();
+    let skill_path = project.path().join("skills/my-skill");
+    std::fs::create_dir_all(&skill_path).unwrap();
+    std::fs::write(
+        skill_path.join("SKILL.md"),
+        "---\nname: my-skill\ndescription: Relative-path link test skill.\n---\n\n# Body\n",
+    )
+    .unwrap();
+
+    let output = ion_cmd()
+        .args(["skill", "link", "skills/my-skill"])
+        .current_dir(project.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "link failed: stdout={stdout}\nstderr={stderr}"
+    );
+
+    // Registered in Ion.toml with the relative source preserved.
+    let toml = std::fs::read_to_string(project.path().join("Ion.toml")).unwrap();
+    assert!(toml.contains("my-skill"), "Ion.toml missing skill: {toml}");
+    assert!(
+        toml.contains("skills/my-skill"),
+        "Ion.toml should keep the relative source: {toml}"
+    );
+
+    // Canonical deploy symlink resolves to the tracked source.
+    assert!(
+        project
+            .path()
+            .join(".agents/skills/my-skill/SKILL.md")
+            .exists(),
+        "deployed skill should resolve via symlink"
+    );
+}
+
+#[test]
 fn install_from_manifest() {
     let project = tempfile::tempdir().unwrap();
     let skill_base = tempfile::tempdir().unwrap();

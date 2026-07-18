@@ -498,6 +498,17 @@ pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
     if path.exists() { Some(path) } else { None }
 }
 
+/// Resolve a possibly-relative path to an absolute one against the current
+/// working directory, without resolving symlinks (so a symlinked skill dir
+/// keeps pointing at its real location for later diffing).
+fn absolutize(path: PathBuf) -> Result<PathBuf> {
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Ok(std::env::current_dir().map_err(Error::Io)?.join(path))
+    }
+}
+
 /// Fetch a source to its cached repo directory (for git sources) or local path.
 /// Does NOT resolve the skill path within the repo.
 fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
@@ -523,7 +534,10 @@ fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
                     source.source
                 )));
             }
-            Ok(path)
+            // Resolve to an absolute path so downstream symlink deployment can
+            // diff it against the (absolute) target dirs. The stored Ion.toml
+            // source stays relative; only the fetched path is absolutized.
+            Ok(absolutize(path)?)
         }
         SkillSourceKind::Http => fetch_http_skill(source),
         SkillSourceKind::Binary { .. } => Err(Error::Source(
