@@ -942,18 +942,18 @@ fi
 
     #[test]
     fn test_match_asset_with_pattern() {
-        let assets = vec![
-            "mytool-1.0.0-linux-x86_64.tar.gz".to_string(),
-            "mytool-1.0.0-macos-aarch64.tar.gz".to_string(),
-        ];
         let platform = Platform::detect();
         let expanded =
             expand_url_template("mytool-{version}-{os}-{arch}.tar.gz", "mytool", "1.0.0");
         let expected = format!("mytool-1.0.0-{}-{}.tar.gz", platform.os, platform.arch);
         assert_eq!(expanded, expected);
-        if assets.contains(&expanded) {
-            assert!(true);
-        }
+
+        // The expanded name must match the asset published for this platform.
+        let assets = [
+            "mytool-1.0.0-other-os-other-arch.tar.gz".to_string(),
+            expected.clone(),
+        ];
+        assert!(assets.contains(&expanded));
     }
 
     #[test]

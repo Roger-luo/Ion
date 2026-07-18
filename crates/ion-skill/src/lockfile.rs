@@ -633,13 +633,15 @@ kind = "local"
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("Ion.lock");
 
-        let mut lockfile = Lockfile::default();
-        lockfile.agents = Some(crate::agents::AgentsLockEntry {
-            template: "org/agents-templates".to_string(),
-            rev: Some("abc123".to_string()),
-            checksum: "sha256:deadbeef".to_string(),
-            updated_at: "2026-03-27T00:00:00Z".to_string(),
-        });
+        let lockfile = Lockfile {
+            agents: Some(crate::agents::AgentsLockEntry {
+                template: "org/agents-templates".to_string(),
+                rev: Some("abc123".to_string()),
+                checksum: "sha256:deadbeef".to_string(),
+                updated_at: "2026-03-27T00:00:00Z".to_string(),
+            }),
+            ..Default::default()
+        };
 
         lockfile.write_to(&path).unwrap();
         let loaded = Lockfile::from_file(&path).unwrap();

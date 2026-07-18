@@ -34,6 +34,10 @@ serde_json.workspace = true
 
 [workspace]
 members = [".", "crates/ion-skill", "crates/ionem", "crates/scenario"]
+# Run cargo commands (test, clippy, build) across every member by default so the
+# documented `cargo nextest run` / `cargo clippy` pre-commit checks — and CI —
+# cover the whole workspace, not just the root `ion` package.
+default-members = [".", "crates/ion-skill", "crates/ionem", "crates/scenario"]
 
 [workspace.dependencies]
 ionem = { path = "crates/ionem", default-features = false }
