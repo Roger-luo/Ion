@@ -151,11 +151,24 @@ mod tests {
     fn reports_missing_allowed_tools_when_tools_are_mentioned() {
         let root = tempfile::tempdir().unwrap();
         let checker = ToolDeclarationConsistencyChecker;
-        let body = "Use Bash to inspect files";
+        let body = "Use `Bash` to inspect files";
 
         let findings = checker.check(root.path(), &meta_with_allowed_tools(None), body);
 
         assert!(findings.iter().any(|f| f.severity == Severity::Warning));
+    }
+
+    #[test]
+    fn ignores_prose_tool_words_without_warning() {
+        // A skill that merely uses "Agent"/"Read"/"Write" as English words
+        // (not as tool references in code) must not trigger a warning.
+        let root = tempfile::tempdir().unwrap();
+        let checker = ToolDeclarationConsistencyChecker;
+        let body = "**Agent self-sufficiency**: Read the output and Write your notes.";
+
+        let findings = checker.check(root.path(), &meta_with_allowed_tools(None), body);
+
+        assert!(findings.is_empty(), "prose should not warn: {findings:?}");
     }
 
     #[test]
@@ -167,7 +180,7 @@ mod tests {
 
         let refs_checker = ReferenceIntegrityChecker;
         let tools_checker = ToolDeclarationConsistencyChecker;
-        let body = "See [Setup](./references/setup.md). Use Bash.";
+        let body = "See [Setup](./references/setup.md). Use `Bash`.";
         let meta = meta_with_allowed_tools(Some("Bash, Read"));
 
         let mut findings = refs_checker.check(root.path(), &meta, body);

@@ -79,13 +79,24 @@ pub fn extract_local_links(body: &str) -> Vec<String> {
     links
 }
 
+/// Extract tool names genuinely *referenced* in the body.
+///
+/// Only inline code spans (`` `Bash` ``) count as references — bare prose is
+/// ignored, because several tool names (`Read`, `Write`, `Edit`, `Agent`) are
+/// also common English words and would otherwise flood skills with false
+/// positives. Fenced code blocks are examples/commands, not declarations, so
+/// they are excluded too (`Event::Code` fires only for inline spans).
 pub fn extract_tool_mentions(body: &str) -> BTreeSet<String> {
     let mut found = BTreeSet::new();
     let re = Regex::new(r"\b(Bash|Read|Write|Edit|WebFetch|WebSearch|Agent|Glob|Grep)\b")
         .expect("tool mention regex must compile");
 
-    for capture in re.captures_iter(body) {
-        found.insert(capture[1].to_string());
+    for event in Parser::new(body) {
+        if let Event::Code(code) = event {
+            for capture in re.captures_iter(&code) {
+                found.insert(capture[1].to_string());
+            }
+        }
     }
 
     found
@@ -122,8 +133,8 @@ mod tests {
     }
 
     #[test]
-    fn detects_tool_mentions_in_body_text() {
-        let body = "Use Bash with Read and Write. Bash can call Grep.";
+    fn detects_tool_mentions_in_inline_code() {
+        let body = "Use `Bash` with `Read` and `Write`. `Bash` can call `Grep`.";
 
         let found = extract_tool_mentions(body);
 
@@ -133,5 +144,26 @@ mod tests {
             .collect();
 
         assert_eq!(found, expected);
+    }
+
+    #[test]
+    fn ignores_tool_names_in_prose() {
+        // Read/Write/Edit/Agent are common English words; only genuine
+        // references (inline code) should count, not prose.
+        let body = "Read the file, Write a test, then Edit the Agent config with Bash.";
+
+        let found = extract_tool_mentions(body);
+
+        assert!(found.is_empty(), "prose words should not match: {found:?}");
+    }
+
+    #[test]
+    fn ignores_tool_names_in_fenced_code_blocks() {
+        // Fenced blocks are examples/commands, not tool declarations.
+        let body = "Intro\n\n```text\nBash Read Write Agent\n```\n";
+
+        let found = extract_tool_mentions(body);
+
+        assert!(found.is_empty(), "fenced block should not match: {found:?}");
     }
 }
