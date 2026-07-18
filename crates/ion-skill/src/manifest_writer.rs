@@ -201,6 +201,15 @@ pub fn delete_option(manifest_path: &Path, key: &str) -> Result<String> {
         ))
     })?;
 
+    // Validate the section up front, independent of whether [options] exists —
+    // otherwise an unknown section on a manifest with no [options] table would
+    // be silently accepted as a no-op.
+    if section != "targets" && section != "options" {
+        return Err(Error::Manifest(format!(
+            "Project config only supports 'targets' and 'options' sections, got '{section}'"
+        )));
+    }
+
     let content = std::fs::read_to_string(manifest_path).map_err(Error::Io)?;
     let mut doc: DocumentMut = content.parse().map_err(Error::TomlEdit)?;
 
@@ -214,11 +223,7 @@ pub fn delete_option(manifest_path: &Path, key: &str) -> Result<String> {
             "options" => {
                 options.remove(field);
             }
-            _ => {
-                return Err(Error::Manifest(format!(
-                    "Project config only supports 'targets' and 'options' sections, got '{section}'"
-                )));
-            }
+            _ => unreachable!("section validated above"),
         }
     }
 
