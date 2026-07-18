@@ -42,4 +42,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
+      # Several tests create throwaway git repos and commit into them. CI
+      # runners have no default git identity, so `git commit` fails with exit
+      # 128 and a later `git rev-parse HEAD` reports an ambiguous 'HEAD'.
+      # Configure a deterministic identity (and default branch) so those tests
+      # pass regardless of the runner image.
+      - name: Configure Git identity
+        run: |
+          git config --global user.name "Ion CI"
+          git config --global user.email "ci@ion.invalid"
+          git config --global init.defaultBranch main
       - run: cargo nextest run --all-features --profile ci

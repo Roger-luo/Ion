@@ -71,6 +71,30 @@ fn json_init_with_targets_succeeds() {
 }
 
 #[test]
+fn json_init_includes_next_steps() {
+    // After a fresh init the agent should be told, in the JSON envelope, what to
+    // do next — not just what was created. A fresh project (only the built-in
+    // ion-cli registered) should point at adding the first skill.
+    let dir = tempfile::tempdir().unwrap();
+    let output = ion()
+        .args(["--json", "init", "--target", "claude"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("valid JSON");
+    let next = parsed["data"]["next"]
+        .as_array()
+        .expect("data.next should be an array of next-step commands");
+    assert!(
+        next.iter()
+            .any(|c| c.as_str().is_some_and(|s| s.contains("ion add"))),
+        "fresh init should suggest `ion add` as the next step, got: {next:?}"
+    );
+}
+
+#[test]
 fn json_remove_without_yes_returns_action_required() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(

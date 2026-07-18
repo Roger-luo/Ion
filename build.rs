@@ -33,7 +33,12 @@ fn main() {
                 "success": true,
                 "data": {
                     "targets": {"claude": ".claude/skills", "cursor": ".cursor/skills"},
-                    "manifest": "Ion.toml"
+                    "manifest": "Ion.toml",
+                    "agents_md": {"action": "created", "template": "builtin:generic"},
+                    "next": [
+                        "Fill in AGENTS.md to describe this project, its build/test commands, and conventions",
+                        "ion add <source>"
+                    ]
                 }
             })),
 

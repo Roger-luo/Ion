@@ -44,6 +44,9 @@ enum Commands {
         /// Overwrite existing files
         #[arg(long)]
         force: bool,
+        /// Skip AGENTS.md creation and CLAUDE.md migration
+        #[arg(long)]
+        no_agents: bool,
     },
     /// Set up GitHub Actions CI/CD for a binary skill project
     Ci {
@@ -323,6 +326,7 @@ fn main() {
             ci,
             target,
             force,
+            no_agents,
         } => {
             if bin {
                 commands::new::run_bin(path.as_deref(), ci, force, json)
@@ -331,7 +335,7 @@ fn main() {
                     "--ci requires --bin (CI/CD setup is for binary skill projects)"
                 ))
             } else {
-                commands::init::run(&target, force, json, &project_flags)
+                commands::init::run(&target, force, no_agents, json, &project_flags)
             }
         }
         Commands::Ci { force } => commands::ci::run(force, json),

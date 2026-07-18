@@ -5,7 +5,11 @@ use ion_skill::manifest::ManifestOptions;
 use ion_skill::manifest_writer;
 use ion_skill::source::SkillSource;
 
-const SKILL_NAME: &str = "ion-cli";
+/// Name of the built-in skill that Ion installs into every project so agents
+/// can discover its JSON interface. Registered in Ion.toml as a `local` skill
+/// but managed by Ion (symlinked to global storage, gitignored), so callers
+/// that reason about "user" skills should exclude it.
+pub const SKILL_NAME: &str = "ion-cli";
 const SKILL_CONTENT: &str = include_str!(concat!(env!("OUT_DIR"), "/SKILL.md"));
 
 /// Update the global SKILL.md if the embedded content has changed.

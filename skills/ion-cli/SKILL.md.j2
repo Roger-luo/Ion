@@ -37,6 +37,13 @@ $ ion --json init --target claude --target cursor
 
 Without `--target`, returns exit 2 with available targets for you to choose from.
 
+`init` also ensures an ion-managed `AGENTS.md`: it migrates an existing
+`CLAUDE.md` into `AGENTS.md` (linking `CLAUDE.md` back to it), or creates one
+from a detected language template — falling back to `builtin:generic`. The
+`data.agents_md.action` is one of `created`, `migrated`, `existing`, `skipped`
+(a two-file conflict), or `disabled`. When a template was applied, `data.next`
+prompts you to fill in `AGENTS.md`. Pass `--no-agents` to skip this entirely.
+
 ### Search for skills
 
 ```bash
@@ -250,6 +257,7 @@ $ ion run mytool [args...]      # runs the compiled binary
 | `--skills a,b,c` | `add` | Select specific skills from a collection |
 | `--yes` / `-y` | `remove` | Skip removal confirmation |
 | `--target name` | `init` | Specify targets non-interactively |
+| `--no-agents` | `init` | Skip AGENTS.md creation and CLAUDE.md migration |
 | `--path <dir>` | `new` | Target directory for new skill |
-| `--builtin <name>` | `agents init` | Use a built-in AGENTS.md template (rust, python, julia, rust+python) |
+| `--builtin <name>` | `agents init` | Use a built-in AGENTS.md template (generic, rust, python, julia, rust+python) |
 | `--force` | `init`, `new` | Overwrite existing files |

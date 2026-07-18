@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::io::{IsTerminal, Write};
+use std::io::IsTerminal;
 use std::path::Path;
 
 use crate::context::WorkspaceContext;
@@ -107,6 +107,205 @@ pub fn print_no_targets_hint(
     }
 }
 
+/// A suggested next step after `init`. Rendered to both the human text (with
+/// its command emphasized) and the JSON `next` array (as a plain string) from
+/// this single definition, so the two channels never drift.
+struct NextStep {
+    /// Imperative shown to the human, e.g. "Add your first skill".
+    label: String,
+    /// Exact command to run, if this step is a command.
+    command: Option<String>,
+    /// Extra parenthetical guidance (e.g. a discovery command).
+    hint: Option<String>,
+}
+
+impl NextStep {
+    /// Plain-string form emitted in the JSON `next` array. Agents get the exact
+    /// command when there is one, otherwise the imperative label.
+    fn to_json_string(&self) -> String {
+        match &self.command {
+            Some(cmd) => cmd.clone(),
+            None => self.label.clone(),
+        }
+    }
+
+    /// Styled single-line form for the human channel.
+    fn to_human(&self, p: &crate::style::Paint) -> String {
+        let mut line = self.label.clone();
+        if let Some(cmd) = &self.command {
+            line.push_str(&format!(" — {}", p.bold(cmd)));
+        }
+        if let Some(hint) = &self.hint {
+            line.push_str(&format!(" ({hint})"));
+        }
+        line
+    }
+}
+
+/// Build the ordered next-step list after a successful `init`, tailored to
+/// what init just did. This is the single source of truth for both channels.
+fn next_steps_after_init(created_agents_md: bool, real_skill_count: usize) -> Vec<NextStep> {
+    let mut steps = Vec::new();
+
+    // Whenever init created AGENTS.md from a template, the file has placeholder
+    // sections — prompt the human/agent to fill them in before anything else.
+    if created_agents_md {
+        steps.push(NextStep {
+            label: "Fill in AGENTS.md to describe this project, its build/test commands, and conventions".to_string(),
+            command: None,
+            hint: None,
+        });
+    }
+
+    if real_skill_count > 0 {
+        // Skills already declared in Ion.toml (re-init, or a cloned manifest) —
+        // the next move is to install them.
+        steps.push(NextStep {
+            label: "Install the skills declared in Ion.toml".to_string(),
+            command: Some("ion add".to_string()),
+            hint: None,
+        });
+    } else {
+        // Fresh project with no user skills yet — add the first one.
+        steps.push(NextStep {
+            label: "Add your first skill".to_string(),
+            command: Some("ion add <source>".to_string()),
+            hint: Some("browse skills with `ion search <query>`".to_string()),
+        });
+    }
+
+    steps
+}
+
+/// Print the next-step guidance after a successful `init` (human channel).
+fn print_next_steps(p: &crate::style::Paint, steps: &[NextStep]) {
+    if steps.is_empty() {
+        return;
+    }
+    println!();
+    if steps.len() == 1 {
+        println!("  {}: {}", p.bold("Next"), steps[0].to_human(p));
+    } else {
+        println!("  {}:", p.bold("Next steps"));
+        for (i, step) in steps.iter().enumerate() {
+            println!("    {}. {}", i + 1, step.to_human(p));
+        }
+    }
+}
+
+/// What `init` did about the project's AGENTS.md.
+enum AgentsMdOutcome {
+    /// `--no-agents`: skipped entirely.
+    Disabled,
+    /// Wrote a fresh AGENTS.md from a template.
+    Created { template: String },
+    /// Renamed an existing CLAUDE.md into AGENTS.md and linked it back.
+    Migrated,
+    /// AGENTS.md already existed; ensured agent tools link to it.
+    Existing,
+    /// AGENTS.md and CLAUDE.md both have content; left both untouched.
+    ConflictSkipped { reason: String },
+}
+
+impl AgentsMdOutcome {
+    fn to_json(&self) -> serde_json::Value {
+        match self {
+            AgentsMdOutcome::Disabled => serde_json::json!({"action": "disabled"}),
+            AgentsMdOutcome::Created { template } => {
+                serde_json::json!({"action": "created", "template": template})
+            }
+            AgentsMdOutcome::Migrated => {
+                serde_json::json!({"action": "migrated", "from": "CLAUDE.md"})
+            }
+            AgentsMdOutcome::Existing => serde_json::json!({"action": "existing"}),
+            AgentsMdOutcome::ConflictSkipped { reason } => {
+                serde_json::json!({"action": "skipped", "reason": reason})
+            }
+        }
+    }
+
+    /// True when init wrote a fresh AGENTS.md from a template (so the user
+    /// should be prompted to fill it in).
+    fn created_from_template(&self) -> bool {
+        matches!(self, AgentsMdOutcome::Created { .. })
+    }
+}
+
+/// Ensure the project has an ion-managed AGENTS.md.
+///
+/// 1. Reconcile any existing CLAUDE.md into AGENTS.md (rename the unambiguous
+///    case, replace a pointer with a symlink, or skip a genuine two-file
+///    conflict). This runs silently and non-interactively; `init` narrates the
+///    result itself so the messaging is consistent and init-appropriate.
+/// 2. If AGENTS.md still doesn't exist, create it from a detected language
+///    template, or a generic scaffold when no language matches.
+fn ensure_agents_md(
+    project: &ion_skill::workspace::Project,
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    global_config: &ion_skill::config::GlobalConfig,
+    p: &crate::style::Paint,
+) -> anyhow::Result<AgentsMdOutcome> {
+    use crate::commands::agents::{AgentsMdAction, migrate_claude_md};
+
+    let agents_md = project.dir.join("AGENTS.md");
+
+    // Reconcile an existing CLAUDE.md silently (json=true suppresses migrate's
+    // own prompts and prints), auto-renaming the unambiguous case.
+    let migration = migrate_claude_md(&project.dir, p, true, true, true)?;
+
+    match migration {
+        Some(AgentsMdAction::Renamed { .. }) => Ok(AgentsMdOutcome::Migrated),
+        Some(AgentsMdAction::Symlinked) => Ok(AgentsMdOutcome::Existing),
+        Some(AgentsMdAction::Skipped { .. }) => {
+            if agents_md.exists() {
+                // Genuine conflict — both files have real content. Use an
+                // init-appropriate reason (migrate's mentions `--yes`).
+                Ok(AgentsMdOutcome::ConflictSkipped {
+                    reason: "AGENTS.md and CLAUDE.md both have content; kept both".to_string(),
+                })
+            } else {
+                // e.g. a CLAUDE.md pointing at a nonexistent AGENTS.md — create one.
+                create_agents_from_template(project, merged_options, global_config)
+            }
+        }
+        None => {
+            // No CLAUDE.md file to migrate.
+            if agents_md.exists() {
+                if let Err(e) =
+                    ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
+                {
+                    log::warn!("Failed to create agent symlinks: {e}");
+                }
+                Ok(AgentsMdOutcome::Existing)
+            } else {
+                create_agents_from_template(project, merged_options, global_config)
+            }
+        }
+    }
+}
+
+/// Create AGENTS.md from the best-matching built-in template (or the generic
+/// fallback), wiring up `[agents]` tracking and agent symlinks.
+fn create_agents_from_template(
+    project: &ion_skill::workspace::Project,
+    merged_options: &ion_skill::manifest::ManifestOptions,
+    global_config: &ion_skill::config::GlobalConfig,
+) -> anyhow::Result<AgentsMdOutcome> {
+    let template = detect_builtin_template(&project.dir).unwrap_or("generic");
+    let source = format!("builtin:{template}");
+    let setup = crate::commands::agents::apply_template(
+        project,
+        merged_options,
+        global_config,
+        &source,
+        None,
+        None,
+    )?;
+    Ok(AgentsMdOutcome::Created {
+        template: setup.template,
+    })
+}
+
 /// Detect likely built-in AGENTS.md template from project files.
 fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
     let has_cargo = dir.join("Cargo.toml").exists();
@@ -129,33 +328,10 @@ fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
     }
 }
 
-/// Prompt the user to set up an AGENTS.md template. Returns the chosen template
-/// name, or `None` if the user declined or the prompt was skipped.
-fn prompt_agents_template(dir: &Path) -> anyhow::Result<Option<String>> {
-    if !std::io::stdin().is_terminal() {
-        return Ok(None);
-    }
-    let detected = detect_builtin_template(dir);
-    match detected {
-        Some(name) => {
-            print!("  Set up AGENTS.md? [Y/n] (template: {name}) ");
-            std::io::stdout().flush()?;
-            let mut line = String::new();
-            std::io::stdin().read_line(&mut line)?;
-            let answer = line.trim();
-            if answer.is_empty() || answer.eq_ignore_ascii_case("y") {
-                Ok(Some(name.to_string()))
-            } else {
-                Ok(None)
-            }
-        }
-        None => Ok(None),
-    }
-}
-
 pub fn run(
     targets: &[String],
     force: bool,
+    no_agents: bool,
     json: bool,
     project_flags: &[String],
 ) -> anyhow::Result<()> {
@@ -212,11 +388,25 @@ pub fn run(
         println!("No target specified and no interactive terminal available.");
         println!();
         println!("Available targets:");
-        for (name, _dir, path) in KNOWN_TARGETS {
-            println!("  {name} -> {path}");
+        // Mark targets whose directory already exists in this project. This
+        // mirrors the `detected` flag the --json channel exposes, so a human
+        // reading the plain-text list gets the same signal an agent does.
+        let mut first_detected: Option<&str> = None;
+        for (name, dir, path) in KNOWN_TARGETS {
+            if project.dir.join(dir).exists() {
+                if first_detected.is_none() {
+                    first_detected = Some(name);
+                }
+                println!("  {name} -> {path} {}", p.dim("(detected)"));
+            } else {
+                println!("  {name} -> {path}");
+            }
         }
         println!();
-        println!("Re-run with --target <name> to select targets (e.g. --target claude).");
+        // Prefer a detected target in the example so the recovery command lands
+        // on the tool this repo is already set up for.
+        let example = first_detected.unwrap_or("claude");
+        println!("Re-run with --target <name> to select targets (e.g. --target {example}).");
         anyhow::bail!("no targets selected; re-run with --target <name>");
     } else {
         match select_targets_interactive(&project.dir)? {
@@ -249,24 +439,6 @@ pub fn run(
         }
     }
 
-    // Create agent file symlinks (e.g. CLAUDE.md -> AGENTS.md)
-    if let Err(e) = ion_skill::agents::ensure_agent_symlinks(&project.dir, &merged_options.targets)
-    {
-        log::warn!("Failed to create agent symlinks: {e}");
-    }
-
-    // Deploy agents-update skill if [agents] template is configured
-    if manifest
-        .agents
-        .as_ref()
-        .and_then(|a| a.template.as_ref())
-        .is_some()
-        && let Err(e) =
-            crate::commands::agents::deploy_agents_update_skill(&project, &merged_options)
-    {
-        log::warn!("Failed to deploy agents-update skill: {e}");
-    }
-
     // Auto-register in workspace if we're inside one
     if ws.is_workspace() {
         let root = ws.root_project();
@@ -293,35 +465,39 @@ pub fn run(
         }
     }
 
-    // Offer inline AGENTS.md setup on fresh init (non-json, interactive, no existing AGENTS.md)
-    let agents_template_used = if !json && !manifest_existed {
-        let agents_md_path = project.dir.join("AGENTS.md");
-        if !agents_md_path.exists() {
-            match prompt_agents_template(&project.dir)? {
-                Some(name) => {
-                    let source = format!("builtin:{name}");
-                    match crate::commands::agents::init(&source, None, None, false, project_flags) {
-                        Ok(()) => Some(name),
-                        Err(e) => {
-                            eprintln!("  warning: AGENTS.md setup failed: {e}");
-                            None
-                        }
-                    }
-                }
-                None => None,
-            }
-        } else {
-            None
-        }
+    // Ensure the project has an ion-managed AGENTS.md: migrate an existing
+    // CLAUDE.md, or create one from a template. Runs in every channel; skipped
+    // entirely with `--no-agents`.
+    let agents_outcome = if no_agents {
+        AgentsMdOutcome::Disabled
     } else {
-        None
+        match ensure_agents_md(&project, &merged_options, &ws.global_config, &p) {
+            Ok(outcome) => outcome,
+            Err(e) => {
+                if !json {
+                    eprintln!("  {}: AGENTS.md setup failed: {e}", p.warn("warning"));
+                }
+                AgentsMdOutcome::Disabled
+            }
+        }
     };
+
+    // Count user skills registered in the manifest (excluding Ion-managed
+    // built-ins). This decides which next step to suggest: install existing
+    // skills, or add the first one.
+    let real_skill_count = manifest
+        .skills
+        .keys()
+        .filter(|n| !is_managed_skill(n))
+        .count();
+    let next = next_steps_after_init(agents_outcome.created_from_template(), real_skill_count);
 
     if json {
         crate::json::print_success(serde_json::json!({
             "targets": resolved,
             "manifest": "Ion.toml",
-            "agents_template": agents_template_used,
+            "agents_md": agents_outcome.to_json(),
+            "next": next.iter().map(NextStep::to_json_string).collect::<Vec<_>>(),
         }));
         return Ok(());
     }
@@ -339,12 +515,57 @@ pub fn run(
         }
     }
 
+    print_agents_outcome(&p, &agents_outcome);
+
     // Show hint if any resolved target looks like codex
     if resolved.keys().any(|k| k.eq_ignore_ascii_case("codex")) {
         print_codex_hint(&p);
     }
 
+    print_next_steps(&p, &next);
+
     Ok(())
+}
+
+/// Whether a skill name is one Ion manages itself (not a user skill).
+fn is_managed_skill(name: &str) -> bool {
+    name == crate::builtin_skill::SKILL_NAME || name == "agents-update"
+}
+
+/// Print the human-channel summary line for what init did about AGENTS.md.
+fn print_agents_outcome(p: &crate::style::Paint, outcome: &AgentsMdOutcome) {
+    match outcome {
+        AgentsMdOutcome::Disabled => {}
+        AgentsMdOutcome::Created { template } => {
+            let name = template.strip_prefix("builtin:").unwrap_or(template);
+            println!(
+                "  {} AGENTS.md from the {} template",
+                p.success("Created"),
+                p.bold(name)
+            );
+        }
+        AgentsMdOutcome::Migrated => {
+            println!(
+                "  {} CLAUDE.md → AGENTS.md ({} now links to it)",
+                p.success("Migrated"),
+                p.dim("CLAUDE.md")
+            );
+        }
+        AgentsMdOutcome::Existing => {
+            println!(
+                "  {} AGENTS.md (linked agent tools to it)",
+                p.success("Using")
+            );
+        }
+        AgentsMdOutcome::ConflictSkipped { reason } => {
+            println!(
+                "  {}: {} — merge them manually, or run {} to resolve interactively",
+                p.warn("note"),
+                reason,
+                p.bold("ion migrate")
+            );
+        }
+    }
 }
 
 #[cfg(test)]

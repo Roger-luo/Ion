@@ -280,12 +280,50 @@ rather than re-deriving them.
 | `ion init` didn't link already-installed skills to a *newly*-configured target — they stayed invisible to that tool, no error | ergonomics (dead-end) | re-`deploy()` tracked skills after a target is added — `src/commands/init.rs` |
 | `ion list` rendered local skills as `vunknown` with a blank `source:` | human | show `(local)` / `source: local` — `src/commands/list.rs` |
 
-Still open from that pass (documented, not yet fixed): commands ending at a bare
-file list with no next-step line (`init`/`add`/`new` cold start), empty `ion
-list` giving no pointer to `ion init`, and `ion migrate` re-prompting for skills
-already registered as local. These are the natural next targets — the
-*progressive-prompting* core — and they want careful, general next-step logic
-(that respects actual state), not a quick hard-coded line.
+## Confirmed & fixed (second pass, 2026-07 — `ion init` journey)
+
+Driving `ion init` on a real project (a repo that already had `.claude/` and
+the built-in `ion-cli` deployed but no manifest) surfaced these and fixed them.
+
+| Symptom | Lens | Fix + where it lives |
+|---|---|---|
+| `ion init` ended at a bare "Created Ion.toml with N target(s)" file-list with **no next step** — neither the human text nor the `--json` envelope told the reader to add a skill | prompting (both channels) | state-aware next-step: fresh project → `ion add <source>` / `ion search <query>`; skills already declared → `ion add`. One source of truth (`next_steps_after_init`) rendered to human text *and* a new JSON `data.next` array — `src/commands/init.rs` |
+| No-TTY `ion init` (no `--target`) exposed a per-target `detected` flag to the agent in `--json`, but the human plain-text target list gave no such signal and the recovery example hard-coded `--target claude` | prompting (channel mismatch) | mark `(detected)` on targets whose dir already exists in the repo, and prefer a detected target in the `--target <name>` example — `src/commands/init.rs` |
+
+Note on `ion-cli = { type = "local" }`: the built-in skill is *intentionally*
+registered as `local` (see `builtin_skill::ensure_installed`) so it's skipped by
+fetch/validate/update and refreshed via `refresh_global` — not a bug. Callers
+reasoning about *user* skills should exclude `builtin_skill::SKILL_NAME` (the
+init next-step counter now does).
+
+## Confirmed & fixed (third pass, 2026-07 — `ion init` AGENTS.md handling)
+
+`ion init` only offered AGENTS.md setup interactively (TTY-gated) *and* only
+when a language template was detected — so on a piped/agent run, or a project
+with no recognized stack, it silently created no AGENTS.md and never migrated an
+existing CLAUDE.md. Reworked so init *always* ensures an ion-managed AGENTS.md.
+
+| Symptom | Lens | Fix + where it lives |
+|---|---|---|
+| `ion init` created no AGENTS.md unless run in a TTY *and* a language template matched; agent/CI runs and generic projects got nothing | ergonomics (dead-end) | always ensure AGENTS.md in every channel; new `builtin:generic` fallback template — `crates/ion-skill/src/templates/generic.md`, `templates.rs`, `src/commands/init.rs` `ensure_agents_md` |
+| `ion init` never migrated an existing `CLAUDE.md` (only `ion migrate` did) — a repo with hand-written CLAUDE.md stayed unmanaged after init | ergonomics | init reconciles CLAUDE.md silently: rename→AGENTS.md + symlink back, or skip a genuine two-file conflict with an init-appropriate note — `ensure_agents_md` + `migrate_claude_md` gains a `rename_without_prompt` param |
+| After scaffolding from a template, nothing told the human/agent the file has placeholders to fill in | prompting (both channels) | when a template was applied, the first `next` step (human list + JSON `data.next`) is "Fill in AGENTS.md …" — `next_steps_after_init` keyed on `AgentsMdOutcome::created_from_template()` |
+| init's JSON success lacked any AGENTS.md signal for agents | agent | added `data.agents_md` = `{action: created\|migrated\|existing\|skipped\|disabled, template?}` mirroring the human summary — `src/commands/init.rs`, contract doc `skills/ion-cli/SKILL.md.j2` + `build.rs` |
+
+Design notes: `agents init`'s file-work was extracted into a non-printing
+`agents::apply_template` so both `agents init` and `ion init` share it without
+double-emitting a JSON envelope (the first-pass purity trap). An existing
+hand-written AGENTS.md is made ion-managed by symlink only — no `[agents]`
+template is attached to the user's own content (that would produce a misleading
+`ion agents diff`). `--no-agents` opts out of the whole thing. `ion migrate`'s
+conservative `--yes` behavior (skip the rename) is preserved via the new param.
+
+Still open (documented, not yet fixed): `ion add`/`ion new` cold start still end
+without a next-step line (only `init` is now covered), empty `ion list` gives no
+pointer to `ion init`, and `ion migrate` re-prompts for skills already registered
+as local. These remain the natural next targets — the *progressive-prompting*
+core — and want careful, general next-step logic (that respects actual state),
+not a quick hard-coded line.
 
 ## Guidelines
 
