@@ -6,10 +6,26 @@ fn ion_cmd() -> Command {
 
 fn assert_lists_builtin_templates(output: &[u8]) {
     let text = String::from_utf8_lossy(output);
-    for template in ion_skill::templates::AVAILABLE {
+    let canonical = ion_skill::templates::AVAILABLE.join(", ");
+    assert!(
+        text.contains(&canonical),
+        "expected canonical built-in template list {canonical:?} in output: {text}"
+    );
+
+    let list = text
+        .lines()
+        .find_map(|line| {
+            ["Built-in templates: ", "Use a built-in template by name: "]
+                .iter()
+                .find_map(|prefix| line.split_once(prefix).map(|(_, list)| list.trim()))
+        })
+        .expect("expected a labeled built-in template list");
+    assert_eq!(list, canonical);
+
+    for alias in ["ts", "rust-python"] {
         assert!(
-            text.contains(template),
-            "expected built-in template {template:?} in output: {text}"
+            !list.split(", ").any(|entry| entry == alias),
+            "alias {alias:?} must not be presented as a built-in template: {list}"
         );
     }
 }
