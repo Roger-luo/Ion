@@ -15,6 +15,7 @@ pub const AVAILABLE: &[&str] = &[
     "julia",
     "typescript",
     "rust+python",
+    "astro",
 ];
 
 /// Return the embedded template content for a given name, or `None` if unknown.
@@ -27,6 +28,7 @@ pub fn get(name: &str) -> Option<&'static str> {
         "julia" => Some(include_str!("templates/julia.md")),
         "typescript" | "ts" => Some(include_str!("templates/typescript.md")),
         "rust+python" | "rust-python" => Some(include_str!("templates/rust-python.md")),
+        "astro" => Some(include_str!("templates/astro.md")),
         _ => None,
     }
 }
@@ -59,6 +61,7 @@ mod tests {
         assert!(get("ts").is_some()); // alias
         assert!(get("rust+python").is_some());
         assert!(get("rust-python").is_some()); // alias
+        assert!(get("astro").is_some());
     }
 
     #[test]
@@ -68,12 +71,23 @@ mod tests {
     }
 
     #[test]
+    fn astro_template_contains_core_guidance() {
+        let content = get("astro").expect("Astro template should be registered");
+
+        assert!(content.contains("astro check"));
+        assert!(content.contains("src/pages/"));
+        assert!(content.contains("src/content"));
+        assert!(content.contains("client:"));
+    }
+
+    #[test]
     fn parse_prefixed_name() {
         assert_eq!(parse_builtin_name("builtin:rust"), Some("rust"));
         assert_eq!(parse_builtin_name("builtin:python"), Some("python"));
         assert_eq!(parse_builtin_name("builtin:julia"), Some("julia"));
         assert_eq!(parse_builtin_name("builtin:typescript"), Some("typescript"));
         assert_eq!(parse_builtin_name("builtin:ts"), Some("ts"));
+        assert_eq!(parse_builtin_name("builtin:astro"), Some("astro"));
         assert_eq!(
             parse_builtin_name("builtin:rust+python"),
             Some("rust+python")
