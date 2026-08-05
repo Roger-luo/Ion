@@ -16,7 +16,7 @@ Each section has two tabs — **Terminal commands** for running Ion yourself, an
 
 You have a codebase and want to make it agent-ready.
 
-<WorkflowTabs prompt="Set up Ion in this project: run `ion init` to create Ion.toml, detect whether I'm using Rust, Python, or Julia and initialize an AGENTS.md with the right builtin template, then commit the result.">
+<WorkflowTabs prompt="Set up Ion in this project: run `ion init` to create Ion.toml, detect whether I'm using Rust, Python, Julia, TypeScript, or Astro, and initialize an AGENTS.md with the right builtin template, then commit the result.">
   <Fragment slot="manual">
 
 ```bash
@@ -28,7 +28,7 @@ $ ion init
 ✓ Updated Ion.toml with template source
 ```
 
-`ion init` detects your project language (Cargo.toml → rust, pyproject.toml → python, both → rust+python, Project.toml → julia, tsconfig.json → typescript) and offers to set up an `AGENTS.md` context file inline — no separate command needed.
+`ion init` checks for Rust (`Cargo.toml`) and Python (`pyproject.toml`, `setup.py`, or `requirements.txt`) first, detecting `rust+python` when Rust and any Python marker are both present. It then checks, in order, for Julia (`Project.toml`), Astro (`astro.config.mjs`, `.js`, `.ts`, or `.cjs`), and TypeScript (`tsconfig.json`, or `package.json` together with `src/index.ts` or `index.ts`). Ion offers to set up an `AGENTS.md` context file inline — no separate command needed.
 
 Commit the results:
 

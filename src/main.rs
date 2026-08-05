@@ -288,8 +288,13 @@ enum AgentsCommands {
     Init {
         /// Template source: org/repo, git URL, or local path (use --builtin for built-in templates)
         source: Option<String>,
-        /// Use a built-in template by name: rust, python, julia, rust+python
-        #[arg(long)]
+        #[arg(
+            long,
+            help = format!(
+                "Use a built-in template by name: {}",
+                AgentsCommands::builtin_template_names()
+            )
+        )]
         builtin: Option<String>,
         /// Pin to a specific git ref (branch, tag, or commit SHA)
         #[arg(long)]
@@ -302,6 +307,12 @@ enum AgentsCommands {
     Update,
     /// Show diff between local AGENTS.md and upstream template
     Diff,
+}
+
+impl AgentsCommands {
+    fn builtin_template_names() -> String {
+        ion_skill::templates::AVAILABLE.join(", ")
+    }
 }
 
 fn main() {
@@ -397,8 +408,9 @@ fn main() {
                     (None, Some(s)) => Ok(s),
                     (None, None) => Err(anyhow::anyhow!(
                         "specify a source or use --builtin <name>\n\
-                         Built-in templates: rust, python, julia, rust+python\n\
-                         Example: ion agents init --builtin rust"
+                         Built-in templates: {}\n\
+                         Example: ion agents init --builtin rust",
+                        AgentsCommands::builtin_template_names()
                     )),
                 };
                 effective_source.and_then(|src| {
