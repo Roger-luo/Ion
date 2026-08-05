@@ -4,6 +4,35 @@ fn ion_cmd() -> Command {
     Command::new(env!("CARGO_BIN_EXE_ion"))
 }
 
+fn assert_lists_builtin_templates(output: &[u8]) {
+    let text = String::from_utf8_lossy(output);
+    for template in ion_skill::templates::AVAILABLE {
+        assert!(
+            text.contains(template),
+            "expected built-in template {template:?} in output: {text}"
+        );
+    }
+}
+
+#[test]
+fn agents_init_help_lists_builtin_templates() {
+    let output = ion_cmd()
+        .args(["agents", "init", "--help"])
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert_lists_builtin_templates(&output.stdout);
+}
+
+#[test]
+fn agents_init_without_source_lists_builtin_templates() {
+    let output = ion_cmd().args(["agents", "init"]).output().unwrap();
+
+    assert!(!output.status.success());
+    assert_lists_builtin_templates(&output.stderr);
+}
+
 #[test]
 fn agents_init_from_local_path() {
     let project = tempfile::tempdir().unwrap();
