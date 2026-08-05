@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add Astro agent template ([#167](https://github.com/Roger-luo/Ion/pull/167)) (b8e6756)
+- Teach the next step and mark detected targets ([#166](https://github.com/Roger-luo/Ion/pull/166)) (17f4f75)
+
+### Build
+
+- Run the full workspace by default in cargo and CI (81db05a)
+
+### Documentation
+
+- Regenerate API reference and add binary-skill CI guide ([#165](https://github.com/Roger-luo/Ion/pull/165)) (be4ef28)
+
+### Fixed
+
+- Absolutize relative path sources before deploying (df57a1d)
+- Only flag tool mentions inside inline code (31e9d2c)
+- Harden CLI output, recovery flags, and source inference (753f3af)
+
+### Added
+
 - Add built-in TypeScript AGENTS.md template (723d0a5)
 
 ### Added
