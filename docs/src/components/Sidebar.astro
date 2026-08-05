@@ -37,19 +37,20 @@ const { currentSlug, navigation } = Astro.props;
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     if (!sidebar || !overlay) return;
+    const sidebarElement = sidebar;
 
     function close() {
-      sidebar.classList.remove('open');
+      sidebarElement.classList.remove('open');
     }
 
     overlay.addEventListener('click', close);
 
     document.addEventListener('toggle-sidebar', () => {
-      sidebar.classList.toggle('open');
+      sidebarElement.classList.toggle('open');
     });
 
     // Close on navigation
-    const links = sidebar.querySelectorAll('.sidebar-link');
+    const links = sidebarElement.querySelectorAll('.sidebar-link');
     links.forEach(link => link.addEventListener('click', close));
   }
 
