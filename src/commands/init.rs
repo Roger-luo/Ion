@@ -313,17 +313,21 @@ fn detect_builtin_template(dir: &Path) -> Option<&'static str> {
         || dir.join("setup.py").exists()
         || dir.join("requirements.txt").exists();
     let has_julia = dir.join("Project.toml").exists();
+    let has_astro = ["mjs", "js", "ts", "cjs"]
+        .iter()
+        .any(|extension| dir.join(format!("astro.config.{extension}")).exists());
     let has_typescript = dir.join("tsconfig.json").exists()
         || (dir.join("package.json").exists()
             && (dir.join("tsconfig.json").exists()
                 || dir.join("src").join("index.ts").exists()
                 || dir.join("index.ts").exists()));
-    match (has_cargo, has_python, has_julia, has_typescript) {
-        (true, true, _, _) => Some("rust+python"),
-        (true, false, _, _) => Some("rust"),
-        (false, true, _, _) => Some("python"),
-        (false, false, true, _) => Some("julia"),
-        (false, false, false, true) => Some("typescript"),
+    match (has_cargo, has_python, has_julia, has_astro, has_typescript) {
+        (true, true, _, _, _) => Some("rust+python"),
+        (true, false, _, _, _) => Some("rust"),
+        (false, true, _, _, _) => Some("python"),
+        (false, false, true, _, _) => Some("julia"),
+        (false, false, false, true, _) => Some("astro"),
+        (false, false, false, false, true) => Some("typescript"),
         _ => None,
     }
 }
@@ -633,6 +637,27 @@ mod tests {
         std::fs::create_dir(dir.path().join("src")).unwrap();
         std::fs::write(dir.path().join("src").join("index.ts"), "").unwrap();
         assert_eq!(detect_builtin_template(dir.path()), Some("typescript"));
+    }
+
+    #[test]
+    fn detect_astro_via_config_extensions() {
+        for extension in ["mjs", "js", "ts", "cjs"] {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(dir.path().join(format!("astro.config.{extension}")), "").unwrap();
+            assert_eq!(
+                detect_builtin_template(dir.path()),
+                Some("astro"),
+                "should detect astro.config.{extension}"
+            );
+        }
+    }
+
+    #[test]
+    fn detect_astro_takes_priority_over_typescript() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("astro.config.mjs"), "").unwrap();
+        std::fs::write(dir.path().join("tsconfig.json"), "{}").unwrap();
+        assert_eq!(detect_builtin_template(dir.path()), Some("astro"));
     }
 
     #[test]

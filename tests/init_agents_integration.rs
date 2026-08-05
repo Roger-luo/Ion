@@ -71,6 +71,22 @@ fn init_detects_language_template() {
     assert_eq!(parsed["data"]["agents_md"]["template"], "builtin:rust");
 }
 
+#[test]
+fn init_detects_astro_template() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("astro.config.mjs"), "").unwrap();
+    std::fs::write(dir.path().join("tsconfig.json"), "{}").unwrap();
+    let output = ion_cmd()
+        .args(["--json", "init", "--target", "claude"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("pure JSON");
+    assert_eq!(parsed["data"]["agents_md"]["template"], "builtin:astro");
+}
+
 /// An existing CLAUDE.md (real content, no AGENTS.md) is migrated to AGENTS.md
 /// with CLAUDE.md left as a symlink — even non-interactively.
 #[test]
