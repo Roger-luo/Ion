@@ -1,15 +1,20 @@
 [workspace]
 # Don't publish to crates.io by default — ion and ion-skill use GitHub Releases only
 publish = false
+# Use our release tags, not an unrelated crates.io package with the same name.
+git_only = true
 
 # ionem is published to crates.io for downstream binary skill developers
 [[package]]
 name = "ionem"
 publish = true
+git_only = false
 
 [changelog]
 header = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n"
 body = """
+## [{{ version }}]{% if release_link %}({{ release_link }}){% endif %} - {{ timestamp | date(format="%Y-%m-%d") }}
+
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | upper_first }}
 {% for commit in commits %}
