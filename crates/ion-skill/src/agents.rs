@@ -258,14 +258,7 @@ pub fn fetch_template(
 /// Fetch source base directory — reuses installer's git clone/cache logic.
 fn fetch_source_base(source: &SkillSource) -> Result<PathBuf> {
     if source.is_git_based() {
-        let url = source.git_url()?;
-        let repo_hash = format!("{:x}", installer::hash_simple(&url));
-        let repo_dir = installer::data_dir().join(&repo_hash);
-        git::clone_or_fetch(&url, &repo_dir)?;
-        if let Some(ref rev) = source.rev {
-            git::checkout(&repo_dir, rev)?;
-        }
-        Ok(repo_dir)
+        installer::fetch_skill_base(source)
     } else if source.is_path() {
         let path = PathBuf::from(&source.source);
         if !path.exists() {

@@ -69,7 +69,18 @@ pub fn run(json: bool, allow_warnings: bool, project_flags: &[String]) -> anyhow
         let mut json_local_installed: Vec<serde_json::Value> = Vec::new();
         let mut json_local_skipped: Vec<serde_json::Value> = Vec::new();
         for (name, entry) in &manifest.skills {
-            let source = entry.resolve()?;
+            let mut source = entry.resolve()?;
+            // Reinstallation of an unpinned source restores the lockfile revision.
+            // An explicit manifest revision takes precedence over an older lock.
+            if source.is_git_based()
+                && source.rev.is_none()
+                && let Some(locked) = lockfile.find(name)
+                && locked.source == source.git_url()?
+                && locked.path == source.path
+                && let Some(commit) = locked.commit().filter(|commit| !commit.is_empty())
+            {
+                source.rev = Some(commit.to_string());
+            }
 
             if source.is_local() {
                 // Use explicit path from Ion.toml if set, otherwise fall back to skills-dir
