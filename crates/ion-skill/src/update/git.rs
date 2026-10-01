@@ -1,6 +1,6 @@
 //! Updater for Git-sourced skills — fetch the latest commit from the default branch and redeploy.
 
-use crate::installer::{SkillInstaller, data_dir, hash_simple, resolve_skill_dir};
+use crate::installer::{SkillInstaller, fetch_git_repository, fetch_skill_base, resolve_skill_dir};
 use crate::lockfile::LockedSkill;
 use crate::skill::SkillMetadata;
 use crate::source::SkillSource;
@@ -17,14 +17,7 @@ impl Updater for GitUpdater {
         skill: &LockedSkill,
         source: &SkillSource,
     ) -> crate::Result<Option<UpdateInfo>> {
-        let url = source.git_url()?;
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let repo_dir = data_dir().join(&repo_hash);
-
-        git::clone_or_fetch(&url, &repo_dir)?;
-        git::reset_to_remote_head(&repo_dir)?;
-
-        let new_commit = git::head_commit(&repo_dir)?;
+        let (_, new_commit) = fetch_git_repository(source)?;
         let old_commit = skill.commit().unwrap_or_default().to_string();
 
         if new_commit == old_commit {
@@ -43,13 +36,7 @@ impl Updater for GitUpdater {
         source: &SkillSource,
         installer: &SkillInstaller,
     ) -> crate::Result<LockedSkill> {
-        let url = source.git_url()?;
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let repo_dir = data_dir().join(&repo_hash);
-
-        // Fetch and advance to latest
-        git::clone_or_fetch(&url, &repo_dir)?;
-        git::reset_to_remote_head(&repo_dir)?;
+        let repo_dir = fetch_skill_base(source)?;
 
         // Resolve the skill directory within the repo
         let skill_dir = resolve_skill_dir(&repo_dir, source.path.as_deref())?;
@@ -73,19 +60,14 @@ impl Updater for GitUpdater {
         installer.deploy(&skill.name, &skill_dir)?;
 
         // Build updated lock entry
-        let commit = git::head_commit(&repo_dir).ok();
-        let checksum = git::checksum_dir(&skill_dir).ok();
+        let commit = git::head_commit(&repo_dir)?;
+        let checksum = git::checksum_dir(&skill_dir)?;
         let git_url = source
             .git_url()
             .ok()
             .unwrap_or_else(|| source.source.clone());
 
-        let mut locked = LockedSkill::git(
-            skill.name.clone(),
-            git_url,
-            commit.unwrap_or_default(),
-            checksum.unwrap_or_default(),
-        );
+        let mut locked = LockedSkill::git(skill.name.clone(), git_url, commit, checksum);
         if let Some(path) = source.path.clone() {
             locked = locked.with_path(path);
         }
@@ -171,6 +153,81 @@ mod tests {
     }
 
     #[test]
+    fn check_does_not_change_deployed_content() {
+        let tmp = tempfile::tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        make_git_repo(&upstream);
+        let content = "---\nname: example\ndescription: Revision test.\n---\n\nOriginal.\n";
+        std::fs::write(upstream.join("SKILL.md"), content).unwrap();
+        let output = std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(&upstream)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        add_commit(&upstream, "skill");
+        let source = git_source(&upstream.display().to_string());
+        let options = crate::manifest::ManifestOptions::default();
+        let project = tmp.path().canonicalize().unwrap();
+        let installer = SkillInstaller::new(&project, &options);
+        let locked = installer.install("example", &source).unwrap();
+        std::fs::write(
+            upstream.join("SKILL.md"),
+            content.replace("Original", "Changed"),
+        )
+        .unwrap();
+        let output = std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(&upstream)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        add_commit(&upstream, "changed");
+        assert!(GitUpdater.check(&locked, &source).unwrap().is_some());
+        assert_eq!(
+            std::fs::read_to_string(installer.skill_dir("example").join("SKILL.md")).unwrap(),
+            content
+        );
+    }
+
+    #[test]
+    fn cached_metadata_uses_requested_revision() {
+        let tmp = tempfile::tempdir().unwrap();
+        let upstream = tmp.path().join("upstream");
+        make_git_repo(&upstream);
+        let content = "---\nname: example\ndescription: Revision test.\n---\n\nOriginal.\n";
+        std::fs::write(upstream.join("SKILL.md"), content).unwrap();
+        for body in [
+            "[project]\nname = \"original\"\n",
+            "[project]\nname = \"new\"\n",
+        ] {
+            std::fs::write(upstream.join("Ion.toml"), body).unwrap();
+            assert!(
+                std::process::Command::new("git")
+                    .args(["add", "."])
+                    .current_dir(&upstream)
+                    .status()
+                    .unwrap()
+                    .success()
+            );
+            add_commit(&upstream, "metadata");
+        }
+        let mut source = git_source(&upstream.display().to_string());
+        source.rev = Some("HEAD~1".to_string());
+        let options = crate::manifest::ManifestOptions::default();
+        let project = tmp.path().canonicalize().unwrap();
+        let installer = SkillInstaller::new(&project, &options);
+        let locked = installer.install("example", &source).unwrap();
+        let cached = crate::installer::cached_repo_path(&source).unwrap();
+        assert_eq!(git::head_commit(&cached).unwrap(), locked.commit().unwrap());
+        assert!(
+            std::fs::read_to_string(cached.join("Ion.toml"))
+                .unwrap()
+                .contains("original")
+        );
+    }
+
+    #[test]
     fn check_detects_new_commit() {
         let tmp = tempfile::tempdir().unwrap();
         let upstream = tmp.path().join("upstream");
@@ -214,8 +271,7 @@ mod tests {
 
         // Clone via the same hashing mechanism the updater uses
         let url = source.git_url().unwrap();
-        let repo_hash = format!("{:x}", hash_simple(&url));
-        let repo_dir = data_dir().join(&repo_hash);
+        let repo_dir = crate::installer::repo_dir_for_source(&source).unwrap();
         git::clone_or_fetch(&url, &repo_dir).unwrap();
         let current_commit = git::head_commit(&repo_dir).unwrap();
 

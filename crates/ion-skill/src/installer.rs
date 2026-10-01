@@ -439,8 +439,8 @@ impl<'a> SkillInstaller<'a> {
         let mut locked = match &source.kind {
             SkillSourceKind::Github | SkillSourceKind::Git => {
                 let repo_dir = find_repo_root(skill_dir);
-                let commit = git::head_commit(&repo_dir).ok().unwrap_or_default();
-                let checksum = git::checksum_dir(skill_dir).ok().unwrap_or_default();
+                let commit = git::head_commit(&repo_dir)?;
+                let checksum = git::checksum_dir(skill_dir)?;
                 LockedSkill::git(name, &git_url, commit, checksum)
             }
             SkillSourceKind::Path => {
@@ -485,17 +485,17 @@ impl<'a> SkillInstaller<'a> {
 pub fn repo_dir_for_source(source: &SkillSource) -> Result<PathBuf> {
     let url = source.git_url()?;
     let repo_hash = format!("{:x}", hash_simple(&url));
-    Ok(data_dir().join(&repo_hash))
+    Ok(data_dir().join("git").join(&repo_hash).join("source"))
 }
 
-/// Return the cached clone directory for a git-based source, if it exists.
-///
-/// This does NOT clone or fetch — it only checks whether a previous clone
-/// left a cached directory on disk. Returns `None` for non-git sources or
-/// if the cache directory doesn't exist.
+/// Return the cached revision checkout for a git-based source, if it exists.
+/// This does not clone, fetch, or materialize missing revisions. Metadata callers
+/// must inspect the selected tree rather than the fetch cache's initial HEAD.
 pub fn cached_repo_path(source: &SkillSource) -> Option<PathBuf> {
-    let path = repo_dir_for_source(source).ok()?;
-    if path.exists() { Some(path) } else { None }
+    let repo = repo_dir_for_source(source).ok()?;
+    let commit = git::resolve_commit(&repo, source.rev.as_deref()).ok()?;
+    let path = repo.parent()?.join("revisions").join(commit);
+    if path.is_dir() { Some(path) } else { None }
 }
 
 /// Resolve a possibly-relative path to an absolute one against the current
@@ -509,22 +509,22 @@ fn absolutize(path: PathBuf) -> Result<PathBuf> {
     }
 }
 
-/// Fetch a source to its cached repo directory (for git sources) or local path.
+/// Fetch and resolve a Git revision in the mutable cache, never in a deployed tree.
+pub(crate) fn fetch_git_repository(source: &SkillSource) -> Result<(PathBuf, String)> {
+    let repo_dir = repo_dir_for_source(source)?;
+    git::clone_or_fetch(&source.git_url()?, &repo_dir)?;
+    let commit = git::resolve_commit(&repo_dir, source.rev.as_deref())?;
+    Ok((repo_dir, commit))
+}
+
+/// Fetch a source to its immutable revision checkout (for git sources) or local path.
 /// Does NOT resolve the skill path within the repo.
-fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
+pub(crate) fn fetch_skill_base(source: &SkillSource) -> Result<PathBuf> {
     match &source.kind {
         SkillSourceKind::Github | SkillSourceKind::Git => {
-            let url = source.git_url()?;
-            let repo_hash = format!("{:x}", hash_simple(&url));
-            let repo_dir = data_dir().join(&repo_hash);
-
-            git::clone_or_fetch(&url, &repo_dir)?;
-
-            if let Some(ref rev) = source.rev {
-                git::checkout(&repo_dir, rev)?;
-            }
-
-            Ok(repo_dir)
+            let (repo_dir, commit) = fetch_git_repository(source)?;
+            let revisions = repo_dir.parent().unwrap().join("revisions");
+            git::snapshot(&repo_dir, &commit, &revisions)
         }
         SkillSourceKind::Path => {
             let path = PathBuf::from(&source.source);

@@ -19,6 +19,79 @@ pub fn head_commit(repo_path: &Path) -> Result<String> {
     Ok(ionem::shell::git::repo(repo_path).head_commit()?)
 }
 
+/// Resolve a fetched revision without changing the cache's HEAD or working tree.
+/// Branch pins use the fetched remote branch rather than a stale local branch.
+pub fn resolve_commit(repo: &Path, revision: Option<&str>) -> Result<String> {
+    fn resolve(repo: &Path, revision: &str) -> Result<String> {
+        let output = std::process::Command::new("git")
+            .args(["rev-parse", "--verify", "--end-of-options"])
+            .arg(format!("{revision}^{{commit}}"))
+            .current_dir(repo)
+            .output()
+            .map_err(Error::Io)?;
+        if !output.status.success() {
+            return Err(Error::Source(format!(
+                "Could not resolve Git revision '{revision}': {}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    match revision {
+        None | Some("HEAD") => resolve(
+            repo,
+            &format!("refs/remotes/origin/{}", default_branch(repo)?),
+        ),
+        Some(revision) => {
+            let branch = revision.strip_prefix("refs/heads/").unwrap_or(revision);
+            if !branch.starts_with("refs/")
+                && let Ok(commit) = resolve(repo, &format!("refs/remotes/origin/{branch}"))
+            {
+                return Ok(commit);
+            }
+            resolve(repo, revision)
+        }
+    }
+}
+
+/// Materialize a commit once, then reuse its independent detached checkout.
+/// Local clones hardlink object files where possible, but do not use alternates:
+/// pruning the mutable fetch cache cannot invalidate an installed revision.
+/// Publish by rename only after checkout succeeds, so interrupted installs never
+/// leave a partially populated deployment that another install can reuse.
+pub fn snapshot(repo: &Path, commit: &str, revisions: &Path) -> Result<PathBuf> {
+    let target = revisions.join(commit);
+    if target.is_dir() {
+        return Ok(target);
+    }
+    std::fs::create_dir_all(revisions).map_err(Error::Io)?;
+    let staging = tempfile::Builder::new()
+        .prefix(".staging-")
+        .tempdir_in(revisions)
+        .map_err(Error::Io)?;
+    let checkout_dir = staging.path().join("checkout");
+    let output = std::process::Command::new("git")
+        .args(["clone", "--local", "--no-checkout", "--"])
+        .arg(repo)
+        .arg(&checkout_dir)
+        .output()
+        .map_err(Error::Io)?;
+    if !output.status.success() {
+        return Err(Error::Source(format!(
+            "Failed to create revision checkout: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
+    }
+    checkout(&checkout_dir, commit)?;
+    match std::fs::rename(&checkout_dir, &target) {
+        Ok(()) => Ok(target),
+        // Another installer may have published the same complete revision.
+        Err(_) if target.is_dir() => Ok(target),
+        Err(error) => Err(Error::Io(error)),
+    }
+}
+
 /// Compute a SHA-256 checksum of a directory's contents (all files, sorted).
 pub fn checksum_dir(dir: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};

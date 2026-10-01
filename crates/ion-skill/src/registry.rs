@@ -23,7 +23,9 @@ pub struct Registry {
 impl Registry {
     /// Returns the path to the global registry file.
     pub fn registry_path() -> Option<PathBuf> {
-        dirs::data_dir().map(|d| d.join("ion").join("registry.toml"))
+        crate::installer::data_dir()
+            .parent()
+            .map(|d| d.join("registry.toml"))
     }
 
     /// Load the global registry. Returns empty registry if file doesn't exist.

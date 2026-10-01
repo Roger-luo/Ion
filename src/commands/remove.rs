@@ -113,7 +113,17 @@ pub fn run(name: &str, yes: bool, json: bool, project_flags: &[String]) -> anyho
 
         // Unregister from global registry for git-based sources
         if let Ok(ref source) = entry_source {
-            crate::commands::install_shared::unregister_from_registry(source, &project.dir)?;
+            let still_used = source.git_url().ok().is_some_and(|url| {
+                manifest.skills.iter().any(|(name, entry)| {
+                    !skills_to_remove.contains(name)
+                        && entry.resolve().ok().is_some_and(|other| {
+                            other.is_git_based() && other.git_url().ok().as_ref() == Some(&url)
+                        })
+                })
+            });
+            if !still_used {
+                crate::commands::install_shared::unregister_from_registry(source, &project.dir)?;
+            }
         }
 
         // Clean up binary files if this is a binary skill
