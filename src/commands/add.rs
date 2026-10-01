@@ -293,7 +293,7 @@ fn install_collection(
     if !json {
         println!("Validating skills...");
     }
-    let buckets = ValidationBuckets::collect(
+    let mut buckets = ValidationBuckets::collect(
         &installer,
         skills.iter().map(|(name, path)| {
             let mut s = base_source.clone();
@@ -334,6 +334,26 @@ fn install_collection(
 
     let selected_names: Option<Vec<&str>> =
         skills_filter.map(|f| f.split(',').map(|s| s.trim()).collect());
+
+    if let Some(ref names) = selected_names {
+        for name in names {
+            if name.is_empty() {
+                anyhow::bail!("--skills requires non-empty skill names");
+            }
+            if !skills.iter().any(|(available, _)| available == name) {
+                anyhow::bail!("Skill '{name}' not found in collection '{source_str}'");
+            }
+        }
+        buckets
+            .clean
+            .retain(|entry| names.contains(&entry.name.as_str()));
+        buckets
+            .warned
+            .retain(|(entry, _)| names.contains(&entry.name.as_str()));
+        buckets
+            .errored
+            .retain(|(name, _)| names.contains(&name.as_str()));
+    }
 
     // Phase 2: Display validation summary
     if !json {
@@ -435,22 +455,10 @@ fn install_collection(
 
     if json {
         // Collect names of installed skills
-        let mut installed_names: Vec<String> = buckets
-            .clean
-            .iter()
-            .filter(|e| {
-                selected_names
-                    .as_ref()
-                    .is_none_or(|names| names.contains(&e.name.as_str()))
-            })
-            .map(|e| e.name.clone())
-            .collect();
+        let mut installed_names: Vec<String> =
+            buckets.clean.iter().map(|e| e.name.clone()).collect();
         for (i, (entry, _)) in buckets.warned.iter().enumerate() {
-            if warned_selections[i]
-                && selected_names
-                    .as_ref()
-                    .is_none_or(|names| names.contains(&entry.name.as_str()))
-            {
+            if warned_selections[i] {
                 installed_names.push(entry.name.clone());
             }
         }
