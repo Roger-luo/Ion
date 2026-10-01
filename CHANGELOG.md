@@ -1,6 +1,15 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.6.7](https://github.com/Roger-luo/Ion/compare/ion-v0.6.6...ion-v0.6.7) - 2026-10-01
+
+
+### Fixed
+
+- Isolate Git skill deployments by commit ([#175](https://github.com/Roger-luo/Ion/pull/175)) (dbc5afc)
+- Use correct baselines and versioned notes for releases ([#174](https://github.com/Roger-luo/Ion/pull/174)) (d698ca1)
+- Validate only selected collection skills ([#173](https://github.com/Roger-luo/Ion/pull/173)) (f5dfac3)
+- Apply collection selection to deployed skills ([#172](https://github.com/Roger-luo/Ion/pull/172)) (e10cd35)
 
 ### Added
 

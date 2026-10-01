@@ -1,6 +1,86 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+## [0.2.0](https://github.com/Roger-luo/Ion/compare/ion-skill-v0.1.0...ion-skill-v0.2.0) - 2026-10-01
+
+
+### Added
+
+- Add Astro agent template ([#167](https://github.com/Roger-luo/Ion/pull/167)) (b8e6756)
+- Teach the next step and mark detected targets ([#166](https://github.com/Roger-luo/Ion/pull/166)) (17f4f75)
+- Add built-in TypeScript AGENTS.md template (723d0a5)
+- Add built-in AGENTS.md templates for common project types ([#112](https://github.com/Roger-luo/Ion/pull/112)) (728bf3e)
+- Workspace support for multi-project skill management ([#106](https://github.com/Roger-luo/Ion/pull/106)) (0d8cf7b)
+- AGENTS.md/CLAUDE.md migration and symlink management ([#103](https://github.com/Roger-luo/Ion/pull/103)) (351a964)
+- Add AGENTS.md template management (e7bf9e1)
+- Auto-detect binary skill projects from Ion.toml [project] section (c65e2b0)
+- Add local binary skill support with dev mode (53ab2a8)
+- Standardize binary skill interface under `self` subcommand (46472f2)
+- Relevance-based search ranking with cross-source dedup (52318c6)
+- Implement HTTP source for installing skills from URLs (cb4a40f)
+- Add documentation website with Astro Starlight (df7eac4)
+- Enhance migrate command with JSON interface, leftover handling, and gitignore support (2d6895d)
+- Embed SKILL.md as built-in ion-cli skill (8217503)
+
+### Build
+
+- Run the full workspace by default in cargo and CI (81db05a)
+
+### Documentation
+
+- Add module-level doc comments to all ion-skill modules (5bdee12)
+
+### Fixed
+
+- Isolate Git skill deployments by commit ([#175](https://github.com/Roger-luo/Ion/pull/175)) (dbc5afc)
+- Validate delete_option section without an [options] table (ac06cc3)
+- Absolutize relative path sources before deploying (df57a1d)
+- Only flag tool mentions inside inline code (31e9d2c)
+- Harden CLI output, recovery flags, and source inference (753f3af)
+- Skip pre-install validation for binary skill sources (3ce1364)
+- Respect XDG_DATA_HOME on macOS for binary and data directories (a59adbb)
+- Resolve clippy lints after updating to Rust 1.95 (516d3d8)
+- Show skills.sh descriptions when GitHub repo is unavailable ([#119](https://github.com/Roger-luo/Ion/pull/119)) (31fc4e2)
+- Repair broken deployments during update and support local skill paths ([#117](https://github.com/Roger-luo/Ion/pull/117)) (e21c5dd)
+- Improve search link display with clickable OSC 8 hyperlinks ([#116](https://github.com/Roger-luo/Ion/pull/116)) (96061bc)
+- Improve search ranking with skills.sh API and unified scoring ([#115](https://github.com/Roger-luo/Ion/pull/115)) (f4a30f5)
+- Support Cargo workspaces in binary skill dev mode ([#111](https://github.com/Roger-luo/Ion/pull/111)) (e203343)
+- Preserve local path when converting to binary skill source ([#109](https://github.com/Roger-luo/Ion/pull/109)) (396f6f8)
+- Auto-migrate legacy Ion.lock files missing `kind` field (772c2f2)
+- Apply cargo fmt and add pre-commit checklist to AGENTS.md (4c82627)
+- Resolve all clippy warnings and formatting issues for CI (4e3e3be)
+- Make cache expiry check deterministic for max_age_secs=0 (d4728a7)
+- Prevent circular symlink for binary skills and auto-deploy ion-cli (58da614)
+- Skip releases without assets in self-update version check (83a5dd0)
+- Align release workflow and self-update with release-plz tag format (96138a1)
+
+### Refactored
+
+- Consolidate ionem-shell into ionem crate under shell module ([#102](https://github.com/Roger-luo/Ion/pull/102)) (df35dd6)
+- Improve ionem-shell DX with Cli type, builders, and require() handles ([#101](https://github.com/Roger-luo/Ion/pull/101)) (0eee50a)
+- Rename ion-cli crate to ionem-shell (bac6540)
+- Tracks 2-6 — CLI wrappers, type redesign, pipeline extraction (ea5bed4)
+- Track 1 — constants, path fixes, and small cleanups (79d8c2f)
+- Use ionem build helpers in ion's own build.rs (a60a302)
+- Use workspace dependencies for shared crates (7543aab)
+- Rename ionlib crate to ionem (c83ccd3)
+- Extract ionlib crate for downstream binary skill developers (5f3d65c)
+- Add SkillInstaller::skill_dir() helper method (199f3eb)
+- Add Error::validation_failed/warning constructors (cd1d936)
+- Remove UpdateContext in favor of SkillInstaller (2b79674)
+- Move resolve_entry from Manifest to SkillEntry (07872c6)
+- Add SkillSource constructors and builder methods (d813c83)
+- Extract install_binary_core to deduplicate binary install paths (5b6625f)
+- Deduplicate resolve_skill_dir into installer module (f87b78b)
+- Add Serialize derives to Finding, Severity, ValidationReport (ce60526)
+
+### Testing
+
+- Add scenario for scoped <request-tool> approval and permission (c669d32)
+
+### Style
+
+- Apply cargo fmt (e366115)
 
 ### Added
 
