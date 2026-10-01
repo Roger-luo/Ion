@@ -265,9 +265,24 @@ fn install_collection(
     allow_warnings: bool,
     skills_filter: Option<&str>,
 ) -> anyhow::Result<()> {
-    let skills = SkillInstaller::discover_skills(base_source)?;
+    let mut skills = SkillInstaller::discover_skills(base_source)?;
     if skills.is_empty() {
         anyhow::bail!("No skills found in repository '{source_str}'");
+    }
+
+    let selected_names: Option<Vec<&str>> =
+        skills_filter.map(|f| f.split(',').map(|s| s.trim()).collect());
+
+    if let Some(ref names) = selected_names {
+        for name in names {
+            if name.is_empty() {
+                anyhow::bail!("--skills requires non-empty skill names");
+            }
+            if !skills.iter().any(|(available, _)| available == name) {
+                anyhow::bail!("Skill '{name}' not found in collection '{source_str}'");
+            }
+        }
+        skills.retain(|(name, _)| names.contains(&name.as_str()));
     }
 
     if !json {
@@ -287,13 +302,13 @@ fn install_collection(
         return Ok(());
     }
 
-    // Phase 1: Validate all skills upfront
+    // Phase 1: Validate only selected skills, before installing any of them
     let installer = ion_skill::installer::SkillInstaller::new(&project.dir, merged_options);
 
     if !json {
         println!("Validating skills...");
     }
-    let mut buckets = ValidationBuckets::collect(
+    let buckets = ValidationBuckets::collect(
         &installer,
         skills.iter().map(|(name, path)| {
             let mut s = base_source.clone();
@@ -330,29 +345,6 @@ fn install_collection(
                 "skills": skills_data
             }),
         );
-    }
-
-    let selected_names: Option<Vec<&str>> =
-        skills_filter.map(|f| f.split(',').map(|s| s.trim()).collect());
-
-    if let Some(ref names) = selected_names {
-        for name in names {
-            if name.is_empty() {
-                anyhow::bail!("--skills requires non-empty skill names");
-            }
-            if !skills.iter().any(|(available, _)| available == name) {
-                anyhow::bail!("Skill '{name}' not found in collection '{source_str}'");
-            }
-        }
-        buckets
-            .clean
-            .retain(|entry| names.contains(&entry.name.as_str()));
-        buckets
-            .warned
-            .retain(|(entry, _)| names.contains(&entry.name.as_str()));
-        buckets
-            .errored
-            .retain(|(name, _)| names.contains(&name.as_str()));
     }
 
     // Phase 2: Display validation summary
