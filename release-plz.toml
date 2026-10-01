@@ -3,6 +3,8 @@
 publish = false
 # Use our release tags, not an unrelated crates.io package with the same name.
 git_only = true
+# Preserve the workspace tag format even when updating one package.
+git_tag_name = "{{ package }}-v{{ version }}"
 
 # ionem is published to crates.io for downstream binary skill developers
 [[package]]

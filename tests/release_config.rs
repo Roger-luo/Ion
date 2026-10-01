@@ -48,3 +48,25 @@ fn release_notes_identify_the_version_before_grouping_changes() {
     );
     assert!(body.find(heading).unwrap() < body.find("{% for group").unwrap());
 }
+
+#[test]
+fn release_tags_keep_the_workspace_package_prefix() {
+    let config = include_str!("../release-plz.toml")
+        .parse::<DocumentMut>()
+        .unwrap();
+    let template = config["workspace"]
+        .get("git_tag_name")
+        .and_then(|v| v.as_str())
+        .expect("explicit tag names must survive selecting a single package");
+    for (name, version) in [
+        ("ion", "0.6.6"),
+        ("ion-skill", "0.1.0"),
+        ("ionem", "0.2.1"),
+        ("scenario", "0.2.1"),
+    ] {
+        let tag = template
+            .replace("{{ package }}", name)
+            .replace("{{ version }}", version);
+        assert_eq!(tag, format!("{name}-v{version}"));
+    }
+}
