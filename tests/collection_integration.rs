@@ -98,3 +98,79 @@ fn collection_selection_rejects_unknown_and_empty_names_without_installing() {
         assert!(!dir.path().join("project/.agents/skills/pdf").exists());
     }
 }
+
+#[test]
+fn collection_selection_does_not_parse_unselected_metadata() {
+    let dir = fixture();
+    fs::write(
+        dir.path().join("collection/skills/unselected/SKILL.md"),
+        "---\nname: unselected\ndescription: Unselected skill.\nmetadata:\n  openclaw:\n    nested: invalid\n---\n# Instructions\n",
+    ).unwrap();
+    let output = add(&dir, "pdf,pptx");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        json["data"]["installed"],
+        serde_json::json!(["pdf", "pptx"])
+    );
+    assert!(
+        !dir.path()
+            .join("project/.agents/skills/unselected")
+            .exists()
+    );
+}
+
+#[test]
+fn collection_selection_still_rejects_malformed_selected_metadata() {
+    let dir = fixture();
+    fs::write(
+        dir.path().join("collection/skills/pdf/SKILL.md"),
+        "---\nname: pdf\ndescription: Selected skill.\nmetadata:\n  openclaw:\n    nested: invalid\n---\n# Instructions\n",
+    ).unwrap();
+    let output = add(&dir, "pdf");
+    assert!(!output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(json["error"].as_str().unwrap().contains("YAML parse error"));
+    assert!(!dir.path().join("project/.agents/skills/pdf").exists());
+}
+
+#[test]
+fn collection_selection_uses_discovered_directory_names() {
+    let dir = fixture();
+    let skill = dir.path().join("collection/skills/pdf/SKILL.md");
+    let contents = fs::read_to_string(&skill)
+        .unwrap()
+        .replace("name: pdf", "name: document-reader");
+    fs::write(&skill, contents).unwrap();
+    let output = add(&dir, "document-reader");
+    assert!(!output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap()
+            .contains("not found in collection")
+    );
+    let output = add(&dir, "pdf");
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["installed"], serde_json::json!(["pdf"]));
+    assert!(
+        dir.path()
+            .join("project/.agents/skills/pdf/SKILL.md")
+            .exists()
+    );
+    assert!(
+        !dir.path()
+            .join("project/.agents/skills/document-reader")
+            .exists()
+    );
+}
